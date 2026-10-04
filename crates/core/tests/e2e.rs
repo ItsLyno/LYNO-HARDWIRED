@@ -110,6 +110,7 @@ fn options(version: &str, base_url: &str, out: &Path, previous: Option<Manifest>
         previous,
         changelog: vec![],
         pack: PackOptions { part_size: 100 * 1024, zstd_level: 1 },
+        hash_cache: true,
     }
 }
 
@@ -234,4 +235,31 @@ fn build_install_update() {
     assert_eq!(list.entries.last().unwrap().name, "My Tweak");
     assert_eq!(State::load(&state_path(&user)).unwrap().build_version.as_deref(), Some("1.1.0"));
     assert!(!user_root.join(".lyno/cache").exists());
+
+    // A run interrupted after some packages were written: the rerun picks them
+    // up instead of packing again, and drops whatever else is in out/.
+    let out3 = tmp.path().join("out3");
+    let first = build(&author, &options("2.0.0", &base_url, &out3, None), &mut no_info, &mut |_| {}).unwrap();
+    std::fs::remove_file(out3.join("manifest.json")).ok();
+    write(&out3, "old-0123456789abcdef.tar.zst.001", b"stale part");
+    write(&out3, "cet.packing.tar.zst.001", b"half-written part");
+    let mut logs = Vec::new();
+    let again = build(&author, &options("2.0.0", &base_url, &out3, None), &mut no_info, &mut |m| logs.push(m.to_owned())).unwrap();
+    assert!(logs.iter().all(|l| !l.contains("packing") && !l.contains("hashing")), "{logs:?}");
+    assert!(logs.iter().any(|l| l.contains("already packed")), "{logs:?}");
+    assert_eq!(again.manifest, first.manifest);
+    let names = |o: &lyno_core::publish::BuildOutput| o.assets.iter().map(|a| a.file_name.clone()).collect::<Vec<_>>();
+    assert_eq!(names(&again), names(&first));
+    assert!(!out3.join("old-0123456789abcdef.tar.zst.001").exists());
+    assert!(!out3.join("cet.packing.tar.zst.001").exists());
+
+    // Next release with nothing changed: every hash comes from the cache.
+    let mut logs = Vec::new();
+    let next = build(&author, &options("2.0.1", &base_url, &out3, Some(again.manifest)), &mut no_info, &mut |m| {
+        logs.push(m.to_owned())
+    })
+    .unwrap();
+    assert!(next.assets.is_empty(), "{:?}", next.assets);
+    assert!(logs.is_empty(), "nothing read or packed: {logs:?}");
+    assert!(std::fs::read_dir(&out3).unwrap().all(|e| !e.unwrap().file_name().to_string_lossy().contains(".tar.zst.")));
 }

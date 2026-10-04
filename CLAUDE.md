@@ -52,6 +52,12 @@ CI (`.github/workflows/ci.yml`): core tests + frontend build on Ubuntu, then
   never be deleted; nothing in code may assume all assets are in the latest release.
 - **Player mods are untouchable**: anything not in `state.json` stays under the
   `LYNO USER MODS` separator (`plan::USER_SEPARATOR`).
+- **The author's disk is the bottleneck** of `lyno-pack` (hundreds of mods,
+  hundreds of GB; zstd skips the already Oodle-compressed `.archive` data).
+  `publish::Packer` reads each file at most once (hash while packing), trusts
+  `hash_cache` (size + mtime) for unchanged files, and resumes from
+  `<package>.parts.json` records in `out/`. Keep it that way; never use the cache
+  to verify downloads.
 - **Updates are crash-safe**: unpack to `.lyno/staging`, verify hash, swap folders
   (`package::swap_folder`), save `state.json` after every action.
 - `modlist.txt` is stored highest-priority-first; `ModList` holds UI order

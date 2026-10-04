@@ -1,14 +1,19 @@
 //! Build-author side: turns an MO2 instance into a manifest + release assets.
 
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
+use serde::{Deserialize, Serialize};
+
+use crate::hash_cache::HashCache;
 use crate::manifest::{ChangelogEntry, Manifest, ModEntry, ModSpec, NexusRef, Package, Part, SCHEMA_VERSION};
 use crate::meta::ModMeta;
 use crate::mo2::Instance;
 use crate::modlist::{EntryState, ModList};
 use crate::package::{self, PackOptions, PackedPart};
+use crate::tree::FileEntry;
 use crate::{rules, tree};
-use crate::Result;
+use crate::{Error, Result};
 
 /// Top-level instance folders that never go into the base package.
 const BASE_EXCLUDED: &[&str] = &["mods", "downloads", "overwrite", "logs", "crashDumps", "webcache", ".lyno"];
@@ -27,6 +32,8 @@ pub struct BuildOptions {
     pub previous: Option<Manifest>,
     pub changelog: Vec<ChangelogEntry>,
     pub pack: PackOptions,
+    /// Remember file hashes in `<instance>/.lyno/pack-cache.json` between runs.
+    pub hash_cache: bool,
 }
 
 /// Extra info for a mod, e.g. from the Nexus API.
@@ -62,9 +69,10 @@ pub fn build(
     let inst = Instance::new(root);
     let list = ModList::load(&inst.modlist_path(&opts.profile))?;
     let metas = inst.scan_mods()?;
-    let mut assets = Vec::new();
-    let mut repacked = Vec::new();
     let mut warnings = Vec::new();
+    let cache = if opts.hash_cache { HashCache::load(root.join(".lyno").join("pack-cache.json")) } else { HashCache::disabled() };
+    let mut packer = Packer { opts, cache, assets: Vec::new(), repacked: Vec::new() };
+    let steps = 1 + list.entries.iter().filter(|e| e.state != EntryState::Unmanaged && e.separator_title().is_none()).count();
 
     let profile = opts.profile.clone();
     // Never pack our own output if it sits inside the instance.
@@ -93,23 +101,13 @@ pub fn build(
             .is_some_and(|(name, file)| name == profile && !rules::is_private_profile_file(file))
     };
     warnings.extend(profile_warnings(&inst.profile_dir(&opts.profile)));
-    log("base: hashing");
-    let base_hash = tree::tree_hash_with(root, &keep_base)?;
-    let previous_base = opts.previous.as_ref().map(|m| &m.base).filter(|b| b.hash == base_hash.hash);
-    let base = match previous_base {
-        Some(b) => b.clone(),
-        None => {
-            log("base: packing");
-            let files = tree::list_files_with(root, &keep_base)?;
-            let (pkg, parts) = pack_one(root, &files, "base", &base_hash, opts)?;
-            assets.extend(parts);
-            repacked.push(Repacked { name: "base".into(), changed: opts.previous.is_some() });
-            pkg
-        }
-    };
+    let files = tree::list_files_with(root, &keep_base)?;
+    let previous_base = opts.previous.as_ref().map(|m| &m.base);
+    let base = packer.package(root, "", &files, "base", "base", &format!("[1/{steps}] base"), previous_base, log)?;
 
     let mut mods = Vec::new();
     let mut redmod = false;
+    let mut step = 1;
     for entry in &list.entries {
         if entry.state == EntryState::Unmanaged {
             continue;
@@ -123,10 +121,12 @@ pub fn build(
             warnings.push(format!("{:?} is in modlist.txt but has no folder, skipped", entry.name));
             continue;
         }
+        step += 1;
         let meta = metas.get(&entry.name).cloned().unwrap_or_default();
         let id = meta.lyno_id.clone().unwrap_or_else(|| slug(&entry.name));
 
-        let generated = tree::list_files_with(&folder, &rules::is_generated)?;
+        let (generated, files): (Vec<_>, Vec<_>) =
+            tree::list_files(&folder)?.into_iter().partition(|f| rules::is_generated(&f.path));
         if let Some(first) = generated.first() {
             warnings.push(format!(
                 "{:?}: {} generated file(s) not shipped (logs, r6/cache, load order), e.g. {}",
@@ -137,22 +137,10 @@ pub fn build(
         }
         redmod |= entry.state == EntryState::Enabled && has_redmod(&folder);
 
-        log(&format!("{}: hashing", entry.name));
-        let shipped = |p: &str| !rules::is_generated(p);
-        let hash = tree::tree_hash_with(&folder, &|p| shipped(p) && rules::is_hashed(p))?;
-        let previous = opts.previous.as_ref().and_then(|m| m.mod_specs().find(|s| s.id == id));
-        let reused = previous.map(|s| s.package.clone()).filter(|p| p.hash == hash.hash);
-        let package = match reused {
-            Some(p) => p,
-            None => {
-                log(&format!("{}: packing {} MB", entry.name, hash.size / 1_000_000));
-                let files = tree::list_files_with(&folder, &shipped)?;
-                let (pkg, parts) = pack_one(&folder, &files, &id, &hash, opts)?;
-                assets.extend(parts);
-                repacked.push(Repacked { name: entry.name.clone(), changed: previous.is_some() });
-                pkg
-            }
-        };
+        let previous = opts.previous.as_ref().and_then(|m| m.mod_specs().find(|s| s.id == id)).map(|s| &s.package);
+        let prefix = format!("mods/{}/", entry.name);
+        let step_label = format!("[{step}/{steps}] {}", entry.name);
+        let package = packer.package(&folder, &prefix, &files, &id, &entry.name, &step_label, previous, log)?;
 
         let nexus = match (meta.mod_id, meta.game_name.as_deref()) {
             (Some(mod_id), game) => Some(NexusRef { game: game.unwrap_or("cyberpunk2077").to_lowercase(), mod_id }),
@@ -175,6 +163,9 @@ pub fn build(
     }
 
     warnings.extend(overwrite_warning(&inst.overwrite_dir())?);
+    packer.cache.save()?;
+    let Packer { assets, repacked, .. } = packer;
+    remove_stray_files(&opts.out_dir, &assets)?;
 
     let manifest = Manifest {
         schema: SCHEMA_VERSION,
@@ -240,25 +231,182 @@ fn profile_warnings(dir: &Path) -> Vec<String> {
     out
 }
 
-fn pack_one(
-    root: &Path,
-    files: &[tree::FileEntry],
-    id: &str,
-    hash: &tree::TreeHash,
-    opts: &BuildOptions,
-) -> Result<(Package, Vec<PackedPart>)> {
-    let name = format!("{id}-{}", &hash.hash[..16]);
-    let parts = package::pack(root, files, &opts.out_dir, &name, &opts.pack)?;
-    let base_url = opts.base_url.trim_end_matches('/');
-    let pkg = Package {
-        hash: hash.hash.clone(),
-        size: hash.size,
-        parts: parts
+/// Produces packages while doing as little disk work as possible: the author's
+/// disk, not the CPU, is what makes a build of hundreds of mods slow.
+///
+/// - A package whose hash matches the previous manifest is reused (nothing to upload).
+/// - Hashes come from the [`HashCache`] when files are unchanged, so an
+///   unchanged mod is not read at all.
+/// - A new or changed package is read once: files are hashed while packed.
+/// - Packages finished by an interrupted run (`<name>.parts.json` next to the
+///   parts) are picked up instead of packed again.
+struct Packer<'a> {
+    opts: &'a BuildOptions,
+    cache: HashCache,
+    assets: Vec<PackedPart>,
+    repacked: Vec<Repacked>,
+}
+
+/// Written next to the parts once a package is complete.
+#[derive(Serialize, Deserialize)]
+struct PartRecord {
+    file_name: String,
+    size: u64,
+    blake3: String,
+}
+
+impl Packer<'_> {
+    /// `files` are the shipped files under `root`, sorted; `prefix` is `root`
+    /// relative to the instance (hash cache key).
+    #[allow(clippy::too_many_arguments)]
+    fn package(
+        &mut self,
+        root: &Path,
+        prefix: &str,
+        files: &[FileEntry],
+        id: &str,
+        name: &str,
+        step: &str,
+        previous: Option<&Package>,
+        log: &mut dyn FnMut(&str),
+    ) -> Result<Package> {
+        let hashed: Vec<&FileEntry> = files.iter().filter(|f| rules::is_hashed(&f.path)).collect();
+        let mut known = self.cached_hash(prefix, &hashed);
+        if known.is_none() && previous.is_some() {
+            log(&format!("{step}: hashing {} MB", mb(&hashed)));
+            known = Some(self.read_hash(root, prefix, &hashed)?);
+        }
+        if let Some(hash) = &known {
+            if let Some(p) = previous.filter(|p| p.hash == hash.hash) {
+                return Ok(p.clone());
+            }
+            if let Some(parts) = self.resume(&package_name(id, hash)) {
+                log(&format!("{step}: already packed by an earlier run"));
+                self.repacked.push(Repacked { name: name.to_owned(), changed: previous.is_some() });
+                return Ok(self.finish(hash, parts));
+            }
+        }
+
+        log(&format!("{step}: packing {} MB", mb(&hashed)));
+        let out = &self.opts.out_dir;
+        // The final name needs the hash, which is only known once every file is read.
+        let packed = package::pack(root, files, out, &format!("{id}.packing"), &self.opts.pack)?;
+        for (f, h) in files.iter().zip(&packed.file_hashes) {
+            self.cache.insert(format!("{prefix}{}", f.path), f, h.clone());
+        }
+        let hash = tree::combine(
+            files.iter().zip(&packed.file_hashes).filter(|(f, _)| rules::is_hashed(&f.path)).map(|(f, h)| (f, h.as_str())),
+        );
+        let parts = rename_parts(out, packed.parts, &package_name(id, &hash))?;
+        let records: Vec<PartRecord> = parts
             .iter()
-            .map(|p| Part { url: format!("{base_url}/{}", p.file_name), size: p.size, blake3: p.blake3.clone() })
-            .collect(),
-    };
-    Ok((pkg, parts))
+            .map(|p| PartRecord { file_name: p.file_name.clone(), size: p.size, blake3: p.blake3.clone() })
+            .collect();
+        let record_path = out.join(format!("{}.parts.json", package_name(id, &hash)));
+        std::fs::write(&record_path, serde_json::to_string_pretty(&records)?).map_err(|e| Error::io(&record_path, e))?;
+        self.cache.save_if_due()?;
+        self.repacked.push(Repacked { name: name.to_owned(), changed: previous.is_some() });
+        Ok(self.finish(&hash, parts))
+    }
+
+    /// Tree hash from the cache alone, `None` if any file has to be read.
+    fn cached_hash(&self, prefix: &str, files: &[&FileEntry]) -> Option<tree::TreeHash> {
+        let hashes: Option<Vec<&str>> = files.iter().map(|f| self.cache.get(&format!("{prefix}{}", f.path), f)).collect();
+        Some(tree::combine(files.iter().copied().zip(hashes?)))
+    }
+
+    fn read_hash(&mut self, root: &Path, prefix: &str, files: &[&FileEntry]) -> Result<tree::TreeHash> {
+        let mut hashes = Vec::with_capacity(files.len());
+        for f in files {
+            let key = format!("{prefix}{}", f.path);
+            let h = match self.cache.get(&key, f) {
+                Some(h) => h.to_owned(),
+                None => {
+                    let h = crate::hash::blake3_file(&tree::from_slash(root, &f.path))?;
+                    self.cache.insert(key, f, h.clone());
+                    h
+                }
+            };
+            hashes.push(h);
+        }
+        self.cache.save_if_due()?;
+        Ok(tree::combine(files.iter().copied().zip(hashes.iter().map(String::as_str))))
+    }
+
+    /// Parts of `name` left complete by an earlier run, if all are still there.
+    fn resume(&self, name: &str) -> Option<Vec<PackedPart>> {
+        let out = &self.opts.out_dir;
+        let text = std::fs::read_to_string(out.join(format!("{name}.parts.json"))).ok()?;
+        let records: Vec<PartRecord> = serde_json::from_str(&text).ok()?;
+        records
+            .into_iter()
+            .map(|r| {
+                let path = out.join(&r.file_name);
+                let ok = std::fs::metadata(&path).is_ok_and(|m| m.len() == r.size);
+                ok.then_some(PackedPart { file_name: r.file_name, path, size: r.size, blake3: r.blake3 })
+            })
+            .collect()
+    }
+
+    fn finish(&mut self, hash: &tree::TreeHash, parts: Vec<PackedPart>) -> Package {
+        let base_url = self.opts.base_url.trim_end_matches('/');
+        let pkg = Package {
+            hash: hash.hash.clone(),
+            size: hash.size,
+            parts: parts
+                .iter()
+                .map(|p| Part { url: format!("{base_url}/{}", p.file_name), size: p.size, blake3: p.blake3.clone() })
+                .collect(),
+        };
+        self.assets.extend(parts);
+        pkg
+    }
+}
+
+fn package_name(id: &str, hash: &tree::TreeHash) -> String {
+    format!("{id}-{}", &hash.hash[..16])
+}
+
+fn mb(files: &[&FileEntry]) -> u64 {
+    files.iter().map(|f| f.size).sum::<u64>() / 1_000_000
+}
+
+fn rename_parts(out: &Path, parts: Vec<PackedPart>, name: &str) -> Result<Vec<PackedPart>> {
+    parts
+        .into_iter()
+        .enumerate()
+        .map(|(i, p)| {
+            let file_name = format!("{name}.tar.zst.{:03}", i + 1);
+            let path = out.join(&file_name);
+            std::fs::rename(&p.path, &path).map_err(|e| Error::io(&p.path, e))?;
+            Ok(PackedPart { file_name, path, ..p })
+        })
+        .collect()
+}
+
+/// Leaves only this build's assets in `out`: parts and records of earlier or
+/// interrupted runs would otherwise be uploaded again by `out/*.tar.zst.*`.
+fn remove_stray_files(out: &Path, assets: &[PackedPart]) -> Result<()> {
+    let keep: HashSet<&str> = assets.iter().map(|a| a.file_name.as_str()).collect();
+    let packages: HashSet<&str> = assets.iter().filter_map(|a| a.file_name.split_once(".tar.zst.").map(|(n, _)| n)).collect();
+    let Ok(entries) = std::fs::read_dir(out) else { return Ok(()) };
+    for entry in entries.flatten() {
+        let name = entry.file_name().to_string_lossy().into_owned();
+        let stray = match (is_part_file(&name), name.strip_suffix(".parts.json")) {
+            (true, _) => !keep.contains(name.as_str()),
+            (false, Some(package)) => !packages.contains(package),
+            (false, None) => false,
+        };
+        if stray {
+            std::fs::remove_file(entry.path()).map_err(|e| Error::io(entry.path(), e))?;
+        }
+    }
+    Ok(())
+}
+
+/// `<name>.tar.zst.NNN`
+fn is_part_file(name: &str) -> bool {
+    name.rsplit_once(".tar.zst.").is_some_and(|(_, n)| n.len() == 3 && n.bytes().all(|b| b.is_ascii_digit()))
 }
 
 /// Folder name → stable, URL-safe id.
