@@ -116,7 +116,7 @@ pnpm dev                                 # UI в браузере на мок-д
 pnpm tauri dev                           # приложение целиком (Windows)
 ```
 
-Установщик лаунчера для Windows собирает GitHub Actions (`.github/workflows/ci.yml`, артефакт `lyno-hardwired-setup`).
+Подписанный установщик для игроков собирает `launcher-release.yml` (см. [выпуск лаунчера](docs/release-process.md#лаунчер)). Тестовый неподписанный установщик собирается вручную: Actions → CI → Run workflow, артефакт `lyno-hardwired-setup`.
 
 ## Статус
 

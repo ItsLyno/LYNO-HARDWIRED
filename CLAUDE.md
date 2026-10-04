@@ -28,12 +28,13 @@ cd apps/launcher && pnpm install && pnpm build # frontend
 pnpm dev                                       # UI in a browser on mock data (src/mock.ts)
 ```
 
-The launcher crate (`lyno-hardwired`) builds on Windows in CI. On Linux,
+The launcher crate (`lyno-hardwired`) is clippy-checked on Linux in CI. Locally on Linux,
 `cargo clippy -p lyno-hardwired` needs `libgtk-3-dev libwebkit2gtk-4.1-dev
 libsoup-3.0-dev` and an existing `apps/launcher/dist/` folder.
 
-CI (`.github/workflows/ci.yml`): core tests + frontend build on Ubuntu, then
-`pnpm tauri build` on Windows (artifact `lyno-hardwired-setup`).
+CI (`.github/workflows/ci.yml`): core tests, frontend build and launcher clippy on
+Ubuntu; `pnpm tauri build` on Windows (artifact `lyno-hardwired-setup`) only on a
+manual run (Actions → CI → Run workflow).
 `launcher-release.yml` (manual, from main) builds a signed installer, releases
 `launcher-v<version>` and commits `launcher/latest.json`, which the launcher's
 updater reads. Launcher logs go through `log::` macros to `tauri-plugin-log`.
