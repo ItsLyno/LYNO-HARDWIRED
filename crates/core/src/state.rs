@@ -12,6 +12,10 @@ use crate::{Error, Result};
 pub struct State {
     pub build_version: Option<String>,
     pub base_hash: Option<String>,
+    /// Files of the installed base package, relative to the instance root.
+    /// Lets an update remove what a newer base no longer has.
+    #[serde(default)]
+    pub base_files: Vec<String>,
     /// Keyed by manifest mod id.
     pub mods: BTreeMap<String, InstalledMod>,
 }

@@ -7,7 +7,7 @@ use crate::meta::ModMeta;
 use crate::mo2::Instance;
 use crate::modlist::{EntryState, ModList};
 use crate::package::{self, PackOptions, PackedPart};
-use crate::tree;
+use crate::{rules, tree};
 use crate::Result;
 
 /// Top-level instance folders that never go into the base package.
@@ -66,8 +66,10 @@ pub fn build(
         if out_rel.as_deref().is_some_and(|o| p == o || p.starts_with(&format!("{o}/"))) {
             return false;
         }
-        let mut parts = p.split('/');
-        let first = parts.next().unwrap_or_default();
+        if rules::is_generated(p) {
+            return false;
+        }
+        let (first, rest) = p.split_once('/').unwrap_or((p, ""));
         if BASE_EXCLUDED.iter().any(|x| x.eq_ignore_ascii_case(first)) {
             return false;
         }
@@ -75,9 +77,11 @@ pub fn build(
             return true;
         }
         // Only the build's profile (other profiles are the author's own),
-        // and without modlist.txt: the manifest defines the load order.
-        parts.next() == Some(profile.as_str()) && parts.next().is_some_and(|f| !f.eq_ignore_ascii_case("modlist.txt"))
+        // without the author's private files.
+        rest.split_once('/')
+            .is_some_and(|(name, file)| name == profile && !rules::is_private_profile_file(file))
     };
+    warnings.extend(profile_warnings(&inst.profile_dir(&opts.profile)));
     log("base: hashing");
     let base_hash = tree::tree_hash_with(root, &keep_base)?;
     let previous_base = opts.previous.as_ref().map(|m| &m.base).filter(|b| b.hash == base_hash.hash);
@@ -93,6 +97,7 @@ pub fn build(
     };
 
     let mut mods = Vec::new();
+    let mut redmod = false;
     for entry in &list.entries {
         if entry.state == EntryState::Unmanaged {
             continue;
@@ -109,8 +114,20 @@ pub fn build(
         let meta = metas.get(&entry.name).cloned().unwrap_or_default();
         let id = meta.lyno_id.clone().unwrap_or_else(|| slug(&entry.name));
 
+        let generated = tree::list_files_with(&folder, &rules::is_generated)?;
+        if let Some(first) = generated.first() {
+            warnings.push(format!(
+                "{:?}: {} generated file(s) not shipped (logs, r6/cache, load order), e.g. {}",
+                entry.name,
+                generated.len(),
+                first.path
+            ));
+        }
+        redmod |= entry.state == EntryState::Enabled && has_redmod(&folder);
+
         log(&format!("{}: hashing", entry.name));
-        let hash = tree::tree_hash(&folder)?;
+        let shipped = |p: &str| !rules::is_generated(p);
+        let hash = tree::tree_hash_with(&folder, &|p| shipped(p) && rules::is_hashed(p))?;
         let reused = opts
             .previous
             .as_ref()
@@ -121,7 +138,7 @@ pub fn build(
             Some(p) => p,
             None => {
                 log(&format!("{}: packing {} MB", entry.name, hash.size / 1_000_000));
-                let files = tree::list_files(&folder)?;
+                let files = tree::list_files_with(&folder, &shipped)?;
                 let (pkg, parts) = pack_one(&folder, &files, &id, &hash, opts)?;
                 assets.extend(parts);
                 pkg
@@ -148,6 +165,8 @@ pub fn build(
         }));
     }
 
+    warnings.extend(overwrite_warning(&inst.overwrite_dir())?);
+
     let manifest = Manifest {
         schema: SCHEMA_VERSION,
         name: opts.name.clone(),
@@ -155,12 +174,61 @@ pub fn build(
         game_version: opts.game_version.clone(),
         mo2_version: opts.mo2_version.clone(),
         profile: opts.profile.clone(),
+        redmod,
         changelog: opts.changelog.clone(),
         base,
         mods,
     };
     manifest.validate()?;
     Ok(BuildOutput { manifest, assets, warnings })
+}
+
+/// REDmod mods keep their content in `mods/<name>/` with an `info.json`.
+fn has_redmod(folder: &Path) -> bool {
+    std::fs::read_dir(folder.join("mods"))
+        .into_iter()
+        .flatten()
+        .flatten()
+        .any(|e| e.path().join("info.json").is_file())
+}
+
+/// Files the game created in `overwrite/` that are not regenerated on their
+/// own: usually mod settings, which only ship once moved into a mod.
+fn overwrite_warning(dir: &Path) -> Result<Option<String>> {
+    if !dir.is_dir() {
+        return Ok(None);
+    }
+    let files = tree::list_files_with(dir, &|p| !rules::is_generated(p))?;
+    Ok(files.first().map(|first| {
+        format!(
+            "overwrite/ has {} file(s) that are not shipped, e.g. {}. If these are mod settings, \
+             move them into a mod (MO2: right-click Overwrite > Create Mod)",
+            files.len(),
+            first.path
+        )
+    }))
+}
+
+/// Profile options whose files stay on the author's machine.
+fn profile_warnings(dir: &Path) -> Vec<String> {
+    let text = std::fs::read_to_string(dir.join("settings.ini")).unwrap_or_default();
+    let enabled = |key: &str| {
+        text.lines()
+            .filter_map(|l| l.trim().split_once('='))
+            .any(|(k, v)| k.trim() == key && v.trim().eq_ignore_ascii_case("true"))
+    };
+    let mut out = Vec::new();
+    if enabled("LocalSettings") {
+        out.push(
+            "profile uses profile-specific game settings: UserSettings.json is not shipped \
+             (graphics depend on the player's hardware), disable it in the profile options"
+                .to_owned(),
+        );
+    }
+    if enabled("LocalSaves") {
+        out.push("profile uses profile-specific saves: saves/ is not shipped, disable it in the profile options".to_owned());
+    }
+    out
 }
 
 fn pack_one(

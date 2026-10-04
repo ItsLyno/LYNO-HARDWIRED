@@ -52,7 +52,8 @@ pub fn pack(root: &Path, files: &[FileEntry], out_dir: &Path, name: &str, opts: 
 }
 
 /// Unpacks a package from its downloaded parts into `dest` (created fresh)
-/// and checks the result against the expected tree hash.
+/// and checks the result against the expected tree hash (which leaves out
+/// `meta.ini`, see [`crate::rules::is_hashed`]).
 pub fn unpack(parts: &[PathBuf], dest: &Path, expected_hash: &str) -> Result<()> {
     if dest.exists() {
         std::fs::remove_dir_all(dest).map_err(|e| Error::io(dest, e))?;
@@ -64,7 +65,7 @@ pub fn unpack(parts: &[PathBuf], dest: &Path, expected_hash: &str) -> Result<()>
     // `unpack` refuses entries that escape `dest` (absolute paths, `..`).
     tar::Archive::new(decoder).unpack(dest).map_err(|e| Error::io(dest, e))?;
 
-    let got = tree::tree_hash(dest)?;
+    let got = tree::tree_hash_with(dest, &crate::rules::is_hashed)?;
     if got.hash != expected_hash {
         return Err(Error::Integrity(format!(
             "{}: unpacked content hash {} != expected {expected_hash}",
@@ -223,7 +224,8 @@ impl Read for ChainReader {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::tree::{list_files, tree_hash};
+    use crate::rules::is_hashed;
+    use crate::tree::{list_files, tree_hash, tree_hash_with};
 
     fn sample_mod(root: &Path) {
         let big: Vec<u8> = (0..200_000u32).flat_map(|i| i.wrapping_mul(2654435761).to_le_bytes()).collect();
@@ -237,7 +239,7 @@ mod tests {
         let src = tempfile::tempdir().unwrap();
         let out = tempfile::tempdir().unwrap();
         sample_mod(src.path());
-        let expected = tree_hash(src.path()).unwrap();
+        let expected = tree_hash_with(src.path(), &is_hashed).unwrap();
 
         let opts = PackOptions { part_size: 64 * 1024, zstd_level: 1 };
         let parts = pack(src.path(), &list_files(src.path()).unwrap(), out.path(), "mod-abc", &opts).unwrap();
@@ -252,7 +254,8 @@ mod tests {
         let dest = out.path().join("unpacked");
         let paths: Vec<_> = parts.iter().map(|p| p.path.clone()).collect();
         unpack(&paths, &dest, &expected.hash).unwrap();
-        assert_eq!(tree_hash(&dest).unwrap(), expected);
+        assert_eq!(tree_hash(&dest).unwrap(), tree_hash(src.path()).unwrap());
+        assert!(dest.join("meta.ini").is_file(), "meta.ini is shipped even though it is not hashed");
 
         // A wrong expected hash is caught.
         assert!(matches!(unpack(&paths, &dest, "nope"), Err(Error::Integrity(_))));

@@ -40,8 +40,11 @@ fn author_instance(root: &Path) {
     write(root, "ModOrganizer.exe", b"MZ fake");
     write(root, "portable.txt", b"");
     write(root, "ModOrganizer.ini", b"[General]\r\ngamePath=@ByteArray(D:/Author/Cyberpunk 2077)\r\n");
-    write(root, "profiles/LYNO/settings.ini", b"[General]\r\nLocalSettings=true\r\n");
-    write(root, "profiles/LYNO/modlist.txt", b"# x\r\n+Archive Mod\r\n+CET\r\n-Core_separator\r\n*DLC: EP1\r\n");
+    write(root, "plugins/old_plugin.py", b"# dropped in v2");
+    write(root, "profiles/LYNO/settings.ini", b"[General]\r\nLocalSettings=false\r\n");
+    write(root, "profiles/LYNO/UserSettings.json", b"author's graphics");
+    write(root, "profiles/LYNO/saves/ManualSave-1/sav.dat", b"author's save");
+    write(root, "profiles/LYNO/modlist.txt", b"# x\r\n+REDmod Thing\r\n+Archive Mod\r\n+CET\r\n-Core_separator\r\n*DLC: EP1\r\n");
     write(root, "profiles/Private/modlist.txt", b"+Secret\r\n");
     write(root, "downloads/cet.zip", b"not shipped");
     write(root, "overwrite/r6/cache/x", b"not shipped");
@@ -50,6 +53,8 @@ fn author_instance(root: &Path) {
     write(root, "mods/CET/bin/x64/plugins/cyber_engine_tweaks.asi", &noise(300_000, 1));
     write(root, "mods/Archive Mod/meta.ini", b"[General]\nmodid=555\nversion=2.0\n");
     write(root, "mods/Archive Mod/archive/pc/mod/a.archive", &noise(200_000, 2));
+    write(root, "mods/REDmod Thing/meta.ini", b"[General]\nmodid=777\n");
+    write(root, "mods/REDmod Thing/mods/Thing/info.json", b"{\"name\":\"Thing\"}");
 }
 
 /// Static file server with Range support. Returns base URL and a request log.
@@ -135,7 +140,8 @@ fn build_install_update() {
     let out1 = build(&author, &options("1.0.0", &base_url, &release, None), &mut no_info, &mut |_| {}).unwrap();
     assert!(out1.warnings.is_empty(), "{:?}", out1.warnings);
     let m1 = out1.manifest;
-    assert_eq!(m1.mod_specs().count(), 2);
+    assert_eq!(m1.mod_specs().count(), 3);
+    assert!(m1.redmod, "REDmod mod detected");
     let cet = m1.mod_specs().find(|m| m.id == "cet").unwrap();
     assert!(cet.package.parts.len() > 1, "CET should be split into parts");
     assert_eq!(cet.nexus.as_ref().unwrap().url(), "https://www.nexusmods.com/cyberpunk2077/mods/107");
@@ -143,7 +149,7 @@ fn build_install_update() {
 
     let user = Instance::new(&user_root);
     let actions = install(&user, &m1);
-    assert_eq!(actions.len(), 3, "{actions:?}");
+    assert_eq!(actions.len(), 4, "{actions:?}");
 
     // Base: MO2 + build profile, but not downloads/overwrite/other profiles.
     assert!(user.is_installed() && user.is_portable());
@@ -151,6 +157,9 @@ fn build_install_update() {
     assert!(!user_root.join("overwrite").exists());
     assert!(!user_root.join("profiles/Private").exists());
     assert!(user_root.join("profiles/LYNO/settings.ini").exists());
+    assert!(!user_root.join("profiles/LYNO/UserSettings.json").exists());
+    assert!(!user_root.join("profiles/LYNO/saves").exists());
+    assert!(user_root.join("plugins/old_plugin.py").exists());
     for name in ["CET", "Archive Mod"] {
         assert_eq!(tree_hash(&user.mods_dir().join(name)).unwrap(), tree_hash(&author.join("mods").join(name)).unwrap());
     }
@@ -169,16 +178,51 @@ fn build_install_update() {
     list.entries.push(lyno_core::modlist::Entry::enabled("My Tweak"));
     list.save(&user.modlist_path("LYNO")).unwrap();
 
-    // v2: only the archive mod changes.
+    // The user's game already created a mod settings file in overwrite.
+    write(&user_root, "overwrite/red4ext/plugins/mod_settings/user.ini", b"player default");
+
+    // v2: the archive mod changes; MO2 touched CET's meta.ini on an update
+    // check; the game wrote logs and caches; mod settings were moved from
+    // overwrite into a settings mod; an MO2 plugin was dropped.
     write(&author, "mods/Archive Mod/archive/pc/mod/a.archive", &noise(200_000, 3));
+    write(&author, "mods/CET/meta.ini", b"[General]\nmodid=107\nversion=1.35\ngameName=cyberpunk2077\nlastNexusQuery=2026-10-04\n");
+    write(&author, "mods/CET/bin/x64/plugins/cyber_engine_tweaks/cyber_engine_tweaks.log", b"log");
+    write(&author, "mods/CET/r6/cache/final.redscripts", b"author's bundle");
+    write(&author, "mods/LYNO Settings/red4ext/plugins/mod_settings/user.ini", b"build settings");
+    write(&author, "mods/LYNO Settings/meta.ini", b"[LYNO]\nid=lyno-settings\n");
+    write(&author, "overwrite/bin/x64/plugins/cyber_engine_tweaks/mods/x/settings.json", b"{}");
+    std::fs::remove_file(author.join("plugins/old_plugin.py")).unwrap();
+    let mut list = ModList::load(&author.join("profiles/LYNO/modlist.txt")).unwrap();
+    list.entries.push(lyno_core::modlist::Entry::enabled("LYNO Settings"));
+    list.save(&author.join("profiles/LYNO/modlist.txt")).unwrap();
+
     let out2 = build(&author, &options("1.1.0", &base_url, &release, Some(m1.clone())), &mut no_info, &mut |_| {}).unwrap();
-    assert!(out2.assets.iter().all(|a| a.file_name.starts_with("archive-mod-")), "{:?}", out2.assets);
+    let new_assets: std::collections::BTreeSet<_> =
+        out2.assets.iter().map(|a| a.file_name.split('-').next().unwrap().to_owned()).collect();
+    assert_eq!(new_assets, ["archive", "base", "lyno"].map(String::from).into(), "{:?}", out2.assets);
+    assert_eq!(out2.warnings.len(), 3, "{:?}", out2.warnings);
+    assert!(out2.warnings.iter().any(|w| w.contains("\"CET\": 2 generated file(s)")), "{:?}", out2.warnings);
+    assert!(out2.warnings.iter().any(|w| w.starts_with("overwrite/ has 1 file(s)")), "{:?}", out2.warnings);
     let m2 = out2.manifest;
 
     requests.lock().unwrap().clear();
     let actions = install(&user, &m2);
-    assert_eq!(actions, [Action::Update { id: "archive-mod".into(), from_folder: "Archive Mod".into() }]);
-    assert!(requests.lock().unwrap().iter().all(|r| r.starts_with("archive-mod-")));
+    assert_eq!(
+        actions,
+        [
+            Action::Base,
+            Action::Update { id: "archive-mod".into(), from_folder: "Archive Mod".into() },
+            Action::Install { id: "lyno-settings".into() },
+        ]
+    );
+    assert!(requests.lock().unwrap().iter().all(|r| !r.starts_with("cet-")));
+    assert!(!user_root.join("plugins/old_plugin.py").exists(), "dropped base file removed");
+    assert!(user_root.join("ModOrganizer.exe").exists());
+    assert!(!user_root.join("overwrite/red4ext/plugins/mod_settings/user.ini").exists(), "build settings win");
+    assert_eq!(
+        std::fs::read(user_root.join(".lyno/overwrite-backup/1.1.0/red4ext/plugins/mod_settings/user.ini")).unwrap(),
+        b"player default"
+    );
     assert_eq!(
         tree_hash(&user.mods_dir().join("Archive Mod")).unwrap(),
         tree_hash(&author.join("mods/Archive Mod")).unwrap()

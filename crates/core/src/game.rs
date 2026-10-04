@@ -21,6 +21,11 @@ pub fn is_game_dir(dir: &Path) -> bool {
     exe_path(dir).is_file()
 }
 
+/// REDmod is a free DLC; without it REDmod mods can't be deployed.
+pub fn has_redmod(game_dir: &Path) -> bool {
+    game_dir.join("tools").join("redmod").join("bin").join("redMod.exe").is_file()
+}
+
 /// All installs found on this machine, Steam first.
 pub fn detect() -> Vec<GameInstall> {
     let mut found = Vec::new();
