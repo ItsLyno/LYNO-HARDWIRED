@@ -121,6 +121,8 @@ pub struct BuildInfo {
     /// Of `changes`: damaged mods and base package to download again.
     repairs: usize,
     download_size: u64,
+    /// Of `download_size`: already in the download cache from an interrupted update.
+    downloaded: u64,
     /// False when GitHub was unreachable and the installed manifest is shown.
     online: bool,
     /// The finished update to the installed build; none after a first install.
@@ -195,8 +197,9 @@ pub async fn fetch_build(app: AppHandle) -> CmdResult<BuildInfo> {
     let installed = State::load(&install::state_path(&inst)).map_err(err)?;
     let current = ModList::load(&inst.modlist_path(&manifest.profile)).unwrap_or_default();
     let plan = plan::plan(&manifest, &installed, &current);
+    let downloaded = install::cached_bytes(&inst, &manifest, &plan);
     log::info!(
-        "build {} (installed {:?}, online {online}): {} action(s), {} bytes to download",
+        "build {} (installed {:?}, online {online}): {} action(s), {} bytes to download, {downloaded} of them cached",
         manifest.build_version,
         installed.build_version,
         plan.actions.len(),
@@ -262,6 +265,7 @@ pub async fn fetch_build(app: AppHandle) -> CmdResult<BuildInfo> {
             })
             .count(),
         download_size: plan.download_size,
+        downloaded,
         online,
         last_update: last_update.and_then(|u| {
             Some(LastUpdateInfo { from: u.from.clone()?, to: u.to.clone(), removed: u.removed.clone() })
@@ -320,7 +324,13 @@ pub fn start_update(app: AppHandle) -> CmdResult<()> {
             }
             Err(e) => {
                 log::error!("update failed: {e}");
-                Finished { ok: false, error: Some(e.to_string()) }
+                let error = match e {
+                    lyno_core::Error::Download(_) => format!(
+                        "Не удалось скачать сборку: {e}. Скачанное сохранено — следующее обновление продолжит с того же места."
+                    ),
+                    e => e.to_string(),
+                };
+                Finished { ok: false, error: Some(error) }
             }
         };
         let _ = app.emit("update-finished", finished);
@@ -338,8 +348,12 @@ fn run_update(app: &AppHandle, manifest: &Manifest, settings: &Settings, cancel:
     let installer = Installer { inst: &inst, manifest, downloader: &downloader, cancel };
     let mut last_emit = std::time::Instant::now() - std::time::Duration::from_secs(1);
     installer.apply(&plan, &mut |event| {
-        if let install::Event::Step { index, total, label } = &event {
-            log::info!("[{}/{total}] {label}", index + 1);
+        match &event {
+            install::Event::Step { index, total, label } => log::info!("[{index}/{total}] {label}"),
+            install::Event::Retry { attempt, delay_secs, error } => {
+                log::warn!("{error}; attempt {attempt} in {delay_secs} s")
+            }
+            _ => {}
         }
         // Byte events arrive per chunk; throttle them for the UI.
         let is_bytes = matches!(event, install::Event::Bytes { .. });

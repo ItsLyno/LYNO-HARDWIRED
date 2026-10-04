@@ -6,7 +6,7 @@ import { Changelog } from "../components/Changelog";
 import { Section } from "../components/Section";
 import { UpdateProgress } from "../components/UpdateProgress";
 import logo from "../assets/logo.webp";
-import { formatBytes } from "../format";
+import { downloadLabel } from "../format";
 import { isRepairOnly, primaryAction, useApp, type PrimaryAction } from "../store";
 
 export function Home() {
@@ -57,7 +57,7 @@ export function Home() {
                   Доступна версия <span className="font-mono font-semibold tabular-nums">{build.latestVersion}</span>
                 </>
               )}
-              <span className="text-muted"> · {formatBytes(build.downloadSize)} к загрузке</span>
+              <span className="text-muted"> · {downloadLabel(build)}</span>
             </span>
             <ArrowRight size={16} className="text-muted" />
           </button>

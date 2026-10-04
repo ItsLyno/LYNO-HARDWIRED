@@ -17,6 +17,7 @@ pub mod mo2;
 pub mod modlist;
 pub mod package;
 pub mod plan;
+pub mod prefetch;
 pub mod publish;
 pub mod report;
 pub mod rules;

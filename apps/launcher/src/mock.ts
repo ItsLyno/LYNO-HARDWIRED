@@ -87,6 +87,7 @@ let build: BuildInfo = {
   changes: 4,
   repairs: 0,
   downloadSize: 28 * MB,
+  downloaded: 9 * MB,
   online: true,
   lastUpdate: { from: "1.3.0", to: "1.3.2", removed: ["Immersive Traffic"] },
 };
@@ -140,12 +141,16 @@ async function simulateVerify(): Promise<VerifyReport | null> {
 async function simulateUpdate() {
   const steps = ["Обновление: Cyber Engine Tweaks", "Обновление: RED4ext", "Установка: Better Vehicle Handling", "Удаление: Immersive Traffic", "Порядок загрузки"];
   const total = build.downloadSize;
-  let done = 0;
+  let done = build.downloaded;
   for (const [i, label] of steps.entries()) {
     progress?.({ kind: "step", index: i + 1, total: steps.length, label });
     for (let t = 0; t < 10 && i < 3; t++) {
       if (cancelled) return finished?.({ ok: false, error: null });
       await delay(120);
+      if (i === 1 && t === 3) {
+        progress?.({ kind: "retry", attempt: 2, delaySecs: 2, error: "connection reset" });
+        await delay(1500);
+      }
       done = Math.min(total, done + total / 30);
       progress?.({ kind: "bytes", done, total });
     }
@@ -158,6 +163,7 @@ async function simulateUpdate() {
     upToDate: true,
     changes: 0,
     downloadSize: 0,
+    downloaded: 0,
     mods: build.mods.map((m) => (m.kind === "mod" ? { ...m, outdated: false, installed: true } : m)),
   };
   finished?.({ ok: true, error: null });

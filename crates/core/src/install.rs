@@ -1,10 +1,12 @@
 //! Applies an [`UpdatePlan`] to an instance: download, unpack, swap.
 //!
 //! State is saved after every mod, so an interrupted update resumes where
-//! it stopped (downloads resume too, see [`crate::download`]).
+//! it stopped (downloads resume too, see [`crate::download`]). Packages are
+//! downloaded in parallel ahead of the install, see [`crate::prefetch`].
 
 use std::path::{Path, PathBuf};
-use std::sync::atomic::AtomicBool;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Mutex;
 
 use serde::Serialize;
 
@@ -15,6 +17,7 @@ use crate::meta;
 use crate::mo2::Instance;
 use crate::modlist::Entry;
 use crate::package;
+use crate::prefetch::{self, Job, Prefetch, Report};
 use crate::rules;
 use crate::plan::{Action, UpdatePlan};
 use crate::state::{InstalledMod, State};
@@ -28,6 +31,10 @@ pub enum Event {
     Step { index: usize, total: usize, label: String },
     /// Overall download progress.
     Bytes { done: u64, total: u64 },
+    /// The connection failed; downloads continue after `delay_secs`.
+    /// Cleared by the next `Bytes`.
+    #[serde(rename_all = "camelCase")]
+    Retry { attempt: u32, delay_secs: u64, error: String },
     Done,
 }
 
@@ -42,30 +49,110 @@ pub struct Installer<'a> {
     pub cancel: &'a AtomicBool,
 }
 
+/// The packages `plan` downloads, in its order; per action, its job.
+fn jobs(manifest: &Manifest, plan: &UpdatePlan, cache: &Path) -> (Vec<Job>, Vec<Option<usize>>) {
+    let mut jobs = Vec::new();
+    let index = plan
+        .actions
+        .iter()
+        .map(|action| {
+            let (pkg, name) = match action {
+                Action::Base => (&manifest.base, "base"),
+                Action::Install { id } | Action::Update { id, .. } | Action::Repair { id, .. } => {
+                    let spec = manifest.mod_specs().find(|m| m.id == *id)?;
+                    (&spec.package, spec.id.as_str())
+                }
+                Action::Rename { .. } | Action::Remove { .. } => return None,
+            };
+            jobs.push(Job::new(pkg, name, cache));
+            Some(jobs.len() - 1)
+        })
+        .collect();
+    (jobs, index)
+}
+
+fn cache_dir(inst: &Instance) -> PathBuf {
+    inst.root().join(".lyno").join("cache")
+}
+
+/// Bytes of `plan`'s download already in the cache from an interrupted
+/// update, for the UI to show what is left.
+pub fn cached_bytes(inst: &Instance, manifest: &Manifest, plan: &UpdatePlan) -> u64 {
+    let (jobs, _) = jobs(manifest, plan, &cache_dir(inst));
+    jobs.iter().flat_map(|j| &j.parts).map(|(part, path)| prefetch::cached_len(part, path)).sum()
+}
+
 impl Installer<'_> {
-    pub fn apply(&self, plan: &UpdatePlan, on: &mut dyn FnMut(Event)) -> Result<()> {
+    pub fn apply(&self, plan: &UpdatePlan, on: &mut (dyn FnMut(Event) + Send)) -> Result<()> {
+        let cache = cache_dir(self.inst);
+        let (jobs, job_of) = jobs(self.manifest, plan, &cache);
+        let fetch = Prefetch::new(&jobs, plan.download_size, self.cancel);
+        let on = Mutex::new(on);
+        let emit = |e: Event| (on.lock().unwrap())(e);
+        let report = |r: Report| {
+            emit(match r {
+                Report::Bytes { done, total } => Event::Bytes { done, total },
+                Report::Retry { attempt, delay, error } => Event::Retry { attempt, delay_secs: delay.as_secs(), error },
+            })
+        };
+        report(fetch.bytes());
+        let result = std::thread::scope(|scope| {
+            if !jobs.is_empty() {
+                for _ in 0..prefetch::PARALLEL_DOWNLOADS {
+                    scope.spawn(|| fetch.worker(self.downloader, &report));
+                }
+            }
+            let result = self.install(plan, &fetch, &job_of, &jobs, &emit);
+            fetch.finish();
+            result
+        });
+        if result.is_ok() {
+            let _ = std::fs::remove_dir_all(&cache);
+            emit(Event::Done);
+        }
+        result
+    }
+
+    fn install(
+        &self,
+        plan: &UpdatePlan,
+        fetch: &Prefetch,
+        job_of: &[Option<usize>],
+        jobs: &[Job],
+        on: &dyn Fn(Event),
+    ) -> Result<()> {
         let state_file = state_path(self.inst);
         let mut state = State::load(&state_file)?;
-        let work = self.inst.root().join(".lyno");
-        let cache = work.join("cache");
-        let staging = work.join("staging");
-        let backup = work.join("overwrite-backup").join(&self.manifest.build_version);
+        let staging = self.inst.root().join(".lyno").join("staging");
+        let backup = self.inst.root().join(".lyno").join("overwrite-backup").join(&self.manifest.build_version);
         let mods_dir = self.inst.mods_dir();
         std::fs::create_dir_all(&mods_dir).map_err(|e| Error::io(&mods_dir, e))?;
 
         state.begin_update(&self.manifest.build_version);
 
-        let total_bytes = plan.download_size;
-        let mut done_bytes = 0u64;
         let total = plan.actions.len() + 1;
+        // Downloads are already in parallel; the packages unpack one at a time.
+        let unpack = |i: usize, pkg: &Package, dest: &Path| -> Result<Vec<(FileEntry, String)>> {
+            let job = job_of[i].ok_or_else(|| Error::Manifest(format!("no package for action {i}")))?;
+            fetch.wait(job)?;
+            let paths = jobs[job].paths();
+            let hashes = package::unpack(&paths, dest, &pkg.hash)?;
+            for p in &paths {
+                let _ = std::fs::remove_file(p);
+            }
+            Ok(hashes)
+        };
 
         for (i, action) in plan.actions.iter().enumerate() {
+            if self.cancel.load(Ordering::Relaxed) {
+                return Err(Error::Cancelled);
+            }
             on(Event::Step { index: i + 1, total, label: self.label(action) });
             match action {
                 Action::Base => {
                     let pkg = &self.manifest.base;
                     let dest = staging.join("base");
-                    self.fetch_and_unpack(pkg, "base", &cache, &dest, &mut done_bytes, total_bytes, on)?;
+                    unpack(i, pkg, &dest)?;
                     let base_files: Vec<String> = tree::list_files(&dest)?.into_iter().map(|f| f.path).collect();
                     package::merge_into(&dest, self.inst.root())?;
                     remove_stale_base_files(self.inst.root(), &state.base_files, &base_files)?;
@@ -76,7 +163,7 @@ impl Installer<'_> {
                 Action::Install { id } | Action::Update { id, .. } | Action::Repair { id, .. } => {
                     let spec = self.spec(id)?;
                     let dest = staging.join(&spec.id);
-                    let hashes = self.fetch_and_unpack(&spec.package, &spec.id, &cache, &dest, &mut done_bytes, total_bytes, on)?;
+                    let hashes = unpack(i, &spec.package, &dest)?;
                     if let Action::Repair { from_folder, .. } = action {
                         if !state.mods.get(id).is_some_and(|m| m.reset_settings) {
                             keep_settings(&mods_dir.join(from_folder), &dest, &hashes)?;
@@ -150,40 +237,8 @@ impl Installer<'_> {
 
         state.build_version = Some(self.manifest.build_version.clone());
         state.save(&state_file)?;
-        let _ = std::fs::remove_dir_all(&cache);
         let _ = std::fs::remove_dir_all(&staging);
-        on(Event::Done);
         Ok(())
-    }
-
-    #[allow(clippy::too_many_arguments)]
-    fn fetch_and_unpack(
-        &self,
-        pkg: &Package,
-        name: &str,
-        cache: &Path,
-        dest: &Path,
-        done: &mut u64,
-        total: u64,
-        on: &mut dyn FnMut(Event),
-    ) -> Result<Vec<(FileEntry, String)>> {
-        let mut paths = Vec::with_capacity(pkg.parts.len());
-        for (i, part) in pkg.parts.iter().enumerate() {
-            let path = cache.join(format!("{name}-{}.{:03}", &pkg.hash[..pkg.hash.len().min(16)], i + 1));
-            let start = *done;
-            let mut got = 0u64;
-            self.downloader.fetch_part(part, &path, self.cancel, &mut |n| {
-                got += n;
-                on(Event::Bytes { done: start + got, total });
-            })?;
-            *done = start + part.size;
-            paths.push(path);
-        }
-        let hashes = package::unpack(&paths, dest, &pkg.hash)?;
-        for p in &paths {
-            let _ = std::fs::remove_file(p);
-        }
-        Ok(hashes)
     }
 
     fn spec(&self, id: &str) -> Result<&ModSpec> {
