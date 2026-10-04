@@ -1,0 +1,23 @@
+[package]
+name = "lyno-core"
+description = "Core logic for LYNO//HARDWIRED: MO2 instance, build manifest, update planning"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+rust-ini.workspace = true
+blake3.workspace = true
+walkdir.workspace = true
+tar.workspace = true
+zstd.workspace = true
+ureq.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+winreg = "0.55"
+
+[dev-dependencies]
+tempfile.workspace = true

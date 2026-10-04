@@ -1,0 +1,12 @@
+[package]
+name = "lyno-pack"
+description = "Build-author tool: export an MO2 instance into a LYNO//HARDWIRED manifest"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+lyno-core.workspace = true
+serde_json.workspace = true
+clap = { version = "4", features = ["derive", "env"] }
+ureq.workspace = true
