@@ -13,7 +13,7 @@ export function Mods() {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
 
-  const isChange = (m: Mod) => !!m.recent || m.outdated || (!m.installed && !!build?.installedVersion);
+  const isChange = (m: Mod) => !!m.recent || m.outdated || m.damaged || (!m.installed && !!build?.installedVersion);
   const keep = (m: Mod) => filter === "all" || (filter === "optional" ? m.optional : isChange(m));
   const groups = groupMods(build?.mods ?? [], query, keep);
   const all = (build?.mods ?? []).filter((m): m is Mod => m.kind === "mod");
@@ -121,6 +121,11 @@ export function Mods() {
                       </Badge>
                     )}
                     {m.outdated && <Badge tone="warn">обновится</Badge>}
+                    {m.damaged && !m.outdated && (
+                      <Badge tone="warn" title="Проверка нашла изменённые или удалённые файлы">
+                        восстановится
+                      </Badge>
+                    )}
                     {!m.installed && build.installedVersion && <Badge tone="warn">новый</Badge>}
                   </td>
                   <td className="truncate text-muted">{m.author ?? "—"}</td>

@@ -37,6 +37,23 @@ pub fn is_hashed(path: &str) -> bool {
     !path.eq_ignore_ascii_case("meta.ini")
 }
 
+/// True for files that hold settings: the ones a player changes, in game or
+/// by hand, inside a build mod. Through MO2's virtual file system the game
+/// writes new files to `overwrite/`, but rewrites files that already exist in
+/// a mod in place, so a shipped config the player changed (CET `bindings.json`,
+/// a CET mod's `db.sqlite3`, Mod Settings `user.ini`) differs from the package
+/// without the mod being damaged. [`crate::verify`] reports such files apart
+/// from damage, and a repair keeps them.
+///
+/// By extension, so it is a guess: a truncated config also counts as a
+/// setting. TweakXL / ArchiveXL `.yaml` and `.xl` are content, never
+/// rewritten by the game, and don't count.
+pub fn is_settings(path: &str) -> bool {
+    let p = path.to_ascii_lowercase();
+    let ext = p.rsplit_once('.').map_or("", |(_, e)| e);
+    is_hashed(&p) && matches!(ext, "json" | "ini" | "toml" | "cfg" | "conf" | "xml" | "sqlite" | "sqlite3" | "db")
+}
+
 /// True for files of `profiles/<profile>/` that are the author's own and
 /// stay out of the base package (`rel` is relative to the profile folder).
 ///
@@ -78,6 +95,21 @@ mod tests {
             "meta.ini",
         ] {
             assert!(!is_generated(p), "{p}");
+        }
+    }
+
+    #[test]
+    fn settings_files() {
+        for p in [
+            "bin/x64/plugins/cyber_engine_tweaks/bindings.json",
+            "bin/x64/plugins/cyber_engine_tweaks/mods/AppearanceMenuMod/db.sqlite3",
+            "red4ext/plugins/mod_settings/user.ini",
+            "engine/config/platform/pc/ultra.INI",
+        ] {
+            assert!(is_settings(p), "{p}");
+        }
+        for p in ["archive/pc/mod/a.archive", "r6/tweaks/mod.yaml", "archive/pc/mod/a.archive.xl", "bin/x64/x.dll", "meta.ini", "init.lua"] {
+            assert!(!is_settings(p), "{p}");
         }
     }
 

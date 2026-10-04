@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { api, type BuildInfo, type LauncherUpdate, type Settings, type Status, type UpdateEvent } from "./api";
+import { api, type BuildInfo, type LauncherUpdate, type Settings, type Status, type UpdateEvent, type VerifyReport } from "./api";
 
 export type Page = "home" | "mods" | "updates" | "settings";
 
@@ -15,6 +15,9 @@ interface AppStore {
   build: BuildInfo | null;
   buildError: string | null;
   progress: Progress | null;
+  /** Integrity check in progress; kept here so it survives switching pages. */
+  verifyProgress: Progress | null;
+  verifyReport: VerifyReport | null;
   error: string | null;
   launcherUpdate: LauncherUpdate | null;
   setPage: (page: Page) => void;
@@ -23,7 +26,10 @@ interface AppStore {
   saveSettings: (s: Settings) => Promise<boolean>;
   startUpdate: () => Promise<void>;
   setModEnabled: (id: string, enabled: boolean) => Promise<void>;
+  verify: () => Promise<void>;
+  startRepair: (ids: string[], base: boolean, resetSettings: boolean) => Promise<void>;
   onUpdateEvent: (e: UpdateEvent) => void;
+  onVerifyEvent: (e: UpdateEvent) => void;
   onUpdateFinished: (ok: boolean, error: string | null) => void;
   run: (action: () => Promise<void>) => Promise<void>;
   checkLauncherUpdate: () => Promise<void>;
@@ -37,6 +43,8 @@ export const useApp = create<AppStore>((set, get) => ({
   build: null,
   buildError: null,
   progress: null,
+  verifyProgress: null,
+  verifyReport: null,
   error: null,
   launcherUpdate: null,
   setPage: (page) => set({ page }),
@@ -87,10 +95,36 @@ export const useApp = create<AppStore>((set, get) => ({
       set({ error: String(e) });
     }
   },
+  verify: async () => {
+    set({ verifyProgress: { step: null, bytes: null }, verifyReport: null });
+    try {
+      const report = await api.verifyBuild();
+      set({ verifyProgress: null, verifyReport: report });
+    } catch (e) {
+      set({ verifyProgress: null, error: String(e) });
+    }
+  },
+  // Repair is an update of the marked mods; its progress shows where update progress does.
+  startRepair: async (ids, base, resetSettings) => {
+    set({ progress: { step: null, bytes: null } });
+    try {
+      await api.startRepair(ids, base, resetSettings);
+      set({ verifyReport: null, page: "updates" });
+      await get().refreshStatus();
+    } catch (e) {
+      set({ progress: null, error: String(e) });
+    }
+  },
   onUpdateEvent: (e) => {
     const p = get().progress ?? { step: null, bytes: null };
     if (e.kind === "step") set({ progress: { ...p, step: e } });
     if (e.kind === "bytes") set({ progress: { ...p, bytes: e } });
+  },
+  onVerifyEvent: (e) => {
+    const p = get().verifyProgress;
+    if (!p) return;
+    if (e.kind === "step") set({ verifyProgress: { ...p, step: e } });
+    if (e.kind === "bytes") set({ verifyProgress: { ...p, bytes: e } });
   },
   onUpdateFinished: (ok, error) => {
     set({ progress: null, error: error });
@@ -114,6 +148,11 @@ export const useApp = create<AppStore>((set, get) => ({
   },
   clearError: () => set({ error: null }),
 }));
+
+/** The pending update only downloads damaged files again, the version stays the same. */
+export function isRepairOnly(build: BuildInfo | null): boolean {
+  return !!build && build.repairs > 0 && build.installedVersion === build.latestVersion;
+}
 
 /** What the main button should do right now. */
 export type PrimaryAction = "loading" | "game" | "install" | "update" | "updating" | "play" | "running";

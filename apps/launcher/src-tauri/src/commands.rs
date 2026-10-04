@@ -12,6 +12,7 @@ use lyno_core::modlist::{EntryState, ModList};
 use lyno_core::plan;
 use lyno_core::report;
 use lyno_core::state::State;
+use lyno_core::verify;
 use serde::{Deserialize, Serialize};
 use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, System};
 use tauri::{AppHandle, Emitter, Manager, State as TauriState};
@@ -117,6 +118,8 @@ pub struct BuildInfo {
     mods: Vec<ModRow>,
     up_to_date: bool,
     changes: usize,
+    /// Of `changes`: damaged mods and base package to download again.
+    repairs: usize,
     download_size: u64,
     /// False when GitHub was unreachable and the installed manifest is shown.
     online: bool,
@@ -156,6 +159,8 @@ pub enum ModRow {
         installed: bool,
         /// `added` / `updated` by the last update (`last_update`).
         recent: Option<&'static str>,
+        /// Marked for repair by an integrity check; the next update downloads it again.
+        damaged: bool,
     },
 }
 
@@ -198,10 +203,11 @@ pub async fn fetch_build(app: AppHandle) -> CmdResult<BuildInfo> {
         plan.download_size
     );
 
+    // A repair-only run over an old state.json starts a record from a version to itself.
     let last_update = installed
         .last_update
         .as_ref()
-        .filter(|u| installed.build_version.as_deref() == Some(u.to.as_str()));
+        .filter(|u| installed.build_version.as_deref() == Some(u.to.as_str()) && u.from.as_deref() != Some(u.to.as_str()));
     let recent = |id: &String| {
         let u = last_update.filter(|u| u.from.is_some())?;
         if u.added.contains(id) {
@@ -231,6 +237,7 @@ pub async fn fetch_build(app: AppHandle) -> CmdResult<BuildInfo> {
                     outdated: have.is_some_and(|h| h.hash != m.package.hash),
                     installed: have.is_some(),
                     recent: recent(&m.id),
+                    damaged: have.is_some_and(|h| h.damaged),
                 }
             }
         })
@@ -245,6 +252,15 @@ pub async fn fetch_build(app: AppHandle) -> CmdResult<BuildInfo> {
         mods,
         up_to_date: plan.is_up_to_date(),
         changes: plan.actions.len(),
+        repairs: plan
+            .actions
+            .iter()
+            .filter(|a| match a {
+                plan::Action::Repair { .. } => true,
+                plan::Action::Base => installed.base_damaged && installed.base_hash.as_deref() == Some(manifest.base.hash.as_str()),
+                _ => false,
+            })
+            .count(),
         download_size: plan.download_size,
         online,
         last_update: last_update.and_then(|u| {
@@ -274,6 +290,10 @@ pub fn start_update(app: AppHandle) -> CmdResult<()> {
     let settings = state.settings.lock().unwrap().clone();
     if running_processes() != (false, false) {
         return Err("Закройте игру и Mod Organizer 2 перед обновлением".into());
+    }
+
+    if state.verify.lock().unwrap().is_some() {
+        return Err("Дождитесь окончания проверки файлов".into());
     }
 
     let cancel = Arc::new(AtomicBool::new(false));
@@ -342,6 +362,97 @@ pub fn cancel_update(state: TauriState<'_, AppState>) {
     if let Some(flag) = state.update.lock().unwrap().as_ref() {
         flag.store(true, Ordering::Relaxed);
     }
+}
+
+/// Reads every file of the installed build and reports damaged mods. Progress
+/// arrives as `verify-progress` events (same shape as `update-progress`);
+/// `None` when cancelled.
+#[tauri::command]
+pub async fn verify_build(app: AppHandle) -> CmdResult<Option<verify::Report>> {
+    let state = app.state::<AppState>();
+    let settings = state.settings.lock().unwrap().clone();
+    let inst = Instance::new(&settings.instance_dir);
+    let installed = State::load(&install::state_path(&inst)).map_err(err)?;
+    if installed.build_version.is_none() {
+        return Err("Сборка не установлена".into());
+    }
+    let cancel = Arc::new(AtomicBool::new(false));
+    {
+        if state.update.lock().unwrap().is_some() {
+            return Err("Дождитесь окончания обновления сборки".into());
+        }
+        let mut slot = state.verify.lock().unwrap();
+        if slot.is_some() {
+            return Err("Проверка уже идёт".into());
+        }
+        *slot = Some(cancel.clone());
+    }
+
+    log::info!("integrity check of build {:?} started", installed.build_version);
+    let handle = app.clone();
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        let mut last_emit = std::time::Instant::now() - std::time::Duration::from_secs(1);
+        verify::verify(&inst, &installed, &cancel, &mut |event| {
+            let is_bytes = matches!(event, install::Event::Bytes { .. });
+            if !is_bytes || last_emit.elapsed().as_millis() >= 100 {
+                last_emit = std::time::Instant::now();
+                let _ = handle.emit("verify-progress", event);
+            }
+        })
+    })
+    .await;
+    *state.verify.lock().unwrap() = None;
+    match result.map_err(err)? {
+        Ok(report) => {
+            log::info!(
+                "integrity check: {} mod(s) checked, damaged: {:?}, changed settings: {:?}",
+                report.checked,
+                report.damaged,
+                report.customized
+            );
+            Ok(Some(report))
+        }
+        Err(lyno_core::Error::Cancelled) => {
+            log::info!("integrity check cancelled");
+            Ok(None)
+        }
+        Err(e) => {
+            log::error!("integrity check failed: {e}");
+            Err(format!("Не удалось проверить файлы: {e}"))
+        }
+    }
+}
+
+#[tauri::command]
+pub fn cancel_verify(state: TauriState<'_, AppState>) {
+    if let Some(flag) = state.verify.lock().unwrap().as_ref() {
+        flag.store(true, Ordering::Relaxed);
+    }
+}
+
+/// Marks the selected mods (manifest ids) and, with `base`, MO2 itself for
+/// download and starts an update that reinstalls them, keeping the player's
+/// settings files unless `reset_settings`. A newer build, if there is one,
+/// is installed along the way: repair works with the latest manifest.
+#[tauri::command]
+pub fn start_repair(app: AppHandle, ids: Vec<String>, base: bool, reset_settings: bool) -> CmdResult<()> {
+    let state = app.state::<AppState>();
+    if state.manifest.lock().unwrap().is_none() {
+        return Err("Нет связи с GitHub: файлы для починки негде скачать".into());
+    }
+    if state.update.lock().unwrap().is_some() {
+        return Err("Обновление уже идёт".into());
+    }
+    if running_processes() != (false, false) {
+        return Err("Закройте игру и Mod Organizer 2 перед починкой".into());
+    }
+    let settings = state.settings.lock().unwrap().clone();
+    let path = install::state_path(&Instance::new(&settings.instance_dir));
+    let mut installed = State::load(&path).map_err(err)?;
+    verify::mark(&mut installed, &ids, base, reset_settings);
+    installed.save(&path).map_err(err)?;
+    log::info!("repair: mods {ids:?}, base {base}, reset settings {reset_settings}");
+    start_update(app)
 }
 
 /// Switches an optional build mod on or off in the player's `modlist.txt`.

@@ -64,9 +64,23 @@ pub fn tree_hash(root: &Path) -> Result<TreeHash> {
 }
 
 pub fn tree_hash_with(root: &Path, keep: &dyn Fn(&str) -> bool) -> Result<TreeHash> {
-    let files = list_files_with(root, keep)?;
-    let hashes = files.iter().map(|f| blake3_file(&from_slash(root, &f.path))).collect::<Result<Vec<_>>>()?;
-    Ok(combine(files.iter().zip(&hashes).map(|(f, h)| (f, h.as_str()))))
+    Ok(combine_pairs(&hash_files_with(root, keep)?))
+}
+
+/// Files under `root` kept by `keep`, sorted by path, with their BLAKE3.
+pub fn hash_files_with(root: &Path, keep: &dyn Fn(&str) -> bool) -> Result<Vec<(FileEntry, String)>> {
+    list_files_with(root, keep)?
+        .into_iter()
+        .map(|f| {
+            let h = blake3_file(&from_slash(root, &f.path))?;
+            Ok((f, h))
+        })
+        .collect()
+}
+
+/// [`combine`] over the output of [`hash_files_with`].
+pub fn combine_pairs(files: &[(FileEntry, String)]) -> TreeHash {
+    combine(files.iter().map(|(f, h)| (f, h.as_str())))
 }
 
 /// Tree hash from per-file hashes; `files` must be sorted by path.

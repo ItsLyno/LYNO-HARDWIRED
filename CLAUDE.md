@@ -15,7 +15,9 @@ installs and updates the build, sets the game path, starts the game through MO2.
 | `docs/` | Reference: [Cyberpunk under MO2](docs/cyberpunk-mo2.md), [MO2 instance format](docs/mo2-instance.md), [release process](docs/release-process.md), vendored MO2 Cyberpunk plugin in `docs/reference/` |
 
 Core modules: `publish.rs` (author side: build manifest, reuse unchanged packages),
-`plan.rs` (manifest + state → actions + new `modlist.txt`), `install.rs` (apply plan), `report.rs` (diagnostic zip),
+`plan.rs` (manifest + state → actions + new `modlist.txt`), `install.rs` (apply plan),
+`verify.rs` (integrity check; repair = flags in `state.json` that `plan` turns into `Repair` actions),
+`files.rs` (per-file hashes recorded at unpack, `.lyno/files/`; launcher-local, not in the manifest), `report.rs` (diagnostic zip),
 `package.rs` (tar.zst split into ≤1.9 GB parts), `tree.rs` (tree hash), `rules.rs`
 (which files ship and which are hashed), `mo2.rs`, `modlist.rs`, `meta.rs`, `state.rs`.
 
@@ -50,7 +52,8 @@ updater reads. Launcher logs go through `log::` macros to `tauri-plugin-log`.
 - **Never ship runtime files**: `r6/cache/`, `r6/logs/`, `red4ext/logs/`, `*.log`,
   `archive/pc/mod/modlist.txt` (`rules::is_generated`); never ship profile
   `saves/`, `UserSettings.json`, `modlist.txt` (`rules::is_private_profile_file`).
-  New generated files from frameworks go into `rules.rs` with a test. Background
+  New generated files from frameworks go into `rules.rs` with a test; so do new
+  settings file types (`rules::is_settings`: not damage in verify, kept on repair). Background
   in `docs/cyberpunk-mo2.md`.
 - **The manifest goes live last**: `lyno-pack publish` pushes `build/manifest.json`
   only after every part answers over HTTP; same for `launcher/latest.json` in
@@ -81,5 +84,5 @@ updater reads. Launcher logs go through `log::` macros to `tauri-plugin-log`.
   `cargo fmt` over existing files; match the surrounding style.
 - Doc comments explain *why* (MO2 / Cyberpunk behavior), not what the code does.
 - Behavior changes to build/install/update get covered in `crates/core/tests/e2e.rs`.
-- The README «Статус» checklist tracks open features (integrity repair, free-space
-  check, game version check).
+- The README «Статус» checklist tracks open features (free-space check, game version
+  check).

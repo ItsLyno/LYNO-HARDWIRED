@@ -80,8 +80,9 @@ impl<R: Read> Read for HashingReader<R> {
 
 /// Unpacks a package from its downloaded parts into `dest` (created fresh)
 /// and checks the result against the expected tree hash (which leaves out
-/// `meta.ini`, see [`crate::rules::is_hashed`]).
-pub fn unpack(parts: &[PathBuf], dest: &Path, expected_hash: &str) -> Result<()> {
+/// `meta.ini`, see [`crate::rules::is_hashed`]). Returns the hashed files
+/// with their BLAKE3 for [`crate::files`].
+pub fn unpack(parts: &[PathBuf], dest: &Path, expected_hash: &str) -> Result<Vec<(FileEntry, String)>> {
     if dest.exists() {
         std::fs::remove_dir_all(dest).map_err(|e| Error::io(dest, e))?;
     }
@@ -92,7 +93,8 @@ pub fn unpack(parts: &[PathBuf], dest: &Path, expected_hash: &str) -> Result<()>
     // `unpack` refuses entries that escape `dest` (absolute paths, `..`).
     tar::Archive::new(decoder).unpack(dest).map_err(|e| Error::io(dest, e))?;
 
-    let got = tree::tree_hash_with(dest, &crate::rules::is_hashed)?;
+    let files = tree::hash_files_with(dest, &crate::rules::is_hashed)?;
+    let got = tree::combine_pairs(&files);
     if got.hash != expected_hash {
         return Err(Error::Integrity(format!(
             "{}: unpacked content hash {} != expected {expected_hash}",
@@ -100,7 +102,7 @@ pub fn unpack(parts: &[PathBuf], dest: &Path, expected_hash: &str) -> Result<()>
             got.hash
         )));
     }
-    Ok(())
+    Ok(files)
 }
 
 /// Replaces `target` with `staging` so a failure never leaves a half-updated mod.
@@ -284,7 +286,9 @@ mod tests {
 
         let dest = out.path().join("unpacked");
         let paths: Vec<_> = parts.iter().map(|p| p.path.clone()).collect();
-        unpack(&paths, &dest, &expected.hash).unwrap();
+        let files = unpack(&paths, &dest, &expected.hash).unwrap();
+        assert_eq!(files.len(), 1, "meta.ini is not in the returned hashes");
+        assert_eq!(files[0].1, crate::hash::blake3_file(&dest.join("archive/pc/mod/big.archive")).unwrap());
         assert_eq!(tree_hash(&dest).unwrap(), tree_hash(src.path()).unwrap());
         assert!(dest.join("meta.ini").is_file(), "meta.ini is shipped even though it is not hashed");
 

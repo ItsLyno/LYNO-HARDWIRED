@@ -23,15 +23,17 @@ export default function App() {
   const PageView = pages[page];
 
   useEffect(() => {
-    const { refreshStatus, refreshBuild, checkLauncherUpdate, onUpdateEvent, onUpdateFinished } = useApp.getState();
+    const { refreshStatus, refreshBuild, checkLauncherUpdate, onUpdateEvent, onUpdateFinished, onVerifyEvent } = useApp.getState();
     void refreshStatus();
     void refreshBuild();
     void checkLauncherUpdate();
     const poll = setInterval(refreshStatus, STATUS_POLL_MS);
     const unlisten = api.onUpdate(onUpdateEvent, (f) => onUpdateFinished(f.ok, f.error));
+    const unlistenVerify = api.onVerifyProgress(onVerifyEvent);
     return () => {
       clearInterval(poll);
       void unlisten.then((f) => f());
+      void unlistenVerify.then((f) => f());
     };
   }, []);
 

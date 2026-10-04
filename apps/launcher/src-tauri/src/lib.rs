@@ -14,6 +14,8 @@ pub struct AppState {
     manifest: Mutex<Option<Manifest>>,
     /// Cancel flag of the running update, if any.
     update: Mutex<Option<Arc<AtomicBool>>>,
+    /// Cancel flag of the running integrity check, if any.
+    verify: Mutex<Option<Arc<AtomicBool>>>,
     /// Launcher release found by the last update check.
     launcher_update: Mutex<Option<tauri_plugin_updater::Update>>,
 }
@@ -48,6 +50,7 @@ pub fn run() {
                 settings_path,
                 manifest: Mutex::new(None),
                 update: Mutex::new(None),
+                verify: Mutex::new(None),
                 launcher_update: Mutex::new(None),
             });
             Ok(())
@@ -60,6 +63,9 @@ pub fn run() {
             commands::fetch_build,
             commands::start_update,
             commands::cancel_update,
+            commands::verify_build,
+            commands::cancel_verify,
+            commands::start_repair,
             commands::set_mod_enabled,
             commands::open_mod_folder,
             commands::open_folder,
