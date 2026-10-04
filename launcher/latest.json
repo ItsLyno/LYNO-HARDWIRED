@@ -1,11 +1,11 @@
 {
-  "version": "0.5.0",
+  "version": "0.6.0",
   "notes": "",
-  "pub_date": "2026-10-04T21:37:14Z",
+  "pub_date": "2026-10-04T22:13:35Z",
   "platforms": {
     "windows-x86_64": {
-      "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/launcher-v0.5.0/LYNO-HARDWIRED_0.5.0_x64-setup.exe",
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUejR0VmZ4WmllZkVDUWlsZ05YelZJUFNHWlpFb2pwMitmUmRQOXlzUXYyUG4zSEpHbFE4dXJPTXJSN3daYkNRL255RWFxVk1UWDFwdU1lU0hZNkJML3hmT2JoUG1TL0FnPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkxMTQ5ODMzCWZpbGU6TFlOTyBIQVJEV0lSRURfMC41LjBfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjAuNS4wCm1IenVtS2NBSElIb1oyM3A3Z2V4amp1L3N0M2pmbDhRa0kzcVFrNzBFTmFGUFNJeTE3aFU0Qjc5bVVUenVGd0lRcU5nRUFMWm9OcVQ3cDhZejRTYUN3PT0K"
+      "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/launcher-v0.6.0/LYNO-HARDWIRED_0.6.0_x64-setup.exe",
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUejR0VmZ4WmllZk5NKzg5eW5Cc2Y5NllpNE1LcjlwakROc09QQmw4UEcwd0s3YUtldHlFOEV0VEoxK29GeCtwdmZpZjNIMHdsaHVUM0FSTWdWWDN5bGd6ZkZ5S1huaGcwPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkxMTUyMDE0CWZpbGU6TFlOTyBIQVJEV0lSRURfMC42LjBfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjAuNi4wClhZQjhXREdRekY1bHZORHkxU3h0U0FxNVRhc3J4S1NDaHpVWC9HaUpuSHVGU1RBWGxHWCs2WHgwcFNsaUxPUmQ3eWtZclF2SG1kcGw5ckNud2JXbENRPT0K"
     }
   }
 }
