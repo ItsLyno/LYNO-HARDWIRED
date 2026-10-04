@@ -1,0 +1,11 @@
+{
+  "version": "0.2.0",
+  "notes": "",
+  "pub_date": "2026-10-04T18:07:04Z",
+  "platforms": {
+    "windows-x86_64": {
+      "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/launcher-v0.2.0/LYNO-HARDWIRED_0.2.0_x64-setup.exe",
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUejR0VmZ4WmllZks4U3Zvek4wcU52ekFvSVJtT1VKUm1QQWF1dnZwVHlNdUZaUitXNnUxbEVhVXRTRTg4dXRMejNsenFpZEx1R1ZQcWRsaGVoUGhnbElnVDlKUTV3RlFjPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkxMTM3MjI0CWZpbGU6TFlOTyBIQVJEV0lSRURfMC4yLjBfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjAuMi4wCkZ2WnBTNG9ZaElNelZxRVBOOXFyUUNuY3FIQ05laU9mYUVLMDZtVHp0UkxZRzg2WVQzSStHNlg0QlZRbjNQWVZWeXZ0azhGcEQyTXQ4WXlBcXNRcEF3PT0K"
+    }
+  }
+}
