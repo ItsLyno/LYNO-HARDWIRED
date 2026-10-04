@@ -1,4 +1,6 @@
 /target
+# lyno-pack build output: gigabytes that took hours to pack; ignored so git clean leaves it alone
+/out/
 node_modules/
 dist/
 apps/launcher/src-tauri/gen/

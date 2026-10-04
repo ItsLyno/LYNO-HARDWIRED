@@ -129,7 +129,7 @@ fn git_preflight(repo: &str, version: &str, ours: &[u8]) -> Result<PathBuf, Stri
     let leftover_is_ours = std::fs::read(root.join(PUBLISHED_MANIFEST)).is_ok_and(|d| d == ours);
     if !status.is_empty() && !leftover_is_ours {
         let fix = if status.starts_with("??") {
-            format!("it is not in git yet, delete it (`git clean -f -- {PUBLISHED_MANIFEST}`)")
+            "it is not in git yet, delete this one file by hand".to_owned()
         } else {
             format!("revert them (`git checkout -- {PUBLISHED_MANIFEST}`)")
         };
