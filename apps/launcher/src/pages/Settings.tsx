@@ -1,6 +1,6 @@
-import { Check, FileArchive, Loader2, Search } from "lucide-react";
+import { Check, FileArchive, FolderOpen, Loader2, Search } from "lucide-react";
 import { useEffect, useState } from "react";
-import { api, type Settings as SettingsT } from "../api";
+import { api, type Folder, type Settings as SettingsT } from "../api";
 import { Button } from "../components/Button";
 import { useApp } from "../store";
 
@@ -86,6 +86,22 @@ export function Settings() {
           </span>
         )}
       </div>
+      <h2 className="pt-4 text-lg font-semibold tracking-tight">Папки</h2>
+      <div className="rounded-lg border border-line bg-surface">
+        <Field
+          label="Открыть в проводнике"
+          hint="Сохранения лежат в обычной папке игры и общие с игрой без модов. Логи лаунчера пригодятся, если что-то пошло не так при установке."
+        >
+          <div className="flex flex-wrap gap-2">
+            {folders.map(([folder, label]) => (
+              <Button key={folder} onClick={() => run(() => api.openFolder(folder))}>
+                <FolderOpen size={15} />
+                {label}
+              </Button>
+            ))}
+          </div>
+        </Field>
+      </div>
       <h2 className="pt-4 text-lg font-semibold tracking-tight">Диагностика</h2>
       <div className="rounded-lg border border-line bg-surface">
         <Field
@@ -111,6 +127,13 @@ export function Settings() {
     </div>
   );
 }
+
+const folders: [Folder, string][] = [
+  ["saves", "Сохранения"],
+  ["instance", "Сборка"],
+  ["game", "Игра"],
+  ["logs", "Логи лаунчера"],
+];
 
 function Field(props: { label: string; hint: string; children: React.ReactNode }) {
   return (

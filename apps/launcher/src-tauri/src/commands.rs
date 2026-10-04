@@ -12,7 +12,7 @@ use lyno_core::modlist::{EntryState, ModList};
 use lyno_core::plan;
 use lyno_core::report;
 use lyno_core::state::State;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, System};
 use tauri::{AppHandle, Emitter, Manager, State as TauriState};
 use tauri_plugin_updater::UpdaterExt;
@@ -120,6 +120,17 @@ pub struct BuildInfo {
     download_size: u64,
     /// False when GitHub was unreachable and the installed manifest is shown.
     online: bool,
+    /// The finished update to the installed build; none after a first install.
+    last_update: Option<LastUpdateInfo>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LastUpdateInfo {
+    from: String,
+    to: String,
+    /// Folder names of mods the update removed.
+    removed: Vec<String>,
 }
 
 #[derive(Serialize)]
@@ -135,11 +146,16 @@ pub enum ModRow {
         version: Option<String>,
         author: Option<String>,
         nexus_url: Option<String>,
+        /// Effective state: an installed optional mod shows the player's choice.
         enabled: bool,
+        /// The player may switch it on or off (see `set_mod_enabled`).
+        optional: bool,
         size: u64,
         /// Installed but a different version than the latest build.
         outdated: bool,
         installed: bool,
+        /// `added` / `updated` by the last update (`last_update`).
+        recent: Option<&'static str>,
     },
 }
 
@@ -182,6 +198,19 @@ pub async fn fetch_build(app: AppHandle) -> CmdResult<BuildInfo> {
         plan.download_size
     );
 
+    let last_update = installed
+        .last_update
+        .as_ref()
+        .filter(|u| installed.build_version.as_deref() == Some(u.to.as_str()));
+    let recent = |id: &String| {
+        let u = last_update.filter(|u| u.from.is_some())?;
+        if u.added.contains(id) {
+            Some("added")
+        } else {
+            u.updated.contains(id).then_some("updated")
+        }
+    };
+
     let mods = manifest
         .mods
         .iter()
@@ -196,10 +225,12 @@ pub async fn fetch_build(app: AppHandle) -> CmdResult<BuildInfo> {
                     version: m.version.clone(),
                     author: m.author.clone(),
                     nexus_url: m.nexus.as_ref().map(|n| n.url()),
-                    enabled: m.enabled,
+                    enabled: plan::is_enabled(m, &installed, &current),
+                    optional: m.optional,
                     size: m.package.size,
                     outdated: have.is_some_and(|h| h.hash != m.package.hash),
                     installed: have.is_some(),
+                    recent: recent(&m.id),
                 }
             }
         })
@@ -216,6 +247,9 @@ pub async fn fetch_build(app: AppHandle) -> CmdResult<BuildInfo> {
         changes: plan.actions.len(),
         download_size: plan.download_size,
         online,
+        last_update: last_update.and_then(|u| {
+            Some(LastUpdateInfo { from: u.from.clone()?, to: u.to.clone(), removed: u.removed.clone() })
+        }),
     })
 }
 
@@ -308,6 +342,80 @@ pub fn cancel_update(state: TauriState<'_, AppState>) {
     if let Some(flag) = state.update.lock().unwrap().as_ref() {
         flag.store(true, Ordering::Relaxed);
     }
+}
+
+/// Switches an optional build mod on or off in the player's `modlist.txt`.
+/// MO2 keeps the list in memory and writes it back on exit, so it must be closed.
+#[tauri::command]
+pub fn set_mod_enabled(state: TauriState<'_, AppState>, id: String, enabled: bool) -> CmdResult<()> {
+    if state.update.lock().unwrap().is_some() {
+        return Err("Дождитесь окончания обновления сборки".into());
+    }
+    if running_processes() != (false, false) {
+        return Err("Закройте игру и Mod Organizer 2, чтобы включать и выключать моды".into());
+    }
+    let settings = state.settings.lock().unwrap().clone();
+    let inst = Instance::new(&settings.instance_dir);
+    // The manifest the player sees: the next update applies it and keeps the choice.
+    let manifest = state
+        .manifest
+        .lock()
+        .unwrap()
+        .clone()
+        .or_else(|| installed_manifest(&inst))
+        .ok_or("Сборка не установлена")?;
+    let installed = State::load(&install::state_path(&inst)).map_err(err)?;
+    let path = inst.modlist_path(&profile(&inst));
+    let mut list = ModList::load(&path).map_err(err)?;
+    plan::set_enabled(&manifest, &installed, &mut list, &id, enabled).map_err(|e| {
+        log::warn!("set_mod_enabled {id}: {e}");
+        "Этот мод нельзя переключить: обновите сборку".to_owned()
+    })?;
+    list.save(&path).map_err(err)?;
+    log::info!("mod {id} {}", if enabled { "enabled" } else { "disabled" });
+    Ok(())
+}
+
+#[tauri::command]
+pub fn open_mod_folder(state: TauriState<'_, AppState>, id: String) -> CmdResult<()> {
+    let settings = state.settings.lock().unwrap().clone();
+    let inst = Instance::new(&settings.instance_dir);
+    let installed = State::load(&install::state_path(&inst)).map_err(err)?;
+    let folder = installed.mods.get(&id).ok_or("Мод не установлен")?;
+    open_dir(&inst.mods_dir().join(&folder.folder))
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum Folder {
+    Instance,
+    Game,
+    Saves,
+    Logs,
+}
+
+#[tauri::command]
+pub fn open_folder(app: AppHandle, folder: Folder) -> CmdResult<()> {
+    let settings = app.state::<AppState>().settings.lock().unwrap().clone();
+    let path = match folder {
+        Folder::Instance => settings.instance_dir,
+        Folder::Game => settings.game_dir.ok_or("Папка игры не указана")?,
+        // Without MO2's profile-local saves (the build keeps them off) the game
+        // writes to the usual place, shared with the unmodded game.
+        Folder::Saves => app.path().home_dir().map_err(err)?.join("Saved Games").join("CD Projekt Red").join("Cyberpunk 2077"),
+        Folder::Logs => app.path().app_log_dir().map_err(err)?,
+    };
+    open_dir(&path)
+}
+
+fn open_dir(path: &std::path::Path) -> CmdResult<()> {
+    if !path.is_dir() {
+        return Err(format!("Папка не найдена: {}", path.display()));
+    }
+    tauri_plugin_opener::open_path(path, None::<&str>).map_err(|e| {
+        log::error!("open {}: {e}", path.display());
+        format!("Не удалось открыть папку: {e}")
+    })
 }
 
 #[tauri::command]

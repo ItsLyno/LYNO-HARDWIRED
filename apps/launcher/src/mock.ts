@@ -1,7 +1,7 @@
 // Browser-only stand-in for the Tauri backend (`pnpm dev` without Tauri),
 // so screens can be built and screenshotted without Windows or MO2.
 // The data is illustrative, not the real build.
-import type { BuildInfo, GameInstall, LauncherUpdate, ModRow, Settings, Status, UpdateEvent, UpdateFinished } from "./api";
+import type { BuildInfo, Folder, GameInstall, LauncherUpdate, ModRow, Settings, Status, UpdateEvent, UpdateFinished } from "./api";
 
 const GB = 1024 ** 3;
 const MB = 1024 ** 2;
@@ -16,9 +16,11 @@ function mod(name: string, author: string, version: string, size: number, nexusI
     author,
     nexusUrl: `https://www.nexusmods.com/cyberpunk2077/mods/${nexusId}`,
     enabled: true,
+    optional: false,
     size,
     outdated: false,
     installed: true,
+    recent: null,
     ...extra,
   } as ModRow;
 }
@@ -33,12 +35,12 @@ const mods: ModRow[] = [
   mod("Codeware", "psiberx", "1.15.0", 3 * MB, 7780),
   mod("Mod Settings", "jackhumbert", "0.2.11", 1 * MB, 4885),
   { kind: "separator", title: "Графика" },
-  mod("Nova LUT", "Kvan7", "2.3", 180 * MB, 2075),
+  mod("Nova LUT", "Kvan7", "2.3", 180 * MB, 2075, { optional: true, recent: "updated" }),
   mod("Ultra Plus", "sammilucia", "5.1.2", 12 * MB, 10490),
-  mod("HD Reworked Project", "HalkHogan", "1.0", 9.4 * GB, 7652, { title: "HD Reworked Project — Ultra Quality" }),
+  mod("HD Reworked Project", "HalkHogan", "1.0", 9.4 * GB, 7652, { title: "HD Reworked Project — Ultra Quality", optional: true, enabled: false }),
   { kind: "separator", title: "Геймплей" },
   mod("Better Vehicle Handling", "Erok", "2.4", 1 * MB, 3401, { installed: false }),
-  mod("Immersive Rippers", "xBaebsae", "1.2", 4 * MB, 9330),
+  mod("Immersive Rippers", "xBaebsae", "1.2", 4 * MB, 9330, { recent: "added" }),
   mod("Never Lose Your Car", "Jelle Bakker", "1.0.3", 1 * MB, 6012, { enabled: false }),
   mod("Appearance Menu Mod", "MxOrcinus", "2.6.3", 420 * MB, 790),
 ];
@@ -84,6 +86,7 @@ let build: BuildInfo = {
   changes: 4,
   downloadSize: 28 * MB,
   online: true,
+  lastUpdate: { from: "1.3.0", to: "1.3.2", removed: ["Immersive Traffic"] },
 };
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -138,6 +141,12 @@ export const mock = {
     cancelled = true;
     status = { ...status, updating: false };
   },
+  setModEnabled: async (id: string, enabled: boolean) => {
+    if (status.gameRunning || status.mo2Running) throw new Error("Закройте игру и Mod Organizer 2, чтобы включать и выключать моды");
+    build = { ...build, mods: build.mods.map((m) => (m.kind === "mod" && m.id === id ? { ...m, enabled } : m)) };
+  },
+  openModFolder: async (_id: string) => {},
+  openFolder: async (_folder: Folder) => {},
   launchGame: async () => {},
   openMo2: async () => {},
   exportReport: async () => {

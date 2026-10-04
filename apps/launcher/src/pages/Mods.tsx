@@ -1,24 +1,36 @@
-import { ExternalLink, Search } from "lucide-react";
-import { useMemo, useState } from "react";
+import { ExternalLink, FolderOpen, Search } from "lucide-react";
+import { useState } from "react";
 import { api, type ModRow } from "../api";
 import { formatBytes, plural } from "../format";
 import { useApp } from "../store";
 
 type Mod = Extract<ModRow, { kind: "mod" }>;
 type Group = { title: string | null; mods: Mod[] };
+type Filter = "all" | "optional" | "changes";
 
 export function Mods() {
-  const { build, buildError, run } = useApp();
+  const { build, buildError, status, progress, run, setModEnabled } = useApp();
   const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState<Filter>("all");
 
-  const groups = useMemo(() => groupMods(build?.mods ?? [], query), [build, query]);
+  const isChange = (m: Mod) => !!m.recent || m.outdated || (!m.installed && !!build?.installedVersion);
+  const keep = (m: Mod) => filter === "all" || (filter === "optional" ? m.optional : isChange(m));
+  const groups = groupMods(build?.mods ?? [], query, keep);
   const all = (build?.mods ?? []).filter((m): m is Mod => m.kind === "mod");
   const shown = groups.reduce((n, g) => n + g.mods.length, 0);
   const totalSize = all.reduce((n, m) => n + m.size, 0);
+  const optionalCount = all.filter((m) => m.optional).length;
+  const changeCount = all.filter(isChange).length;
+  // MO2 rewrites modlist.txt on exit, so switching mods while it runs would be lost.
+  const locked = !!progress || !!status?.gameRunning || !!status?.mo2Running;
+  const lockReason = progress
+    ? "Дождитесь окончания обновления"
+    : "Закройте игру и Mod Organizer 2, чтобы включать и выключать моды";
 
   if (!build) {
     return <p className="text-muted">{buildError ?? "Загрузка списка модов…"}</p>;
   }
+  const last = build.lastUpdate;
 
   return (
     <div className="mx-auto flex h-full max-w-5xl flex-col">
@@ -41,14 +53,43 @@ export function Mods() {
         </label>
       </div>
 
-      <div className="mt-5 min-h-0 flex-1 overflow-y-auto rounded-lg border border-line bg-surface">
+      {(optionalCount > 0 || changeCount > 0) && (
+        <div className="mt-4 flex items-center gap-1.5">
+          <Chip active={filter === "all"} onClick={() => setFilter("all")}>
+            Все
+          </Chip>
+          {optionalCount > 0 && (
+            <Chip active={filter === "optional"} onClick={() => setFilter("optional")} count={optionalCount}>
+              Опциональные
+            </Chip>
+          )}
+          {changeCount > 0 && (
+            <Chip active={filter === "changes"} onClick={() => setFilter("changes")} count={changeCount}>
+              Изменения
+            </Chip>
+          )}
+        </div>
+      )}
+      {filter === "optional" && (
+        <p className="mt-3 text-[13px] text-muted">
+          Эти моды можно включать и выключать: выбор сохранится при обновлениях сборки. Выключенный мод остаётся
+          установленным.
+        </p>
+      )}
+      {filter === "changes" && last && last.removed.length > 0 && (
+        <p className="mt-3 text-[13px] text-muted">
+          Удалены в {last.to}: {last.removed.join(", ")}
+        </p>
+      )}
+
+      <div className="mt-4 min-h-0 flex-1 overflow-y-auto rounded-lg border border-line bg-surface">
         <table className="w-full table-fixed text-left">
           <colgroup>
             <col />
             <col className="w-48" />
             <col className="w-28" />
             <col className="w-24" />
-            <col className="w-28" />
+            <col className="w-40" />
           </colgroup>
           <thead className="sticky top-0 z-10 bg-surface text-xs text-muted">
             <tr className="h-10 border-b border-line">
@@ -74,23 +115,47 @@ export function Mods() {
                   <td className="truncate pl-5">
                     <span className={m.enabled ? "" : "text-faint"}>{m.title ?? m.name}</span>
                     {!m.enabled && <Badge>выключен</Badge>}
+                    {m.recent && last && (
+                      <Badge tone="ok" title={`В версии ${last.to}`}>
+                        {m.recent === "added" ? "добавлен" : "обновлён"}
+                      </Badge>
+                    )}
                     {m.outdated && <Badge tone="warn">обновится</Badge>}
                     {!m.installed && build.installedVersion && <Badge tone="warn">новый</Badge>}
                   </td>
                   <td className="truncate text-muted">{m.author ?? "—"}</td>
                   <td className="truncate text-[13px] text-muted tabular-nums">{m.version ?? "—"}</td>
                   <td className="pr-4 text-right text-[13px] text-muted tabular-nums">{formatBytes(m.size)}</td>
-                  <td className="pr-5 text-right">
-                    {m.nexusUrl && (
-                      <button
-                        onClick={() => run(() => api.openUrl(m.nexusUrl!))}
-                        className="inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-[13px] text-muted transition-colors hover:bg-raised hover:text-fg"
-                        title={m.nexusUrl}
-                      >
-                        Nexus
-                        <ExternalLink size={13} />
-                      </button>
-                    )}
+                  <td className="pr-5">
+                    <div className="flex items-center justify-end gap-1">
+                      {m.optional && m.installed && (
+                        <Switch
+                          checked={m.enabled}
+                          disabled={locked}
+                          title={locked ? lockReason : m.enabled ? "Выключить мод" : "Включить мод"}
+                          onChange={(v) => setModEnabled(m.id, v)}
+                        />
+                      )}
+                      {m.installed && (
+                        <button
+                          onClick={() => run(() => api.openModFolder(m.id))}
+                          className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted transition-colors hover:bg-raised hover:text-fg"
+                          title="Открыть папку мода"
+                        >
+                          <FolderOpen size={14} />
+                        </button>
+                      )}
+                      {m.nexusUrl && (
+                        <button
+                          onClick={() => run(() => api.openUrl(m.nexusUrl!))}
+                          className="inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-[13px] text-muted transition-colors hover:bg-raised hover:text-fg"
+                          title={m.nexusUrl}
+                        >
+                          Nexus
+                          <ExternalLink size={13} />
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -107,22 +172,59 @@ export function Mods() {
   );
 }
 
-function Badge({ children, tone }: { children: string; tone?: "warn" }) {
+const badgeTones = {
+  muted: "bg-raised text-muted",
+  warn: "bg-warn/10 text-warn",
+  ok: "bg-ok/10 text-ok",
+};
+
+function Badge({ children, tone = "muted", title }: { children: string; tone?: keyof typeof badgeTones; title?: string }) {
   return (
-    <span
-      className={`ml-2 rounded px-1.5 py-0.5 align-[1px] text-[11px] ${
-        tone === "warn" ? "bg-warn/10 text-warn" : "bg-raised text-muted"
-      }`}
-    >
+    <span title={title} className={`ml-2 rounded px-1.5 py-0.5 align-[1px] text-[11px] ${badgeTones[tone]}`}>
       {children}
     </span>
   );
 }
 
-function groupMods(rows: ModRow[], query: string): Group[] {
+function Chip(props: { active: boolean; onClick: () => void; count?: number; children: string }) {
+  return (
+    <button
+      onClick={props.onClick}
+      className={`h-7 rounded-md px-2.5 text-[13px] transition-colors ${
+        props.active ? "bg-raised text-fg" : "text-muted hover:bg-raised/60 hover:text-fg"
+      }`}
+    >
+      {props.children}
+      {props.count !== undefined && <span className="ml-1.5 text-faint tabular-nums">{props.count}</span>}
+    </button>
+  );
+}
+
+function Switch(props: { checked: boolean; disabled?: boolean; title: string; onChange: (v: boolean) => void }) {
+  return (
+    <button
+      role="switch"
+      aria-checked={props.checked}
+      disabled={props.disabled}
+      title={props.title}
+      onClick={() => props.onChange(!props.checked)}
+      className={`relative mr-1 inline-flex h-[18px] w-8 shrink-0 items-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+        props.checked ? "bg-ok/80" : "bg-line"
+      }`}
+    >
+      <span
+        className={`inline-block h-3.5 w-3.5 rounded-full bg-fg transition-transform ${
+          props.checked ? "translate-x-4" : "translate-x-0.5"
+        }`}
+      />
+    </button>
+  );
+}
+
+function groupMods(rows: ModRow[], query: string, keep: (m: Mod) => boolean): Group[] {
   const q = query.trim().toLowerCase();
   const matches = (m: Mod) =>
-    !q || [m.name, m.title, m.author].some((s) => s?.toLowerCase().includes(q));
+    keep(m) && (!q || [m.name, m.title, m.author].some((s) => s?.toLowerCase().includes(q)));
   const groups: Group[] = [{ title: null, mods: [] }];
   for (const r of rows) {
     if (r.kind === "separator") groups.push({ title: r.title, mods: [] });

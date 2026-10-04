@@ -23,6 +23,8 @@ pub struct ModMeta {
     pub repository: Option<String>,
     /// Manifest id of the mod, when the launcher installed it.
     pub lyno_id: Option<String>,
+    /// `[LYNO] optional=true`: the author lets players switch the mod off.
+    pub lyno_optional: bool,
 }
 
 impl ModMeta {
@@ -50,6 +52,7 @@ impl ModMeta {
         let mod_id = num(general("modid"))
             .or_else(|| num(installed.and_then(|s| s.get("1\\modid")).map(unquote)));
 
+        let lyno = |key: &str| ini.section(Some(LYNO)).and_then(|s| s.get(key)).map(unquote).filter(|v| !v.is_empty());
         Ok(Self {
             game_name: general("gameName"),
             mod_id,
@@ -57,11 +60,8 @@ impl ModMeta {
             version: general("version"),
             installation_file: general("installationFile"),
             repository: general("repository"),
-            lyno_id: ini
-                .section(Some(LYNO))
-                .and_then(|s| s.get("id"))
-                .map(unquote)
-                .filter(|v| !v.is_empty()),
+            lyno_id: lyno("id"),
+            lyno_optional: lyno("optional").is_some_and(|v| matches!(v.to_ascii_lowercase().as_str(), "true" | "1" | "yes")),
         })
     }
 
@@ -150,6 +150,16 @@ size=1
         assert_eq!(m.mod_id, None);
         assert_eq!(m.version, None);
         assert_eq!(m.file_id, None);
+        assert!(!m.lyno_optional);
+    }
+
+    #[test]
+    fn parses_optional_flag() {
+        let parse = |t: &str| ModMeta::parse(t, Path::new("meta.ini")).unwrap().lyno_optional;
+        assert!(parse("[LYNO]\nid=hd\noptional=true\n"));
+        assert!(parse("[LYNO]\noptional=1\n"));
+        assert!(!parse("[LYNO]\noptional=false\n"));
+        assert!(!parse("[General]\noptional=true\n"));
     }
 
     #[test]

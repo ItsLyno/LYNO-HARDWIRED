@@ -174,8 +174,9 @@ fn build_cmd(command: Command) -> ExitCode {
     }
     eprintln!();
     eprintln!(
-        "{} mods, {} new assets ({:.1} GB to upload), took {}",
+        "{} mods ({} optional), {} new assets ({:.1} GB to upload), took {}",
         output.manifest.mod_specs().count(),
+        output.manifest.mod_specs().filter(|m| m.optional).count(),
         output.assets.len(),
         upload as f64 / 1e9,
         elapsed(started.elapsed())

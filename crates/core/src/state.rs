@@ -18,6 +18,22 @@ pub struct State {
     pub base_files: Vec<String>,
     /// Keyed by manifest mod id.
     pub mods: BTreeMap<String, InstalledMod>,
+    /// What the latest update changed, for "added / updated in 1.4.0" marks.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_update: Option<LastUpdate>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LastUpdate {
+    /// Build version before the update; `None` for the first install.
+    pub from: Option<String>,
+    pub to: String,
+    /// Manifest ids.
+    pub added: Vec<String>,
+    pub updated: Vec<String>,
+    /// Folder names: removed mods are no longer in the manifest.
+    pub removed: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -46,6 +62,19 @@ impl State {
         std::fs::rename(&tmp, path).map_err(|e| Error::io(path, e))
     }
 
+    /// The record for an update to `version`. An interrupted update keeps its
+    /// record, so resuming it (possibly towards a newer build) adds to it
+    /// rather than forgetting the mods already done.
+    pub fn begin_update(&mut self, version: &str) -> &mut LastUpdate {
+        let unfinished = |u: &LastUpdate| u.to == version || self.build_version.as_deref() != Some(u.to.as_str());
+        if !self.last_update.as_ref().is_some_and(unfinished) {
+            self.last_update = Some(LastUpdate { from: self.build_version.clone(), ..Default::default() });
+        }
+        let u = self.last_update.as_mut().unwrap();
+        u.to = version.to_owned();
+        u
+    }
+
     pub fn is_managed_folder(&self, folder: &str) -> bool {
         self.mods.values().any(|m| m.folder == folder)
     }
@@ -66,5 +95,28 @@ mod tests {
         s.save(&p).unwrap();
         assert_eq!(State::load(&p).unwrap(), s);
         assert!(s.is_managed_folder("CET"));
+    }
+
+    #[test]
+    fn update_record_survives_interruption() {
+        let mut s = State { build_version: Some("1.0".into()), ..Default::default() };
+        s.begin_update("1.1").added.push("a".into());
+        // Interrupted before 1.1 finished, resumed towards 1.2.
+        s.begin_update("1.2").updated.push("b".into());
+        assert_eq!(
+            s.last_update,
+            Some(LastUpdate {
+                from: Some("1.0".into()),
+                to: "1.2".into(),
+                added: vec!["a".into()],
+                updated: vec!["b".into()],
+                removed: vec![]
+            })
+        );
+        // 1.2 finished; the next update starts a new record.
+        s.build_version = Some("1.2".into());
+        s.begin_update("1.3");
+        assert_eq!(s.last_update.as_ref().unwrap().from.as_deref(), Some("1.2"));
+        assert!(s.last_update.as_ref().unwrap().added.is_empty());
     }
 }

@@ -157,6 +157,7 @@ pub fn build(
             id,
             name: entry.name.clone(),
             enabled: entry.state == EntryState::Enabled,
+            optional: meta.lyno_optional,
             version: meta.version.clone(),
             author: extra.author,
             title: extra.title.filter(|t| *t != entry.name),
