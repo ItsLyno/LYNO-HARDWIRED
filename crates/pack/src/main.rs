@@ -38,9 +38,13 @@ enum Command {
         /// GitHub repository that hosts the releases.
         #[arg(long, default_value = "ItsLyno/LYNO-HARDWIRED")]
         repo: String,
-        /// Previous manifest (usually build/manifest.json): unchanged mods are not re-uploaded.
-        #[arg(long)]
+        /// Previous manifest: unchanged mods are not re-uploaded. By default the
+        /// manifest published in the repository (`build/manifest.json` on `main`).
+        #[arg(long, conflicts_with = "fresh")]
         previous: Option<PathBuf>,
+        /// Ignore the published manifest and pack and upload everything again.
+        #[arg(long)]
+        fresh: bool,
         /// Changelog line for this version; repeat for several.
         #[arg(short, long)]
         note: Vec<String>,
@@ -63,20 +67,24 @@ fn main() -> ExitCode {
         mo2_version,
         repo,
         previous,
+        fresh,
         note,
         nexus_key,
         out,
         zstd_level,
     } = Cli::parse().command;
 
-    let previous = match previous.map(|p| std::fs::read_to_string(&p).map_err(|e| format!("{}: {e}", p.display()))) {
-        Some(Ok(text)) => match Manifest::from_json(&text) {
-            Ok(m) => Some(m),
-            Err(e) => return fail(format!("previous manifest: {e}")),
-        },
-        Some(Err(e)) => return fail(e),
-        None => None,
+    let previous = match load_previous(previous, fresh, &repo) {
+        Ok(p) => p,
+        Err(e) => return fail(e),
     };
+    if previous.as_ref().is_some_and(|m| m.build_version == build_version) {
+        return fail(format!("version {build_version} is already published, pass a new --version"));
+    }
+    // Parts left from an earlier run would be uploaded again by the glob below.
+    if let Err(e) = clean_out_dir(&out) {
+        return fail(e);
+    }
 
     let mut changelog = Vec::new();
     if !note.is_empty() {
@@ -117,6 +125,20 @@ fn main() -> ExitCode {
     }
 
     let upload: u64 = output.assets.iter().map(|a| a.size).sum();
+    if !output.repacked.is_empty() {
+        eprintln!();
+        eprintln!("To upload:");
+        for r in &output.repacked {
+            let size: u64 = output
+                .assets
+                .iter()
+                .filter(|a| a.file_name.starts_with(&asset_prefix(&output.manifest, &r.name)))
+                .map(|a| a.size)
+                .sum();
+            let why = if r.changed { "changed" } else { "new" };
+            eprintln!("  {:<40} {why:<8} {:>8.1} MB", r.name, size as f64 / 1e6);
+        }
+    }
     eprintln!();
     eprintln!(
         "{} mods, {} new assets ({:.1} GB to upload)",
@@ -134,6 +156,57 @@ fn main() -> ExitCode {
     }
     eprintln!("  copy {} to build/manifest.json, commit and push to main", manifest_path.display());
     ExitCode::SUCCESS
+}
+
+const PUBLISHED_MANIFEST: &str = "build/manifest.json";
+
+/// `--previous` file, else the manifest published on `main`, else nothing
+/// (first release, or `--fresh`).
+fn load_previous(path: Option<PathBuf>, fresh: bool, repo: &str) -> Result<Option<Manifest>, String> {
+    if fresh {
+        eprintln!("note: --fresh, everything is packed and uploaded again");
+        return Ok(None);
+    }
+    let (text, source) = match path {
+        Some(p) => (std::fs::read_to_string(&p).map_err(|e| format!("{}: {e}", p.display()))?, p.display().to_string()),
+        None => {
+            let url = format!("https://raw.githubusercontent.com/{repo}/main/{PUBLISHED_MANIFEST}");
+            match ureq::get(&url).call() {
+                Ok(mut resp) => (resp.body_mut().read_to_string().map_err(|e| format!("{url}: {e}"))?, url),
+                Err(ureq::Error::StatusCode(404)) => {
+                    eprintln!("note: no published manifest yet ({url}), packing everything");
+                    return Ok(None);
+                }
+                // Never fall back to a full re-upload silently.
+                Err(e) => return Err(format!("{url}: {e} (pass --previous <file>, or --fresh to upload everything)")),
+            }
+        }
+    };
+    let m = Manifest::from_json(&text).map_err(|e| format!("previous manifest {source}: {e}"))?;
+    eprintln!("previous: build {} ({source})", m.build_version);
+    Ok(Some(m))
+}
+
+/// Removes package parts (`*.tar.zst.NNN`) and the manifest from `out`.
+fn clean_out_dir(out: &std::path::Path) -> Result<(), String> {
+    let Ok(entries) = std::fs::read_dir(out) else { return Ok(()) };
+    for entry in entries.flatten() {
+        let name = entry.file_name().to_string_lossy().into_owned();
+        let is_part = name.rsplit_once(".tar.zst.").is_some_and(|(_, n)| n.len() == 3 && n.bytes().all(|b| b.is_ascii_digit()));
+        if is_part || name == "manifest.json" {
+            std::fs::remove_file(entry.path()).map_err(|e| format!("{}: {e}", entry.path().display()))?;
+        }
+    }
+    Ok(())
+}
+
+/// Asset file names are `<package id>-<first 16 hash chars>.tar.zst.NNN`.
+fn asset_prefix(manifest: &Manifest, name: &str) -> String {
+    let (id, pkg) = manifest
+        .mod_specs()
+        .find(|m| m.name == name)
+        .map_or(("base", &manifest.base), |m| (m.id.as_str(), &m.package));
+    format!("{id}-{}.", &pkg.hash[..16])
 }
 
 fn fail(msg: impl std::fmt::Display) -> ExitCode {

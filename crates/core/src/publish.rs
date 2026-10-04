@@ -40,7 +40,17 @@ pub struct BuildOutput {
     pub manifest: Manifest,
     /// Newly written assets to upload to the release.
     pub assets: Vec<PackedPart>,
+    /// Packages that had to be repacked, with the reason.
+    pub repacked: Vec<Repacked>,
     pub warnings: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Repacked {
+    /// Mod folder name, or `base`.
+    pub name: String,
+    /// False: not in the previous manifest at all.
+    pub changed: bool,
 }
 
 pub fn build(
@@ -53,6 +63,7 @@ pub fn build(
     let list = ModList::load(&inst.modlist_path(&opts.profile))?;
     let metas = inst.scan_mods()?;
     let mut assets = Vec::new();
+    let mut repacked = Vec::new();
     let mut warnings = Vec::new();
 
     let profile = opts.profile.clone();
@@ -92,6 +103,7 @@ pub fn build(
             let files = tree::list_files_with(root, &keep_base)?;
             let (pkg, parts) = pack_one(root, &files, "base", &base_hash, opts)?;
             assets.extend(parts);
+            repacked.push(Repacked { name: "base".into(), changed: opts.previous.is_some() });
             pkg
         }
     };
@@ -128,12 +140,8 @@ pub fn build(
         log(&format!("{}: hashing", entry.name));
         let shipped = |p: &str| !rules::is_generated(p);
         let hash = tree::tree_hash_with(&folder, &|p| shipped(p) && rules::is_hashed(p))?;
-        let reused = opts
-            .previous
-            .as_ref()
-            .and_then(|m| m.mod_specs().find(|s| s.id == id))
-            .map(|s| s.package.clone())
-            .filter(|p| p.hash == hash.hash);
+        let previous = opts.previous.as_ref().and_then(|m| m.mod_specs().find(|s| s.id == id));
+        let reused = previous.map(|s| s.package.clone()).filter(|p| p.hash == hash.hash);
         let package = match reused {
             Some(p) => p,
             None => {
@@ -141,6 +149,7 @@ pub fn build(
                 let files = tree::list_files_with(&folder, &shipped)?;
                 let (pkg, parts) = pack_one(&folder, &files, &id, &hash, opts)?;
                 assets.extend(parts);
+                repacked.push(Repacked { name: entry.name.clone(), changed: previous.is_some() });
                 pkg
             }
         };
@@ -180,7 +189,7 @@ pub fn build(
         mods,
     };
     manifest.validate()?;
-    Ok(BuildOutput { manifest, assets, warnings })
+    Ok(BuildOutput { manifest, assets, repacked, warnings })
 }
 
 /// REDmod mods keep their content in `mods/<name>/` with an `info.json`.
