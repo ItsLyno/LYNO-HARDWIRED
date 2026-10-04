@@ -1,11 +1,11 @@
 {
-  "version": "0.3.0",
-  "notes": "",
-  "pub_date": "2026-10-04T19:34:57Z",
+  "version": "0.4.0",
+  "notes": "Добавлена многопоточная загрузка",
+  "pub_date": "2026-10-04T20:45:16Z",
   "platforms": {
     "windows-x86_64": {
-      "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/launcher-v0.3.0/LYNO-HARDWIRED_0.3.0_x64-setup.exe",
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUejR0VmZ4WmllZkhMczlmTTBjdFo5ZnNZMFhROWZta1hQZWs2VStmVzlXUUhBWnZlWUN6dXA4V2ZISDBINDdRZzQydHl2UkM4MldQTnR1eWFGVTBWMDR3QjFoZkVlNVE4PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkxMTQyNDk2CWZpbGU6TFlOTyBIQVJEV0lSRURfMC4zLjBfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjAuMy4wCm42d2ZmR1FqSU9sbVhKdUJTcUZDeEVZTUpqcDFidWFOd2lSRTc4YnVLdHZ3alQ0MUg4QUQrZ0ZJd3lCU0NpTmdWSitZSEFlWVRSY2FpN0FZYVd4L0FnPT0K"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUejR0VmZ4WmllZkFYbEtFNVdGclg1cERISE5IZkVoeU1jYlZvTFQrRGc3bCtFL0p5MG51c21xMTNaSUZJczQzVUJzT2x6ak0wNk9RTldyR1J1QlhrOGNwNmVna3NmM1F3PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkxMTQ2NzE1CWZpbGU6TFlOTyBIQVJEV0lSRURfMC40LjBfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjAuNC4wCkZyc0xmNWVtWkVLdjJWUGtWZm1ySGtHS29iMUNUQkdqWFJyOGdhcmF5NVo0REo1Tnc0c2J0Vmk4LzBUYlZ5ODlmMXY2VG81T1lGVmtzdVhGUFdRR0F3PT0K",
+      "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/launcher-v0.4.0/LYNO-HARDWIRED_0.4.0_x64-setup.exe"
     }
   }
 }
