@@ -153,7 +153,7 @@ pub enum ModRow {
         nexus_url: Option<String>,
         /// Effective state: an installed optional mod shows the player's choice.
         enabled: bool,
-        /// The player may switch it on or off (see `set_mod_enabled`).
+        /// The player may switch it on or off (see `set_mod_enabled`); false for core mods.
         optional: bool,
         size: u64,
         /// Installed but a different version than the latest build.
@@ -469,7 +469,7 @@ pub fn start_repair(app: AppHandle, ids: Vec<String>, base: bool, reset_settings
     start_update(app)
 }
 
-/// Switches an optional build mod on or off in the player's `modlist.txt`.
+/// Switches a non-core build mod on or off in the player's `modlist.txt`.
 /// MO2 keeps the list in memory and writes it back on exit, so it must be closed.
 #[tauri::command]
 pub fn set_mod_enabled(state: TauriState<'_, AppState>, id: String, enabled: bool) -> CmdResult<()> {

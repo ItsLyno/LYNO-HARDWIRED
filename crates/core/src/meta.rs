@@ -23,8 +23,11 @@ pub struct ModMeta {
     pub repository: Option<String>,
     /// Manifest id of the mod, when the launcher installed it.
     pub lyno_id: Option<String>,
-    /// `[LYNO] optional=true`: the author lets players switch the mod off.
+    /// `[LYNO] optional=true`: players may switch the mod off even inside a core section.
     pub lyno_optional: bool,
+    /// `[LYNO] core=true`: players can't switch the mod off. On a separator,
+    /// covers every mod below it up to the next separator.
+    pub lyno_core: bool,
     /// `[General] color`: the color the author gave a separator in MO2, as `#rrggbb`.
     pub color: Option<String>,
 }
@@ -55,6 +58,7 @@ impl ModMeta {
             .or_else(|| num(installed.and_then(|s| s.get("1\\modid")).map(unquote)));
 
         let lyno = |key: &str| ini.section(Some(LYNO)).and_then(|s| s.get(key)).map(unquote).filter(|v| !v.is_empty());
+        let flag = |key: &str| lyno(key).is_some_and(|v| matches!(v.to_ascii_lowercase().as_str(), "true" | "1" | "yes"));
         Ok(Self {
             game_name: general("gameName"),
             mod_id,
@@ -63,7 +67,8 @@ impl ModMeta {
             installation_file: general("installationFile"),
             repository: general("repository"),
             lyno_id: lyno("id"),
-            lyno_optional: lyno("optional").is_some_and(|v| matches!(v.to_ascii_lowercase().as_str(), "true" | "1" | "yes")),
+            lyno_optional: flag("optional"),
+            lyno_core: flag("core"),
             color: general("color").and_then(|v| qt_color(&v)),
         })
     }
@@ -248,12 +253,15 @@ size=1
     }
 
     #[test]
-    fn parses_optional_flag() {
-        let parse = |t: &str| ModMeta::parse(t, Path::new("meta.ini")).unwrap().lyno_optional;
-        assert!(parse("[LYNO]\nid=hd\noptional=true\n"));
-        assert!(parse("[LYNO]\noptional=1\n"));
-        assert!(!parse("[LYNO]\noptional=false\n"));
-        assert!(!parse("[General]\noptional=true\n"));
+    fn parses_optional_and_core_flags() {
+        let parse = |t: &str| ModMeta::parse(t, Path::new("meta.ini")).unwrap();
+        assert!(parse("[LYNO]\nid=hd\noptional=true\n").lyno_optional);
+        assert!(parse("[LYNO]\noptional=1\n").lyno_optional);
+        assert!(!parse("[LYNO]\noptional=false\n").lyno_optional);
+        assert!(!parse("[General]\noptional=true\n").lyno_optional);
+        assert!(parse("[LYNO]\ncore=true\n").lyno_core);
+        assert!(!parse("[LYNO]\ncore=no\n").lyno_core);
+        assert!(!parse("[LYNO]\noptional=true\n").lyno_core);
     }
 
     #[test]
