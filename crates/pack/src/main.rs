@@ -48,6 +48,10 @@ enum Command {
         /// Ignore the published manifest and pack and upload everything again.
         #[arg(long)]
         fresh: bool,
+        /// Read every file instead of trusting cached hashes of unchanged files
+        /// (`<instance>/.lyno/pack-cache.json`).
+        #[arg(long)]
+        no_cache: bool,
         /// Changelog line for this version; repeat for several.
         #[arg(short, long)]
         note: Vec<String>,
@@ -95,6 +99,7 @@ fn build_cmd(command: Command) -> ExitCode {
         repo,
         previous,
         fresh,
+        no_cache,
         note,
         nexus_key,
         out,
@@ -111,10 +116,7 @@ fn build_cmd(command: Command) -> ExitCode {
     if previous.as_ref().is_some_and(|m| m.build_version == build_version) {
         return fail(format!("version {build_version} is already published, pass a new --version"));
     }
-    // Parts left from an earlier run would be uploaded again by the glob below.
-    if let Err(e) = clean_out_dir(&out) {
-        return fail(e);
-    }
+    let started = std::time::Instant::now();
 
     let mut changelog = Vec::new();
     if !note.is_empty() {
@@ -136,6 +138,7 @@ fn build_cmd(command: Command) -> ExitCode {
         previous,
         changelog,
         pack: PackOptions { zstd_level, ..Default::default() },
+        hash_cache: !no_cache,
     };
 
     let mut nexus = Nexus::new(nexus_key);
@@ -171,10 +174,11 @@ fn build_cmd(command: Command) -> ExitCode {
     }
     eprintln!();
     eprintln!(
-        "{} mods, {} new assets ({:.1} GB to upload)",
+        "{} mods, {} new assets ({:.1} GB to upload), took {}",
         output.manifest.mod_specs().count(),
         output.assets.len(),
-        upload as f64 / 1e9
+        upload as f64 / 1e9,
+        elapsed(started.elapsed())
     );
     eprintln!();
     eprintln!("Next step: upload and push the manifest (in the repository clone, on an up-to-date main):");
@@ -211,17 +215,9 @@ fn load_previous(path: Option<PathBuf>, fresh: bool, repo: &str) -> Result<Optio
     Ok(Some(m))
 }
 
-/// Removes package parts (`*.tar.zst.NNN`) and the manifest from `out`.
-fn clean_out_dir(out: &std::path::Path) -> Result<(), String> {
-    let Ok(entries) = std::fs::read_dir(out) else { return Ok(()) };
-    for entry in entries.flatten() {
-        let name = entry.file_name().to_string_lossy().into_owned();
-        let is_part = name.rsplit_once(".tar.zst.").is_some_and(|(_, n)| n.len() == 3 && n.bytes().all(|b| b.is_ascii_digit()));
-        if is_part || name == "manifest.json" {
-            std::fs::remove_file(entry.path()).map_err(|e| format!("{}: {e}", entry.path().display()))?;
-        }
-    }
-    Ok(())
+fn elapsed(d: std::time::Duration) -> String {
+    let s = d.as_secs();
+    format!("{}:{:02}:{:02}", s / 3600, s / 60 % 60, s % 60)
 }
 
 /// Asset file names are `<package id>-<first 16 hash chars>.tar.zst.NNN`.

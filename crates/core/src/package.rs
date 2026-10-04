@@ -31,8 +31,16 @@ impl Default for PackOptions {
     }
 }
 
+/// Result of [`pack`].
+pub struct Packed {
+    pub parts: Vec<PackedPart>,
+    /// BLAKE3 of each file, in the order of `files`. Computed while packing so
+    /// every file is read once: the author's disk is the bottleneck.
+    pub file_hashes: Vec<String>,
+}
+
 /// Packs `files` (relative to `root`) into `<out_dir>/<name>.tar.zst.001`, `.002`, …
-pub fn pack(root: &Path, files: &[FileEntry], out_dir: &Path, name: &str, opts: &PackOptions) -> Result<Vec<PackedPart>> {
+pub fn pack(root: &Path, files: &[FileEntry], out_dir: &Path, name: &str, opts: &PackOptions) -> Result<Packed> {
     std::fs::create_dir_all(out_dir).map_err(|e| Error::io(out_dir, e))?;
     let writer = SplitWriter::new(out_dir, name, opts.part_size);
     let mut encoder = zstd::Encoder::new(writer, opts.zstd_level).map_err(|e| Error::io(out_dir, e))?;
@@ -41,14 +49,33 @@ pub fn pack(root: &Path, files: &[FileEntry], out_dir: &Path, name: &str, opts: 
     let _ = encoder.multithread(threads);
 
     let mut builder = tar::Builder::new(encoder);
-    builder.mode(tar::HeaderMode::Deterministic);
+    let mut file_hashes = Vec::with_capacity(files.len());
     for f in files {
         let src = tree::from_slash(root, &f.path);
-        builder.append_path_with_name(&src, &f.path).map_err(|e| Error::io(&src, e))?;
+        let file = File::open(&src).map_err(|e| Error::io(&src, e))?;
+        let meta = file.metadata().map_err(|e| Error::io(&src, e))?;
+        let mut header = tar::Header::new_gnu();
+        header.set_metadata_in_mode(&meta, tar::HeaderMode::Deterministic);
+        let mut reader = HashingReader { inner: BufReader::with_capacity(1 << 20, file), hasher: blake3::Hasher::new() };
+        builder.append_data(&mut header, &f.path, &mut reader).map_err(|e| Error::io(&src, e))?;
+        file_hashes.push(reader.hasher.finalize().to_hex().to_string());
     }
     let encoder = builder.into_inner().map_err(|e| Error::io(out_dir, e))?;
     let writer = encoder.finish().map_err(|e| Error::io(out_dir, e))?;
-    writer.finish()
+    Ok(Packed { parts: writer.finish()?, file_hashes })
+}
+
+struct HashingReader<R> {
+    inner: R,
+    hasher: blake3::Hasher,
+}
+
+impl<R: Read> Read for HashingReader<R> {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        let n = self.inner.read(buf)?;
+        self.hasher.update(&buf[..n]);
+        Ok(n)
+    }
 }
 
 /// Unpacks a package from its downloaded parts into `dest` (created fresh)
@@ -242,7 +269,11 @@ mod tests {
         let expected = tree_hash_with(src.path(), &is_hashed).unwrap();
 
         let opts = PackOptions { part_size: 64 * 1024, zstd_level: 1 };
-        let parts = pack(src.path(), &list_files(src.path()).unwrap(), out.path(), "mod-abc", &opts).unwrap();
+        let files = list_files(src.path()).unwrap();
+        let packed = pack(src.path(), &files, out.path(), "mod-abc", &opts).unwrap();
+        let streamed = crate::tree::combine(files.iter().zip(&packed.file_hashes).map(|(f, h)| (f, h.as_str())));
+        assert_eq!(streamed, tree_hash(src.path()).unwrap(), "hashes computed while packing match a separate pass");
+        let parts = packed.parts;
         assert!(parts.len() > 1, "expected a split, got {parts:?}");
         assert_eq!(parts[0].file_name, "mod-abc.tar.zst.001");
         for p in &parts {
