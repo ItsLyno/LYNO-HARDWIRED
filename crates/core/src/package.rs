@@ -41,6 +41,18 @@ pub struct Packed {
 
 /// Packs `files` (relative to `root`) into `<out_dir>/<name>.tar.zst.001`, `.002`, …
 pub fn pack(root: &Path, files: &[FileEntry], out_dir: &Path, name: &str, opts: &PackOptions) -> Result<Packed> {
+    pack_from(&|p| tree::from_slash(root, p), files, out_dir, name, opts)
+}
+
+/// Like [`pack`], reading each file from `source(path)`: a file may ship
+/// with other content than the instance holds (see `publish::stage_mo2_ini`).
+pub fn pack_from(
+    source: &dyn Fn(&str) -> PathBuf,
+    files: &[FileEntry],
+    out_dir: &Path,
+    name: &str,
+    opts: &PackOptions,
+) -> Result<Packed> {
     std::fs::create_dir_all(out_dir).map_err(|e| Error::io(out_dir, e))?;
     let writer = SplitWriter::new(out_dir, name, opts.part_size);
     let mut encoder = zstd::Encoder::new(writer, opts.zstd_level).map_err(|e| Error::io(out_dir, e))?;
@@ -51,7 +63,7 @@ pub fn pack(root: &Path, files: &[FileEntry], out_dir: &Path, name: &str, opts: 
     let mut builder = tar::Builder::new(encoder);
     let mut file_hashes = Vec::with_capacity(files.len());
     for f in files {
-        let src = tree::from_slash(root, &f.path);
+        let src = source(&f.path);
         let file = File::open(&src).map_err(|e| Error::io(&src, e))?;
         let meta = file.metadata().map_err(|e| Error::io(&src, e))?;
         let mut header = tar::Header::new_gnu();

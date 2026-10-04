@@ -84,6 +84,11 @@ author's game path to the player's (`Instance::set_game_path`). Other absolute
 paths (tools outside the game folder, custom `download_directory`/`mod_directory`)
 are not rewritten — keep them default in the build.
 
+MO2 rewrites `[Geometry]`, `[Widgets]`, `[recentDirectories]` and `[Servers]` (window
+layout, expanded separators, file dialog folders, Nexus CDN with the day last seen) on
+every run. The build ships the file without them (`mo2::strip_ui_state`, packed from a
+copy in `.lyno/pack/`), otherwise every build would repack and re-upload the base.
+
 The base package overwrites `ModOrganizer.ini` on each base update, so the player's
 own MO2 settings reset (known limitation).
 
