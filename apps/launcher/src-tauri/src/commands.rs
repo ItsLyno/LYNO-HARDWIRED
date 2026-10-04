@@ -523,6 +523,77 @@ pub fn set_mod_enabled(state: TauriState<'_, AppState>, id: String, enabled: boo
     Ok(())
 }
 
+/// A row of the player's own section (under `LYNO USER MODS`), in MO2's order.
+#[derive(Serialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum UserRow {
+    Separator { title: String },
+    #[serde(rename_all = "camelCase")]
+    Mod { name: String, enabled: bool, version: Option<String>, nexus_url: Option<String> },
+}
+
+/// The player's own mods: not in the manifest, so the build's list doesn't show them.
+#[tauri::command]
+pub fn user_mods(state: TauriState<'_, AppState>) -> CmdResult<Vec<UserRow>> {
+    let inst = Instance::new(&state.settings.lock().unwrap().instance_dir);
+    let path = inst.modlist_path(&profile(&inst));
+    if !path.is_file() {
+        return Ok(Vec::new());
+    }
+    let list = ModList::load(&path).map_err(err)?;
+    let (_, user) = lyno_core::publish::split_user_section(&list);
+    Ok(user
+        .iter()
+        .skip(1)
+        .filter(|e| e.state != EntryState::Unmanaged)
+        .map(|e| match e.separator_title() {
+            Some(title) => UserRow::Separator { title: title.to_owned() },
+            None => {
+                let meta = inst.mods_dir().join(&e.name).join("meta.ini");
+                let meta = lyno_core::meta::ModMeta::load(&meta).unwrap_or_default();
+                let game = meta.game_name.clone().unwrap_or_else(|| "cyberpunk2077".into()).to_lowercase();
+                UserRow::Mod {
+                    name: e.name.clone(),
+                    enabled: e.state == EntryState::Enabled,
+                    version: meta.version,
+                    nexus_url: meta.mod_id.map(|id| format!("https://www.nexusmods.com/{game}/mods/{id}")),
+                }
+            }
+        })
+        .collect())
+}
+
+/// Switches a mod of the player's own section on or off.
+#[tauri::command]
+pub fn set_user_mod_enabled(state: TauriState<'_, AppState>, folder: String, enabled: bool) -> CmdResult<()> {
+    if state.update.lock().unwrap().is_some() {
+        return Err("Дождитесь окончания обновления сборки".into());
+    }
+    if running_processes() != (false, false) {
+        return Err("Закройте игру и Mod Organizer 2, чтобы включать и выключать моды".into());
+    }
+    let inst = Instance::new(&state.settings.lock().unwrap().instance_dir);
+    let path = inst.modlist_path(&profile(&inst));
+    let mut list = ModList::load(&path).map_err(err)?;
+    let at = list.entries.iter().position(|e| e.separator_title() == Some(plan::USER_SEPARATOR));
+    let entry = at
+        .and_then(|at| list.entries[at..].iter_mut().find(|e| e.name == folder && !e.is_separator()))
+        .ok_or("Это не ваш мод: моды сборки включаются в её списке")?;
+    entry.state = if enabled { EntryState::Enabled } else { EntryState::Disabled };
+    list.save(&path).map_err(err)?;
+    log::info!("user mod {folder:?} {}", if enabled { "enabled" } else { "disabled" });
+    Ok(())
+}
+
+#[tauri::command]
+pub fn open_user_mod_folder(state: TauriState<'_, AppState>, folder: String) -> CmdResult<()> {
+    if folder.contains(['/', '\\']) || folder == ".." {
+        return Err("Непонятная папка".into());
+    }
+    let inst = Instance::new(&state.settings.lock().unwrap().instance_dir);
+    open_dir(&inst.mods_dir().join(folder))
+}
+
 #[tauri::command]
 pub fn open_mod_folder(state: TauriState<'_, AppState>, id: String) -> CmdResult<()> {
     let settings = state.settings.lock().unwrap().clone();
@@ -539,6 +610,8 @@ pub enum Folder {
     Game,
     Saves,
     Logs,
+    /// MO2's downloads: archives from Nexus and the ones dropped on the launcher.
+    Downloads,
 }
 
 #[tauri::command]
@@ -551,6 +624,11 @@ pub fn open_folder(app: AppHandle, folder: Folder) -> CmdResult<()> {
         // writes to the usual place, shared with the unmodded game.
         Folder::Saves => app.path().home_dir().map_err(err)?.join("Saved Games").join("CD Projekt Red").join("Cyberpunk 2077"),
         Folder::Logs => app.path().app_log_dir().map_err(err)?,
+        Folder::Downloads => {
+            let dir = Instance::new(&settings.instance_dir).downloads_dir();
+            std::fs::create_dir_all(&dir).map_err(|e| format!("{}: {e}", dir.display()))?;
+            dir
+        }
     };
     open_dir(&path)
 }

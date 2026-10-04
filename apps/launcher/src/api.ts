@@ -1,6 +1,7 @@
 import { getVersion } from "@tauri-apps/api/app";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { openUrl as tauriOpenUrl } from "@tauri-apps/plugin-opener";
 import { mock } from "./mock";
 
@@ -64,7 +65,7 @@ export interface LastUpdate {
   removed: string[];
 }
 
-export type Folder = "instance" | "game" | "saves" | "logs";
+export type Folder = "instance" | "game" | "saves" | "logs" | "downloads";
 
 export interface BuildInfo {
   name: string;
@@ -228,9 +229,12 @@ export interface ModUpdateRow {
   pageUrl: string;
 }
 
+/** Requests left on the Nexus account: a daily allowance, then an hourly one once it is spent. */
 export interface RateLimit {
   daily: number | null;
   hourly: number | null;
+  dailyLimit: number | null;
+  hourlyLimit: number | null;
 }
 
 export interface UpdatesView {
@@ -246,10 +250,11 @@ export type Mo2Reason = "fomod" | "format" | "layout";
 
 export type Outcome =
   | { kind: "installed"; folder: string }
-  /** Left in MO2's downloads for the player to install there. */
+  /** Not an archive the launcher reads: left in MO2's downloads. */
   | { kind: "mo2"; reason: Mo2Reason }
-  | { kind: "mo2Open" }
-  /** A FOMOD installer: the job waits in "choosing". */
+  /** The rest park the job ("waitingMo2", "choosingRoot", "choosing") and never show as done. */
+  | { kind: "deferred" }
+  | { kind: "manual" }
   | { kind: "fomod" };
 
 export type JobState =
@@ -257,7 +262,11 @@ export type JobState =
   | { kind: "downloading"; done: number; total: number }
   | { kind: "retry"; attempt: number; delaySecs: number; error: string }
   | { kind: "waiting" }
+  /** MO2 or the game is running: installs by itself once they close. */
+  | { kind: "waitingMo2" }
   | { kind: "installing" }
+  /** No rule recognizes the archive: the player picks the mod's folder (`installRoots`). */
+  | { kind: "choosingRoot" }
   /** A FOMOD installer waits for the player's choice (`nexusFomod`). */
   | { kind: "choosing" }
   | { kind: "done"; outcome: Outcome }
@@ -266,6 +275,8 @@ export type JobState =
 
 export interface NexusJob {
   id: number;
+  /** "file": an archive from MO2's downloads or dropped from Explorer. */
+  source: "nexus" | "file";
   game: string;
   modId: number;
   fileId: number;
@@ -276,6 +287,34 @@ export interface NexusJob {
   replaces: string | null;
   state: JobState;
 }
+
+/** An archive in MO2's downloads. */
+export interface DownloadItem {
+  fileName: string;
+  size: number;
+  /** Unix seconds. */
+  modified: number;
+  modName: string;
+  fileTitle: string | null;
+  version: string | null;
+  modId: number;
+  fileId: number;
+  installed: boolean;
+}
+
+/** A folder of an archive the player may pick as the mod. */
+export interface ArchiveRoot {
+  /** "" for the archive itself, else "Folder/Sub/". */
+  path: string;
+  files: number;
+  /** Has a game data folder (archive, bin, r6, red4ext…) or loose .archive files at its top. */
+  valid: boolean;
+}
+
+/** The player's own section of the list (under LYNO USER MODS), in MO2's order. */
+export type UserRow =
+  | { kind: "separator"; title: string }
+  | { kind: "mod"; name: string; enabled: boolean; version: string | null; nexusUrl: string | null };
 
 export type GroupKind = "exactlyOne" | "atMostOne" | "atLeastOne" | "all" | "any";
 export type PluginKind = "required" | "optional" | "recommended" | "notUsable" | "couldBeUsable";
@@ -321,6 +360,14 @@ export interface NexusHandlers {
   changed: () => void;
   /** An nxm link arrived. */
   link: () => void;
+  /** Nexus answered: requests left. */
+  limits: (l: RateLimit) => void;
+}
+
+export interface FileDropHandlers {
+  over: (at: { x: number; y: number }) => void;
+  drop: (paths: string[], at: { x: number; y: number }) => void;
+  leave: () => void;
 }
 
 export interface LauncherUpdate {
@@ -386,6 +433,24 @@ export const api = isTauri()
       nexusClearJobs: () => invoke<void>("nexus_clear_jobs"),
       /** Premium only: downloads the file without a visit to the site. */
       nexusDownload: (game: string, modId: number, fileId: number) => invoke<number>("nexus_download", { game, modId, fileId }),
+      nexusLimits: () => invoke<RateLimit | null>("nexus_limits"),
+      downloadsRecent: () => invoke<DownloadItem[]>("downloads_recent"),
+      /** A file name in MO2's downloads or an absolute path; `after`: the list entry it was dropped below. */
+      installArchive: (file: string, after: string | null) => invoke<number>("install_archive", { file, after }),
+      installRoots: (id: number) => invoke<ArchiveRoot[]>("install_roots", { id }),
+      installSetRoot: (id: number, root: string) => invoke<void>("install_set_root", { id, root }),
+      userMods: () => invoke<UserRow[]>("user_mods"),
+      setUserModEnabled: (folder: string, enabled: boolean) => invoke<void>("set_user_mod_enabled", { folder, enabled }),
+      openUserModFolder: (folder: string) => invoke<void>("open_user_mod_folder", { folder }),
+      /** Archives dropped on the window from Explorer, with the drop point in CSS pixels. */
+      onFileDrop: (handlers: FileDropHandlers): Promise<UnlistenFn> =>
+        getCurrentWebview().onDragDropEvent((e) => {
+          const p = e.payload;
+          const at = (pos: { x: number; y: number }) => ({ x: pos.x / window.devicePixelRatio, y: pos.y / window.devicePixelRatio });
+          if (p.type === "over") handlers.over(at(p.position));
+          else if (p.type === "drop") handlers.drop(p.paths, at(p.position));
+          else if (p.type === "leave") handlers.leave();
+        }),
       nexusFomod: (id: number) => invoke<FomodWizard>("nexus_fomod", { id }),
       nexusFomodEval: (id: number, selection: FomodSelection) => invoke<FomodState>("nexus_fomod_eval", { id, selection }),
       /** Queues the install of the choice; the job reports the outcome. */
@@ -396,6 +461,7 @@ export const api = isTauri()
           listen<{ done: number; total: number }>("nexus-check", (e) => handlers.check(e.payload)),
           listen("nexus-changed", () => handlers.changed()),
           listen("nexus-link", () => handlers.link()),
+          listen<RateLimit>("nexus-limits", (e) => handlers.limits(e.payload)),
         ]).then((fns) => () => fns.forEach((f) => f())),
       onUpdate: (
         progress: (e: UpdateEvent) => void,

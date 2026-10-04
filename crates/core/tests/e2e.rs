@@ -989,8 +989,12 @@ fn nexus_updates_are_tracked_and_installed_from_nxm_links() {
 
     // With MO2 open the archive only goes to its downloads.
     let open = Context { mo2_running: true, ..player };
-    let (_, outcome) = fetch_and_install(&api, &downloader, &open, &link, &never, &mut |_| {}).unwrap().unwrap();
-    assert_eq!(outcome, Outcome::Mo2Open);
+    let (dl, outcome) = fetch_and_install(&api, &downloader, &open, &link, &never, &mut |_| {}).unwrap().unwrap();
+    let Outcome::Deferred { archive, target } = outcome else { panic!("{outcome:?}") };
+    assert_eq!(archive, root.join("downloads/mod-11.zip"));
+    // Once MO2 is closed the waiting archive installs like any other.
+    let outcome = lyno_core::mod_install::install(&user, "LYNO", &archive, &dl, &target).unwrap();
+    assert_eq!(outcome, Outcome::Installed { folder: "Old Mod".into() });
 }
 
 #[test]

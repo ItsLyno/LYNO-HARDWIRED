@@ -170,22 +170,17 @@ function Handler() {
   );
 }
 
-const mo2Reasons: Record<string, string> = {
-  fomod: "лаунчер не смог прочитать установщик FOMOD в архиве",
-  format: "архив RAR или другой формат, который лаунчер не распаковывает",
-  layout: "лаунчер не узнал структуру архива",
-};
 
 function outcomeText(o: Outcome): string {
   switch (o.kind) {
     case "installed":
       return `Установлен: «${o.folder}»`;
     case "mo2":
-      return `Лежит в загрузках MO2: ${mo2Reasons[o.reason]}. Установите его в MO2 на вкладке «Загрузки».`;
-    case "mo2Open":
-      return "MO2 открыт, поэтому архив лежит в его загрузках: установите его там.";
+      return "Это не архив zip, 7z или rar: файл оставлен в папке загрузок.";
+    case "deferred":
+    case "manual":
     case "fomod":
-      return "Ждёт выбора вариантов установки";
+      return "Ждёт установки";
   }
 }
 
@@ -222,7 +217,7 @@ function Jobs({ jobs }: { jobs: NexusJob[] }) {
 }
 
 function JobRow({ job }: { job: NexusJob }) {
-  const { run, setFomodJob } = useApp();
+  const { run, setFomodJob, setRootJob } = useApp();
   const s = job.state;
   const title = job.title ?? (job.modId ? `Мод ${job.modId}` : "Ссылка nxm://");
   const pct = s.kind === "downloading" && s.total > 0 ? (s.done / s.total) * 100 : null;
@@ -245,6 +240,12 @@ function JobRow({ job }: { job: NexusJob }) {
       break;
     case "choosing":
       line = <span className="text-warn">В архиве установщик с вариантами: выберите, что ставить</span>;
+      break;
+    case "choosingRoot":
+      line = <span className="text-warn">Лаунчер не узнал структуру архива: укажите папку мода</span>;
+      break;
+    case "waitingMo2":
+      line = "Поставится сам, когда закроются Mod Organizer 2 и игра: MO2 перезаписывает список модов при выходе";
       break;
     case "done":
       line = <span className={s.outcome.kind === "installed" ? "text-ok" : "text-warn"}>{outcomeText(s.outcome)}</span>;
@@ -274,9 +275,14 @@ function JobRow({ job }: { job: NexusJob }) {
             Выбрать варианты
           </Button>
         )}
+        {s.kind === "choosingRoot" && (
+          <Button variant="primary" className="h-8 text-[13px]" onClick={() => setRootJob(job.id)}>
+            Выбрать папку
+          </Button>
+        )}
         {showMo2 && (
-          <Button className="h-8 text-[13px]" onClick={() => run(api.openMo2)}>
-            Открыть MO2
+          <Button className="h-8 text-[13px]" onClick={() => run(() => api.openFolder("downloads"))}>
+            Папка загрузок
           </Button>
         )}
         {isJobActive(job) && (
@@ -423,7 +429,6 @@ function Updates() {
             Без страницы Nexus в meta.ini: {view.untracked.length} {plural(view.untracked.length, "мод", "мода", "модов")} — их версии не отслеживаются
           </span>
         )}
-        {view.rateLimit?.daily != null && <span className="ml-auto font-mono tabular-nums">Запросов к API осталось: {view.rateLimit.daily}</span>}
       </div>
     </Section>
   );

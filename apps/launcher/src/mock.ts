@@ -26,6 +26,11 @@ import type {
   FomodSelection,
   FomodState,
   FomodWizard,
+  ArchiveRoot,
+  DownloadItem,
+  RateLimit,
+  UserRow,
+  FileDropHandlers,
 } from "./api";
 
 const GB = 1024 ** 3;
@@ -314,10 +319,57 @@ function updatesView(): UpdatesView {
     }),
     tracked("Photo Mode Unlocker", 2711, "1.0", { personal: true, managed: false, canUpdate: true }),
   ];
-  return { mods, untracked: ["LYNO Settings", "My Test Weapon"], checkedAt: checked ? Date.now() / 1000 - 3600 : null, rateLimit: { daily: 19840, hourly: 500 } };
+  return { mods, untracked: ["LYNO Settings", "My Test Weapon"], checkedAt: checked ? Date.now() / 1000 - 3600 : null, rateLimit: limits };
 }
 
 let jobs: NexusJob[] = [];
+let limits: RateLimit = { daily: 19840, hourly: 500, dailyLimit: 20000, hourlyLimit: 500 };
+const now = () => Math.floor(Date.now() / 1000);
+let downloads: DownloadItem[] = [
+  { fileName: "Better Lightning-15520-3-2-1735000000.7z", size: 12 * MB, modified: now() - 600, modName: "Better Lightning", fileTitle: "Main File", version: "3.2", modId: 15520, fileId: 96000, installed: true },
+  { fileName: "Photo Mode Unlocker-2711-1-1-1734000000.zip", size: 2 * MB, modified: now() - 7200, modName: "Photo Mode Unlocker", fileTitle: "Main", version: "1.1", modId: 2711, fileId: 95000, installed: false },
+  { fileName: "Weird Layout Pack.rar", size: 40 * MB, modified: now() - 90000, modName: "Weird Layout Pack", fileTitle: null, version: null, modId: 0, fileId: 0, installed: false },
+];
+let userMods: UserRow[] = [
+  { kind: "mod", name: "Better Lightning", enabled: true, version: "3.1", nexusUrl: "https://www.nexusmods.com/cyberpunk2077/mods/15520" },
+  { kind: "mod", name: "Photo Mode Unlocker", enabled: false, version: "1.0", nexusUrl: "https://www.nexusmods.com/cyberpunk2077/mods/2711" },
+];
+const mockRoots: ArchiveRoot[] = [
+  { path: "", files: 6, valid: false },
+  { path: "Pack/", files: 6, valid: false },
+  { path: "Pack/Option A/", files: 3, valid: true },
+  { path: "Pack/Option A/archive/", files: 3, valid: false },
+  { path: "Pack/Option B/", files: 3, valid: true },
+];
+
+function emitJob(id: number, patch: Partial<NexusJob>) {
+  jobs = jobs.map((j) => (j.id === id ? { ...j, ...patch } : j));
+  const job = jobs.find((j) => j.id === id);
+  if (job) nexusHandlers?.job(job);
+}
+
+/** Installs a mock archive: an odd layout asks for the folder first. */
+async function simulateInstall(id: number, file: string, after: string | null) {
+  const name = file.replace(/\.(zip|7z|rar)$/i, "").replace(/-\d+-.*$/, "").split(/[\\/]/).pop() ?? file;
+  await delay(300);
+  if (file.endsWith(".rar") && !jobs.find((j) => j.id === id)?.state.kind.startsWith("installing")) {
+    emitJob(id, { state: { kind: "choosingRoot" } });
+    return;
+  }
+  emitJob(id, { state: { kind: "installing" } });
+  await delay(600);
+  const row: UserRow = { kind: "mod", name, enabled: true, version: null, nexusUrl: null };
+  const at = after === null ? -1 : userMods.findIndex((r) => (r.kind === "mod" ? r.name : `${r.title}_separator`) === after);
+  userMods = userMods.filter((r) => r.kind !== "mod" || r.name !== name);
+  if (after === "LYNO USER MODS_separator") userMods = [row, ...userMods];
+  else if (at < 0) userMods = [...userMods, row];
+  else userMods = [...userMods.slice(0, at + 1), row, ...userMods.slice(at + 1)];
+  downloads = downloads.map((d) => (d.fileName === file ? { ...d, installed: true } : d));
+  emitJob(id, { state: { kind: "done", outcome: { kind: "installed", folder: name } } });
+  limits = { ...limits, daily: (limits.daily ?? 0) - 2 };
+  nexusHandlers?.limits(limits);
+  nexusHandlers?.changed();
+}
 let nexusHandlers: NexusHandlers | null = null;
 let jobSeq = 0;
 
@@ -567,13 +619,49 @@ export const mock = {
   },
   nexusDownload: async (game: string, modId: number, fileId: number) => {
     if (!nexus.account?.premium) throw new Error("Без Premium Nexus отдаёт файлы только по кнопке «Mod Manager Download» на сайте");
-    const job: NexusJob = { id: ++jobSeq, game, modId, fileId, title: null, fileTitle: null, version: null, replaces: null, state: { kind: "queued" } };
+    const job: NexusJob = { id: ++jobSeq, source: "nexus", game, modId, fileId, title: null, fileTitle: null, version: null, replaces: null, state: { kind: "queued" } };
     jobs = [...jobs, job];
     nexusHandlers?.job(job);
     // Every second download carries a FOMOD installer.
     void simulateDownload(job, jobSeq % 2 === 0);
     return job.id;
   },
+  nexusLimits: async () => (nexus.account ? limits : null),
+  downloadsRecent: async () => downloads,
+  installArchive: async (file: string, after: string | null) => {
+    const job: NexusJob = {
+      id: ++jobSeq,
+      source: "file",
+      game: "",
+      modId: 0,
+      fileId: 0,
+      title: file.split(/[\\/]/).pop() ?? file,
+      fileTitle: null,
+      version: null,
+      replaces: null,
+      state: { kind: "queued" },
+    };
+    jobs = [...jobs, job];
+    nexusHandlers?.job(job);
+    void simulateInstall(job.id, file, after);
+    return job.id;
+  },
+  installRoots: async (_id: number) => {
+    await delay(200);
+    return mockRoots;
+  },
+  installSetRoot: async (id: number, _root: string) => {
+    const job = jobs.find((j) => j.id === id);
+    emitJob(id, { state: { kind: "installing" } });
+    void simulateInstall(id, (job?.title ?? "mod").replace(/\.rar$/, ".zip"), null);
+  },
+  userMods: async () => userMods,
+  setUserModEnabled: async (folder: string, enabled: boolean) => {
+    userMods = userMods.map((r) => (r.kind === "mod" && r.name === folder ? { ...r, enabled } : r));
+  },
+  openUserModFolder: async (_folder: string) => {},
+  // No Explorer in a browser.
+  onFileDrop: async (_h: FileDropHandlers) => () => {},
   nexusFomod: async (_id: number): Promise<FomodWizard> => {
     await delay(300);
     const previous: FomodSelection = [[[1]], [[0], []]];

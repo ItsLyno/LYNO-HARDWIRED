@@ -2,13 +2,17 @@
 //! MO2 would: the files into `mods/<name>/`, the Nexus record into its
 //! `meta.ini`, the folder into `modlist.txt`, and the archive into MO2's
 //! `downloads/` with a `.meta` next to it, so MO2 shows it in its Downloads
-//! tab and can reinstall it. Archives the launcher can't install
-//! ([`archive::Layout::Mo2`]) only get the last step: the player installs
-//! them in MO2, which reads RAR.
+//! tab and can reinstall it.
 //!
-//! A FOMOD installer stops halfway: the archive goes to `downloads/` and
-//! [`Outcome::Fomod`] asks the player to choose ([`open_fomod`]), then
-//! [`install_fomod`] installs the choice like any other archive.
+//! What MO2 asks the player, the install asks too and stops halfway, the
+//! archive waiting in `downloads/`: a FOMOD installer ([`Outcome::Fomod`],
+//! [`open_fomod`], [`install_fomod`]) or a layout no rule recognizes
+//! ([`Outcome::Manual`], [`install_root`], MO2's manual installer). With MO2
+//! or the game running the install waits for them to close
+//! ([`Outcome::Deferred`]).
+//!
+//! An archive the player brings from disk ([`Download::from_file`]) is
+//! installed from where it is: it is theirs, not MO2's download.
 //!
 //! MO2 keeps `modlist.txt` in memory and writes it back on exit, so the
 //! caller makes sure MO2 is closed before [`install`].
@@ -44,7 +48,44 @@ pub struct Download {
     pub version: Option<String>,
     /// Archive name.
     pub file_name: String,
+    /// An archive from the player's disk: installed from where it lies,
+    /// never moved into `downloads/`.
+    pub local: bool,
 }
+
+impl Download {
+    /// An archive from disk. Nexus names its files `Name-modid-version-timestamp`;
+    /// like MO2, the mod page and version are taken from such a name.
+    pub fn from_file(path: &Path) -> Self {
+        let file_name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+        let stem = path.file_stem().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+        let parts: Vec<&str> = stem.split('-').collect();
+        let digits = |s: &str| !s.is_empty() && s.bytes().all(|b| b.is_ascii_digit());
+        let nexus = (parts.len() >= 4 && digits(parts[parts.len() - 1]) && parts[parts.len() - 1].len() >= 9)
+            .then(|| (1..parts.len() - 2).find(|&i| digits(parts[i])))
+            .flatten();
+        let (mod_name, mod_id, version) = match nexus {
+            Some(i) => (
+                parts[..i].join("-").trim().to_owned(),
+                parts[i].parse().unwrap_or(0),
+                Some(parts[i + 1..parts.len() - 1].join(".")).filter(|v| !v.is_empty()),
+            ),
+            None => (stem.trim().to_owned(), 0, None),
+        };
+        Self {
+            game: if mod_id != 0 { DEFAULT_GAME.into() } else { String::new() },
+            mod_id,
+            file_id: 0,
+            mod_name,
+            file_title: String::new(),
+            version,
+            file_name,
+            local: true,
+        }
+    }
+}
+
+const DEFAULT_GAME: &str = "cyberpunk2077";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Target {
@@ -52,8 +93,10 @@ pub enum Target {
     /// state in `modlist.txt` and the rest of its `meta.ini` (`[LYNO] id`).
     Replace(String),
     /// A new folder. `personal`: under `LYNO USER MODS`; otherwise at the end
-    /// of the build section (the author's next release).
-    New { personal: bool },
+    /// of the build section (the author's next release). `after`: right
+    /// after this entry of the list (dropped there), within the player's
+    /// section for a personal mod.
+    New { personal: bool, after: Option<String> },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
@@ -62,9 +105,23 @@ pub enum Outcome {
     Installed { folder: String },
     /// In MO2's downloads: the player installs it there.
     Mo2 { reason: archive::Mo2Reason },
-    /// MO2 is open and would overwrite `modlist.txt` on exit: the archive is
-    /// in its downloads instead, for the player to install there.
-    Mo2Open,
+    /// MO2 or the game is running, and MO2 would overwrite `modlist.txt` on
+    /// exit: the archive waits in its downloads, the install follows once
+    /// they close.
+    Deferred {
+        #[serde(skip)]
+        archive: PathBuf,
+        #[serde(skip)]
+        target: Target,
+    },
+    /// No rule recognizes the layout: the player picks the folder that is
+    /// the mod ([`archive::roots`]).
+    Manual {
+        #[serde(skip)]
+        archive: PathBuf,
+        #[serde(skip)]
+        target: Target,
+    },
     /// A FOMOD installer: the archive is in MO2's downloads and waits for the
     /// player's choice.
     Fomod {
@@ -134,7 +191,7 @@ pub fn fetch_and_install(
     }
     let target = match replaces {
         Some(t) => Target::Replace(t.folder.clone()),
-        None => Target::New { personal: !ctx.author },
+        None => Target::New { personal: !ctx.author, after: None },
     };
     let dl = Download {
         game: link.game.clone(),
@@ -144,6 +201,7 @@ pub fn fetch_and_install(
         file_title: file.name.clone(),
         version: file.version.clone().or(page.version.clone()),
         file_name: file.file_name.clone(),
+        local: false,
     };
     on(Progress::Resolved {
         mod_name: dl.mod_name.clone(),
@@ -164,8 +222,8 @@ pub fn fetch_and_install(
 
     on(Progress::Installing);
     let outcome = if ctx.mo2_running {
-        to_downloads(ctx.inst, &scratch, &dl, false)?;
-        Outcome::Mo2Open
+        let archive = to_downloads(ctx.inst, &scratch, &dl, false)?;
+        Outcome::Deferred { archive, target }
     } else {
         install(ctx.inst, ctx.profile, &scratch, &dl, &target)?
     };
@@ -200,30 +258,61 @@ fn free_folder(mods: &Path, name: &str) -> String {
     candidate
 }
 
-/// Installs `archive` (downloaded to a scratch place) for `target`, then
-/// moves it into `downloads/`.
+/// Installs `archive` (downloaded to a scratch place, in `downloads/` or
+/// the player's own) for `target`; a Nexus download ends in `downloads/`.
 pub fn install(inst: &Instance, profile: &str, archive_path: &Path, dl: &Download, target: &Target) -> Result<Outcome> {
     let kind = archive::kind(archive_path)?;
     let layout = match kind {
-        Kind::Zip | Kind::SevenZip => archive::layout(&archive::entries(archive_path, kind)?),
-        Kind::Rar | Kind::Unknown => Layout::Mo2(archive::Mo2Reason::Format),
+        Kind::Zip | Kind::SevenZip | Kind::Rar => archive::layout(&archive::entries(archive_path, kind)?),
+        Kind::Unknown => Layout::Mo2(archive::Mo2Reason::Format),
     };
     let files = match layout {
         Layout::Files(files) => files,
         Layout::Fomod { .. } => {
-            let archive = to_downloads(inst, archive_path, dl, false)?;
-            // An installer the launcher can't read is still one MO2 may.
+            let archive = keep(inst, archive_path, dl, false)?;
+            // An installer the launcher can't read: the player picks the files like in MO2's manual installer.
             return Ok(match open_fomod(inst, &archive, target) {
                 Ok(_) => Outcome::Fomod { archive, target: target.clone() },
-                Err(_) => Outcome::Mo2 { reason: archive::Mo2Reason::Fomod },
+                Err(_) => Outcome::Manual { archive, target: target.clone() },
             });
         }
-        Layout::Mo2(reason) => {
-            to_downloads(inst, archive_path, dl, false)?;
-            return Ok(Outcome::Mo2 { reason });
+        Layout::Mo2(archive::Mo2Reason::Format) => {
+            keep(inst, archive_path, dl, false)?;
+            return Ok(Outcome::Mo2 { reason: archive::Mo2Reason::Format });
+        }
+        Layout::Mo2(_) => {
+            let archive = keep(inst, archive_path, dl, false)?;
+            return Ok(Outcome::Manual { archive, target: target.clone() });
         }
     };
     place(inst, profile, archive_path, kind, &files, dl, target, None)
+}
+
+/// Folders of an archive waiting in [`Outcome::Manual`].
+pub fn roots(archive_path: &Path) -> Result<Vec<archive::Root>> {
+    let kind = archive::kind(archive_path)?;
+    Ok(archive::roots(&archive::entries(archive_path, kind)?))
+}
+
+/// Installs the folder `root` of the archive as the mod (MO2's manual
+/// installer, "set data directory").
+pub fn install_root(inst: &Instance, profile: &str, archive_path: &Path, dl: &Download, target: &Target, root: &str) -> Result<Outcome> {
+    let kind = archive::kind(archive_path)?;
+    let files = archive::map_under(&archive::entries(archive_path, kind)?, root);
+    if files.is_empty() {
+        return Err(Error::Fomod(format!("nothing to install under {root:?}")));
+    }
+    place(inst, profile, archive_path, kind, &files, dl, target, None)
+}
+
+/// Where the archive stays: a Nexus download goes to MO2's `downloads/`
+/// with its `.meta`, the player's own file is left alone.
+fn keep(inst: &Instance, archive_path: &Path, dl: &Download, installed: bool) -> Result<PathBuf> {
+    if dl.local {
+        Ok(archive_path.to_owned())
+    } else {
+        to_downloads(inst, archive_path, dl, installed)
+    }
 }
 
 /// Unpacks `files` of the archive into the target folder, records the mod in
@@ -257,13 +346,15 @@ fn place(
     if matches!(target, Target::Replace(_)) && old_meta.is_file() {
         std::fs::copy(&old_meta, &meta_path).map_err(|e| Error::io(&old_meta, e))?;
     }
+    // An archive from disk with no Nexus name records only itself.
+    let nexus = dl.mod_id != 0;
     let meta = ModMeta {
-        game_name: Some(dl.game.clone()),
-        mod_id: Some(dl.mod_id),
-        file_id: Some(dl.file_id),
+        game_name: nexus.then(|| dl.game.clone()),
+        mod_id: nexus.then_some(dl.mod_id),
+        file_id: (dl.file_id != 0).then_some(dl.file_id),
         version: dl.version.clone(),
         installation_file: Some(dl.file_name.clone()),
-        repository: Some("Nexus".into()),
+        repository: nexus.then(|| "Nexus".into()),
         ..Default::default()
     };
     meta.save(&meta_path)?;
@@ -273,14 +364,17 @@ fn place(
     let list_path = inst.modlist_path(profile);
     let mut list = if list_path.is_file() { ModList::load(&list_path)? } else { ModList::default() };
     if list.get(&folder).is_none() {
-        let personal = !matches!(target, Target::New { personal: false });
-        insert(&mut list, Entry::enabled(&folder), personal);
+        let (personal, after) = match target {
+            Target::New { personal, after } => (*personal, after.as_deref()),
+            Target::Replace(_) => (true, None),
+        };
+        insert(&mut list, Entry::enabled(&folder), personal, after);
         if let Some(dir) = list_path.parent() {
             std::fs::create_dir_all(dir).map_err(|e| Error::io(dir, e))?;
         }
         list.save(&list_path)?;
     }
-    to_downloads(inst, archive_path, dl, true)?;
+    keep(inst, archive_path, dl, true)?;
     Ok(Outcome::Installed { folder })
 }
 
@@ -449,9 +543,21 @@ pub fn install_fomod(inst: &Instance, profile: &str, fomod: &Fomod, dl: &Downloa
 
 /// A new mod of the player goes to the very bottom (highest priority, like
 /// MO2 does), under `LYNO USER MODS`; one of the author's build to the end
-/// of the build section.
-fn insert(list: &mut ModList, entry: Entry, personal: bool) {
+/// of the build section. Dropped on the list (`after`), it goes there, but a
+/// player's mod never above their separator: the build section is the build's.
+fn insert(list: &mut ModList, entry: Entry, personal: bool, after: Option<&str>) {
     let user = list.entries.iter().position(|e| e.separator_title() == Some(USER_SEPARATOR));
+    if let Some(at) = after.and_then(|a| list.entries.iter().position(|e| e.name == a)) {
+        match user {
+            Some(sep) if personal && at < sep => list.entries.insert(sep + 1, entry),
+            None if personal => {
+                list.entries.push(Entry::separator(USER_SEPARATOR));
+                list.entries.push(entry);
+            }
+            _ => list.entries.insert(at + 1, entry),
+        }
+        return;
+    }
     match (personal, user) {
         (true, Some(_)) => list.entries.push(entry),
         (true, None) => {
@@ -481,6 +587,29 @@ pub fn to_downloads(inst: &Instance, archive_path: &Path, dl: &Download, install
         }
     }
     let meta = dir.join(format!("{name}.meta"));
+    // MO2's own `.meta` of the same file has more (url, category): keep it, flip the flag.
+    if dest == archive_path && meta.is_file() {
+        let old = std::fs::read_to_string(&meta).map_err(|e| Error::io(&meta, e))?;
+        let flag = format!("installed={installed}");
+        let mut found = false;
+        let mut lines: Vec<String> = old
+            .lines()
+            .map(|l| {
+                if l.trim_start().starts_with("installed=") {
+                    found = true;
+                    flag.clone()
+                } else {
+                    l.to_owned()
+                }
+            })
+            .collect();
+        if !found {
+            let at = lines.iter().position(|l| l.trim() == "[General]").map_or(lines.len(), |i| i + 1);
+            lines.insert(at, flag);
+        }
+        std::fs::write(&meta, lines.join("\r\n") + "\r\n").map_err(|e| Error::io(&meta, e))?;
+        return Ok(dest);
+    }
     let text = format!(
         "[General]\r\ngameName={game}\r\nmodID={mod_id}\r\nfileID={file_id}\r\nurl=\r\nname={title}\r\ndescription=\r\n\
          modName={mod_name}\r\nversion={version}\r\nnewestVersion=\r\nfileCategory=0\r\ncategory=0\r\nrepository=Nexus\r\n\
@@ -494,6 +623,127 @@ pub fn to_downloads(inst: &Instance, archive_path: &Path, dl: &Download, install
     );
     std::fs::write(&meta, text).map_err(|e| Error::io(&meta, e))?;
     Ok(dest)
+}
+
+/// An archive in MO2's `downloads/`, for the launcher's downloads list.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DownloadItem {
+    pub file_name: String,
+    pub size: u64,
+    /// Unix seconds of the last change.
+    pub modified: u64,
+    /// From the `.meta` MO2 or the launcher wrote; the file name otherwise.
+    pub mod_name: String,
+    pub file_title: Option<String>,
+    pub version: Option<String>,
+    pub mod_id: u64,
+    pub file_id: u64,
+    pub installed: bool,
+}
+
+const ARCHIVE_EXTS: &[&str] = &["zip", "7z", "rar"];
+
+/// The newest archives of `downloads/`, newest first. MO2's hidden ones
+/// (`removed=true`) are left out, as in its Downloads tab.
+pub fn recent_downloads(inst: &Instance, limit: usize) -> Result<Vec<DownloadItem>> {
+    let dir = inst.downloads_dir();
+    let Ok(read) = std::fs::read_dir(&dir) else { return Ok(Vec::new()) };
+    let mut out = Vec::new();
+    for entry in read {
+        let entry = entry.map_err(|e| Error::io(&dir, e))?;
+        let path = entry.path();
+        let ext = path.extension().map(|e| e.to_string_lossy().to_lowercase()).unwrap_or_default();
+        if !ARCHIVE_EXTS.contains(&ext.as_str()) || !path.is_file() {
+            continue;
+        }
+        let meta = entry.metadata().map_err(|e| Error::io(&path, e))?;
+        let ini = read_meta(&path);
+        if ini.get("removed").is_some_and(|v| v == "true") {
+            continue;
+        }
+        let dl = download_from(&path, &ini);
+        out.push(DownloadItem {
+            file_name: dl.file_name.clone(),
+            size: meta.len(),
+            modified: meta.modified().ok().and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok()).map_or(0, |d| d.as_secs()),
+            mod_name: dl.mod_name,
+            file_title: Some(dl.file_title).filter(|t| !t.is_empty()),
+            version: dl.version,
+            mod_id: dl.mod_id,
+            file_id: dl.file_id,
+            installed: ini.get("installed").is_some_and(|v| v == "true"),
+        });
+    }
+    out.sort_by(|a, b| b.modified.cmp(&a.modified).then_with(|| a.file_name.cmp(&b.file_name)));
+    out.truncate(limit);
+    Ok(out)
+}
+
+/// `[General]` of `<archive>.meta`, unquoted. Empty without one.
+fn read_meta(archive_path: &Path) -> HashMap<String, String> {
+    let mut path = archive_path.as_os_str().to_owned();
+    path.push(".meta");
+    let Ok(text) = std::fs::read_to_string(&path) else { return HashMap::new() };
+    let mut general = false;
+    let mut out = HashMap::new();
+    for line in text.lines() {
+        let line = line.trim();
+        if line.starts_with('[') {
+            general = line.eq_ignore_ascii_case("[General]");
+        } else if let (true, Some((k, v))) = (general, line.split_once('=')) {
+            let v = v.trim();
+            let v = match v.strip_prefix('"').and_then(|v| v.strip_suffix('"')) {
+                Some(q) => q.replace("\\\"", "\"").replace("\\\\", "\\"),
+                None => v.to_owned(),
+            };
+            out.insert(k.trim().to_owned(), v);
+        }
+    }
+    out
+}
+
+fn download_from(path: &Path, ini: &HashMap<String, String>) -> Download {
+    let guessed = Download::from_file(path);
+    let num = |k: &str| ini.get(k).and_then(|v| v.parse::<u64>().ok()).filter(|n| *n > 0);
+    let text = |k: &str| ini.get(k).map(|v| v.trim().to_owned()).filter(|v| !v.is_empty());
+    let mod_id = num("modID").unwrap_or(guessed.mod_id);
+    Download {
+        game: text("gameName").map(|g| g.to_lowercase()).unwrap_or(if mod_id != 0 { DEFAULT_GAME.into() } else { String::new() }),
+        mod_id,
+        file_id: num("fileID").unwrap_or(0),
+        mod_name: text("modName").unwrap_or(guessed.mod_name),
+        file_title: text("name").unwrap_or_default(),
+        version: text("version").or(guessed.version),
+        file_name: guessed.file_name,
+        // Already MO2's: stays in `downloads/`, its `.meta` gets the installed flag.
+        local: ini.is_empty(),
+    }
+}
+
+/// What a file in `downloads/` (or from the player's disk) knows about itself.
+pub fn download_for(path: &Path) -> Download {
+    download_from(path, &read_meta(path))
+}
+
+/// Which mod a downloaded archive goes to, without asking Nexus: the mod
+/// installed from the same file or one it replaces (by the files the last
+/// check recorded), else a new one. `Err`: a build mod of a player.
+pub fn target_for(inst: &Instance, profile: &str, dl: &Download, author: bool, after: Option<String>) -> Result<std::result::Result<Target, BuildMod>> {
+    let new = Target::New { personal: !author, after };
+    if dl.mod_id == 0 || !inst.modlist_path(profile).is_file() {
+        return Ok(Ok(new));
+    }
+    let (tracked, _) = tracking::tracked_mods(inst, profile)?;
+    let cache = Cache::load(&Cache::path(inst));
+    let files = cache.get(&dl.game, dl.mod_id).map(|c| c.files.clone()).unwrap_or_default();
+    // A file id of 0 (guessed from the name) matches no install: a new mod, as MO2 does.
+    let replaces = (dl.file_id != 0).then(|| tracking::target(&tracked, &files, &dl.game, dl.mod_id, dl.file_id)).flatten();
+    Ok(match replaces {
+        Some(t) if t.managed && !author => Err(BuildMod(t.folder.clone())),
+        Some(t) => Ok(Target::Replace(t.folder.clone())),
+        None => Ok(new),
+    })
 }
 
 /// Qt reads an unquoted value up to the line end; quotes keep commas and
@@ -530,6 +780,7 @@ mod tests {
             file_title: "Main File".into(),
             version: Some(version.into()),
             file_name: format!("Cool Mod-42-{file_id}.zip"),
+            local: false,
         }
     }
 
@@ -550,7 +801,7 @@ mod tests {
         let (dir, inst) = instance("+Build Mod\r\n");
         let archive = dir.path().join("dl.zip");
         zip_with(&archive, &[("Cool/archive/pc/mod/a.archive", b"v1")]);
-        let out = install(&inst, "LYNO", &archive, &download(1, "1.0"), &Target::New { personal: true }).unwrap();
+        let out = install(&inst, "LYNO", &archive, &download(1, "1.0"), &Target::New { personal: true, after: None }).unwrap();
         assert_eq!(out, Outcome::Installed { folder: "Cool_ Mod".into() });
         assert_eq!(names(&inst), ["Build Mod", "LYNO USER MODS_separator", "Cool_ Mod"]);
         let meta = ModMeta::load(&inst.mods_dir().join("Cool_ Mod/meta.ini")).unwrap();
@@ -584,21 +835,29 @@ mod tests {
         std::fs::create_dir_all(inst.mods_dir().join("Cool_ Mod")).unwrap();
         let archive = dir.path().join("dl.zip");
         zip_with(&archive, &[("r6/scripts/x.reds", b"x")]);
-        let out = install(&inst, "LYNO", &archive, &download(1, "1"), &Target::New { personal: false }).unwrap();
+        let out = install(&inst, "LYNO", &archive, &download(1, "1"), &Target::New { personal: false, after: None }).unwrap();
         assert_eq!(out, Outcome::Installed { folder: "Cool_ Mod (2)".into() });
         assert_eq!(names(&inst), ["Build Mod", "Cool_ Mod (2)", "LYNO USER MODS_separator", "Mine"]);
     }
 
     #[test]
-    fn unreadable_fomod_goes_to_mo2_downloads() {
+    fn unreadable_fomod_asks_for_the_mod_folder() {
         let (dir, inst) = instance("+Build Mod\r\n");
         let archive = dir.path().join("dl.zip");
         zip_with(&archive, &[("fomod/ModuleConfig.xml", b"<nope/>"), ("A/archive/pc/mod/a.archive", b"a")]);
-        let out = install(&inst, "LYNO", &archive, &download(1, "1"), &Target::New { personal: true }).unwrap();
-        assert_eq!(out, Outcome::Mo2 { reason: archive::Mo2Reason::Fomod });
-        assert_eq!(names(&inst), ["Build Mod"]);
+        let target = Target::New { personal: true, after: None };
+        let out = install(&inst, "LYNO", &archive, &download(1, "1"), &target).unwrap();
+        let kept = inst.downloads_dir().join("Cool Mod-42-1.zip");
+        assert_eq!(out, Outcome::Manual { archive: kept.clone(), target: target.clone() });
+        let roots = roots(&kept).unwrap();
+        assert!(roots.iter().any(|r| r.path == "A/" && r.valid), "{roots:?}");
+        let out = install_root(&inst, "LYNO", &kept, &download(1, "1"), &target, "A/").unwrap();
+        assert_eq!(out, Outcome::Installed { folder: "Cool_ Mod".into() });
+        assert_eq!(std::fs::read(inst.mods_dir().join("Cool_ Mod/archive/pc/mod/a.archive")).unwrap(), b"a");
+        assert!(install_root(&inst, "LYNO", &kept, &download(1, "1"), &target, "Nope/").is_err());
+        assert_eq!(names(&inst), ["Build Mod", "LYNO USER MODS_separator", "Cool_ Mod"]);
         let meta = std::fs::read_to_string(inst.downloads_dir().join("Cool Mod-42-1.zip.meta")).unwrap();
-        assert!(meta.contains("installed=false\r\n") && meta.contains("modName=Cool: Mod\r\n"), "{meta}");
+        assert!(meta.contains("installed=true\r\n") && meta.contains("modName=Cool: Mod\r\n"), "{meta}");
         assert!(!archive.exists());
     }
 
@@ -634,7 +893,7 @@ mod tests {
         let (dir, inst) = instance("+Build Mod\r\n");
         let archive = dir.path().join("dl.zip");
         fomod_zip(&archive);
-        let target = Target::New { personal: true };
+        let target = Target::New { personal: true, after: None };
         let out = install(&inst, "LYNO", &archive, &download(1, "1"), &target).unwrap();
         let Outcome::Fomod { archive: kept, target: t } = out else { panic!("{out:?}") };
         assert_eq!(t, target);
@@ -685,6 +944,90 @@ mod tests {
         assert_eq!(states("archive/pc/mod/a.archive"), FileState::Active);
         assert_eq!(states("archive/pc/mod/b.archive"), FileState::Inactive);
         assert_eq!(states("archive/pc/mod/c.archive"), FileState::Missing);
+    }
+
+    #[test]
+    fn guesses_nexus_files_by_name() {
+        let dl = Download::from_file(Path::new("C:/Users/v/Desktop/Better Lightning - HDR-15520-3-2-1735000000.7z"));
+        assert_eq!((dl.mod_name.as_str(), dl.mod_id, dl.version.as_deref()), ("Better Lightning - HDR", 15520, Some("3.2")));
+        assert_eq!((dl.game.as_str(), dl.file_id, dl.local), ("cyberpunk2077", 0, true));
+        let plain = Download::from_file(Path::new("my-cool-mod.zip"));
+        assert_eq!((plain.mod_name.as_str(), plain.mod_id, plain.version), ("my-cool-mod", 0, None));
+        assert_eq!(plain.file_name, "my-cool-mod.zip");
+    }
+
+    #[test]
+    fn dropped_mods_land_where_dropped() {
+        let list = |text: &str| ModList::parse(text, Path::new("m")).unwrap();
+        let names = |l: &ModList| l.entries.iter().map(|e| e.name.clone()).collect::<Vec<_>>();
+        // UI order: A, B, separator, Mine, Other.
+        let base = "+Other\r\n+Mine\r\n-LYNO USER MODS_separator\r\n+B\r\n+A\r\n";
+        let mut l = list(base);
+        insert(&mut l, Entry::enabled("New"), true, Some("Mine"));
+        assert_eq!(names(&l), ["A", "B", "LYNO USER MODS_separator", "Mine", "New", "Other"]);
+        // A player's mod dropped among build mods lands at the top of their section.
+        let mut l = list(base);
+        insert(&mut l, Entry::enabled("New"), true, Some("A"));
+        assert_eq!(names(&l), ["A", "B", "LYNO USER MODS_separator", "New", "Mine", "Other"]);
+        // The author places a build mod anywhere.
+        let mut l = list(base);
+        insert(&mut l, Entry::enabled("New"), false, Some("A"));
+        assert_eq!(names(&l), ["A", "New", "B", "LYNO USER MODS_separator", "Mine", "Other"]);
+        let mut l = list(base);
+        insert(&mut l, Entry::enabled("New"), true, Some("Gone"));
+        assert_eq!(names(&l).last().unwrap(), "New");
+    }
+
+    #[test]
+    fn players_own_archive_stays_where_it_is() {
+        let (dir, inst) = instance("+Build Mod\r\n");
+        let archive = dir.path().join("my-mod.zip");
+        zip_with(&archive, &[("r6/scripts/x.reds", b"x")]);
+        let dl = Download::from_file(&archive);
+        let target = Target::New { personal: true, after: Some("Build Mod".into()) };
+        assert_eq!(install(&inst, "LYNO", &archive, &dl, &target).unwrap(), Outcome::Installed { folder: "my-mod".into() });
+        assert!(archive.is_file(), "not moved");
+        assert!(!inst.downloads_dir().exists());
+        let meta = std::fs::read_to_string(inst.mods_dir().join("my-mod/meta.ini")).unwrap();
+        assert!(meta.contains("installationFile=my-mod.zip") && !meta.contains("modid") && !meta.contains("repository"), "{meta}");
+    }
+
+    #[test]
+    fn downloads_list_and_targets() {
+        let (dir, inst) = instance("+Cool_ Mod\r\n-LYNO USER MODS_separator\r\n");
+        let archive = dir.path().join("dl.zip");
+        zip_with(&archive, &[("archive/pc/mod/a.archive", b"1")]);
+        install(&inst, "LYNO", &archive, &download(7, "1.0"), &Target::New { personal: true, after: None }).unwrap();
+        // MO2's own download, hidden ones and stray files.
+        std::fs::write(inst.downloads_dir().join("Other-9-2-0-1735000000.rar"), b"Rar!").unwrap();
+        std::fs::write(
+            inst.downloads_dir().join("Other-9-2-0-1735000000.rar.meta"),
+            "[General]\r\nmodID=9\r\nfileID=90\r\nmodName=\"Other, the mod\"\r\nname=Main\r\nversion=2.0\r\ninstalled=false\r\nurl=keep me\r\n",
+        )
+        .unwrap();
+        std::fs::write(inst.downloads_dir().join("hidden.zip"), b"PK").unwrap();
+        std::fs::write(inst.downloads_dir().join("hidden.zip.meta"), "[General]\r\nremoved=true\r\n").unwrap();
+        std::fs::write(inst.downloads_dir().join("notes.txt"), b"").unwrap();
+
+        let items = recent_downloads(&inst, 10).unwrap();
+        let mut seen: Vec<(&str, &str, u64, bool)> = items.iter().map(|i| (i.file_name.as_str(), i.mod_name.as_str(), i.mod_id, i.installed)).collect();
+        seen.sort();
+        assert_eq!(seen, [("Cool Mod-42-7.zip", "Cool: Mod", 42, true), ("Other-9-2-0-1735000000.rar", "Other, the mod", 9, false)]);
+        assert_eq!(recent_downloads(&inst, 1).unwrap().len(), 1);
+
+        // The same file again replaces its mod; another file of the page is a new mod.
+        let same = download_for(&inst.downloads_dir().join("Cool Mod-42-7.zip"));
+        assert_eq!((same.mod_id, same.file_id, same.local), (42, 7, false));
+        assert_eq!(target_for(&inst, "LYNO", &same, false, None).unwrap().unwrap(), Target::Replace("Cool_ Mod".into()));
+        let other = download_for(&inst.downloads_dir().join("Other-9-2-0-1735000000.rar"));
+        assert_eq!((other.mod_name.as_str(), other.file_id, other.version.as_deref()), ("Other, the mod", 90, Some("2.0")));
+        assert_eq!(target_for(&inst, "LYNO", &other, false, Some("x".into())).unwrap().unwrap(), Target::New { personal: true, after: Some("x".into()) });
+
+        // Installing MO2's download keeps its `.meta` and only flips the flag.
+        let p = inst.downloads_dir().join("Other-9-2-0-1735000000.rar");
+        to_downloads(&inst, &p, &other, true).unwrap();
+        let meta = std::fs::read_to_string(inst.downloads_dir().join("Other-9-2-0-1735000000.rar.meta")).unwrap();
+        assert!(meta.contains("installed=true") && meta.contains("url=keep me") && !meta.contains("installed=false"), "{meta}");
     }
 
     #[test]

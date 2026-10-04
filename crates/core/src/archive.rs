@@ -9,8 +9,10 @@
 //! wraps everything in one folder (`ModName-1.2/archive/...`).
 //!
 //! FOMOD installers ask the player questions: [`Layout::Fomod`], see
-//! [`crate::fomod`]. Everything else goes to MO2: RAR has no pure-Rust
-//! decoder, and an unrecognized layout needs a person to look at it.
+//! [`crate::fomod`]. An unrecognized layout needs a person to look at it:
+//! like MO2's manual installer, the player picks the folder that is the mod
+//! ([`roots`], [`map_under`]). RAR is read with RARLAB's UnRAR library, as
+//! 7-Zip (MO2's `archive.dll`) does.
 
 use std::collections::{BTreeSet, HashMap};
 use std::fs::File;
@@ -70,7 +72,18 @@ pub fn entries(path: &Path, kind: Kind) -> Result<Vec<String>> {
             let archive = sevenz_rust2::Archive::open(path).map_err(|e| bad(path, e))?;
             Ok(archive.files.iter().filter(|f| !f.is_directory()).map(|f| normalize(f.name())).collect())
         }
-        Kind::Rar | Kind::Unknown => Err(bad(path, "not a zip or 7z archive")),
+        Kind::Rar => {
+            let list = unrar::Archive::new(path).open_for_listing().map_err(|e| bad(path, e))?;
+            let mut out = Vec::new();
+            for entry in list {
+                let entry = entry.map_err(|e| bad(path, e))?;
+                if entry.is_file() {
+                    out.push(normalize(&entry.filename.to_string_lossy()));
+                }
+            }
+            Ok(out)
+        }
+        Kind::Unknown => Err(bad(path, "not a zip, 7z or rar archive")),
     }
 }
 
@@ -104,7 +117,7 @@ pub enum Layout {
 pub enum Mo2Reason {
     /// A FOMOD installer the launcher can't read.
     Fomod,
-    /// RAR or not an archive.
+    /// Not an archive the launcher reads.
     Format,
     /// No game data folder found.
     Layout,
@@ -254,7 +267,30 @@ pub fn extract(path: &Path, kind: Kind, files: &[(String, String)], dest: &Path)
                 return Err(e);
             }
         }
-        Kind::Rar | Kind::Unknown => return Err(bad(path, "not a zip or 7z archive")),
+        Kind::Rar => {
+            let mut rar = unrar::Archive::new(path).open_for_processing().map_err(|e| bad(path, e))?;
+            while let Some(header) = rar.read_header().map_err(|e| bad(path, e))? {
+                let name = normalize(&header.entry().filename.to_string_lossy());
+                let targets = map.get(name.as_str()).filter(|_| header.entry().is_file());
+                let Some(targets) = targets else {
+                    rar = header.skip().map_err(|e| bad(path, e))?;
+                    continue;
+                };
+                // Straight to disk: a Cyberpunk .archive can be gigabytes.
+                let outs: Vec<_> = targets.iter().map(|rel| crate::tree::from_slash(dest, rel)).collect();
+                for out in &outs {
+                    if let Some(dir) = out.parent() {
+                        std::fs::create_dir_all(dir).map_err(|e| Error::io(dir, e))?;
+                    }
+                }
+                rar = header.extract_to(&outs[0]).map_err(|e| bad(path, e))?;
+                for out in &outs[1..] {
+                    std::fs::copy(&outs[0], out).map_err(|e| Error::io(out, e))?;
+                }
+                written += outs.len();
+            }
+        }
+        Kind::Unknown => return Err(bad(path, "not a zip, 7z or rar archive")),
     }
     if written != files.len() {
         return Err(bad(path, format!("{written} of {} files extracted", files.len())));
@@ -299,9 +335,69 @@ pub fn read(path: &Path, kind: Kind, names: &[String], max_size: u64) -> Result<
                 })
                 .map_err(|e| bad(path, e))?;
         }
-        Kind::Rar | Kind::Unknown => return Err(bad(path, "not a zip or 7z archive")),
+        Kind::Rar => {
+            let mut rar = unrar::Archive::new(path).open_for_processing().map_err(|e| bad(path, e))?;
+            while let Some(header) = rar.read_header().map_err(|e| bad(path, e))? {
+                let entry = header.entry();
+                let name = normalize(&entry.filename.to_string_lossy());
+                if entry.is_file() && wanted.contains(name.as_str()) && entry.unpacked_size <= max_size {
+                    let (buf, next) = header.read().map_err(|e| bad(path, e))?;
+                    out.insert(name, buf);
+                    rar = next;
+                } else {
+                    rar = header.skip().map_err(|e| bad(path, e))?;
+                }
+            }
+        }
+        Kind::Unknown => return Err(bad(path, "not a zip, 7z or rar archive")),
     }
     Ok(out)
+}
+
+/// A folder of an archive the player may pick as the mod (MO2's manual
+/// installer: "set data directory").
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Root {
+    /// `""` for the archive itself, else `Folder/Sub/`.
+    pub path: String,
+    /// Files under it.
+    pub files: usize,
+    /// Has a game data folder or loose `.archive` files at its top: what
+    /// MO2's Cyberpunk checker accepts.
+    pub valid: bool,
+}
+
+/// Every folder of the archive, in path order, with the archive itself first.
+pub fn roots(entries: &[String]) -> Vec<Root> {
+    let mut dirs: BTreeSet<String> = BTreeSet::new();
+    dirs.insert(String::new());
+    for e in entries {
+        let mut at = 0;
+        while let Some(i) = e[at..].find('/') {
+            at += i + 1;
+            dirs.insert(e[..at].to_owned());
+        }
+    }
+    dirs.into_iter()
+        .map(|path| {
+            let under: Vec<&str> = entries.iter().filter_map(|e| e.strip_prefix(path.as_str())).collect();
+            let valid = under.iter().any(|rel| match rel.split_once('/') {
+                Some((dir, _)) => DATA_DIRS.contains(&dir.to_lowercase().as_str()),
+                None => ext_in(rel, MOVED_TO_ARCHIVE),
+            });
+            Root { files: under.len(), valid, path }
+        })
+        .collect()
+}
+
+/// Files under `root` as the mod, with MO2's fixes at the top ([`place`]).
+/// Empty when nothing is left or a path would leave the mod folder.
+pub fn map_under(entries: &[String], root: &str) -> Vec<(String, String)> {
+    match map_files(entries, root) {
+        Layout::Files(f) => f,
+        _ => Vec::new(),
+    }
 }
 
 #[cfg(test)]
@@ -414,6 +510,49 @@ mod tests {
         assert_eq!(std::fs::read(dest.join("archive/pc/mod/loose.archive")).unwrap(), b"L");
         let read = read(&path, Kind::SevenZip, &names(&["r6/scripts/x.reds"]), 1024).unwrap();
         assert_eq!(read["r6/scripts/x.reds"], b"X");
+    }
+
+    #[test]
+    fn reads_and_extracts_rar() {
+        // `rar a -s`: a solid archive, so skipped files must be read past.
+        let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/data/mod.rar");
+        assert_eq!(kind(&path).unwrap(), Kind::Rar);
+        let list = entries(&path, Kind::Rar).unwrap();
+        assert_eq!(list.len(), 3, "{list:?}");
+        let Layout::Files(files) = layout(&list) else { panic!("{list:?}") };
+        let dir = tempfile::tempdir().unwrap();
+        extract(&path, Kind::Rar, &files, dir.path()).unwrap();
+        assert_eq!(std::fs::read(dir.path().join("archive/pc/mod/a.archive")).unwrap(), b"A");
+        assert_eq!(std::fs::read(dir.path().join("archive/pc/mod/b.archive.xl")).unwrap(), b"B");
+        assert!(!dir.path().join("readme.txt").exists());
+        let read = read(&path, Kind::Rar, &names(&["Cool Mod/readme.txt"]), 1024).unwrap();
+        assert_eq!(read["Cool Mod/readme.txt"], b"readme");
+    }
+
+    #[test]
+    fn manual_roots() {
+        let list = names(&["Pick/Option A/archive/pc/mod/a.archive", "Pick/Option B/r6/scripts/b.reds", "Pick/readme.txt"]);
+        assert_eq!(layout(&list), Layout::Mo2(Mo2Reason::Layout));
+        let r = roots(&list);
+        let paths: Vec<(&str, usize, bool)> = r.iter().map(|r| (r.path.as_str(), r.files, r.valid)).collect();
+        assert_eq!(
+            paths,
+            [
+                ("", 3, false),
+                ("Pick/", 3, false),
+                ("Pick/Option A/", 1, true),
+                ("Pick/Option A/archive/", 1, false),
+                ("Pick/Option A/archive/pc/", 1, false),
+                ("Pick/Option A/archive/pc/mod/", 1, true),
+                ("Pick/Option B/", 1, true),
+                ("Pick/Option B/r6/", 1, false),
+                ("Pick/Option B/r6/scripts/", 1, false),
+            ]
+        );
+        assert_eq!(map_under(&list, "Pick/Option B/"), [("Pick/Option B/r6/scripts/b.reds".to_owned(), "r6/scripts/b.reds".to_owned())]);
+        // Loose archives picked as the mod go where MO2 puts them.
+        assert_eq!(map_under(&list, "Pick/Option A/archive/pc/mod/")[0].1, "archive/pc/mod/a.archive");
+        assert!(map_under(&list, "Nope/").is_empty());
     }
 
     #[test]
