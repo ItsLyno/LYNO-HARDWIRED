@@ -1,0 +1,45 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter Variable", system-ui, sans-serif;
+
+  --color-bg: #0e0e10;
+  --color-surface: #16161a;
+  --color-raised: #1d1d22;
+  --color-line: #2a2a31;
+  --color-fg: #ececef;
+  --color-muted: #9b9ba5;
+  --color-faint: #6b6b75;
+  /* The one accent: reserved for the primary action and focus. */
+  --color-accent: #f3e600;
+  --color-accent-fg: #121200;
+  --color-ok: #4ade80;
+  --color-warn: #fbbf24;
+  --color-bad: #f87171;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-fg);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  overflow: hidden;
+}
+
+input {
+  user-select: text;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
