@@ -6,6 +6,7 @@ import { Changelog } from "../components/Changelog";
 import { Section } from "../components/Section";
 import { StatusDot, type Tone } from "../components/StatusDot";
 import { UpdateProgress } from "../components/UpdateProgress";
+import logo from "../assets/logo.webp";
 import { formatBytes } from "../format";
 import { primaryAction, useApp, type PrimaryAction } from "../store";
 
@@ -36,8 +37,8 @@ export function Home() {
     <div className="grid h-full grid-cols-[1fr_380px] gap-6">
       <div className="flex min-h-0 flex-col">
         <div className="text-[13px] text-muted">Cyberpunk 2077 · сборка модов</div>
-        <h1 className="mt-1 text-[40px] leading-tight font-semibold tracking-tight">
-          LYNO<span className="text-faint">//</span>HARDWIRED
+        <h1 className="mt-3">
+          <img src={logo} alt="LYNO//HARDWIRED" draggable={false} className="h-20 w-auto max-w-full" />
         </h1>
         <div className="mt-2 flex gap-4 text-[13px] text-muted tabular-nums">
           <span>{status?.installedVersion ? `Версия ${status.installedVersion}` : "Не установлена"}</span>

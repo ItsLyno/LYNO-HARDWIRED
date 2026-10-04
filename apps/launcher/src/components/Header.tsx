@@ -2,6 +2,7 @@ import { isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Minus, Square, X } from "lucide-react";
 import type { ReactNode } from "react";
+import logo from "../assets/logo.webp";
 import { useApp, type Page } from "../store";
 
 const tabs: { id: Page; label: string }[] = [
@@ -19,8 +20,9 @@ export function Header() {
 
   return (
     <header data-tauri-drag-region className="flex h-12 shrink-0 items-stretch border-b border-line bg-bg pl-5">
-      <div data-tauri-drag-region className="mr-8 flex items-center text-[13px] font-semibold tracking-wide">
-        LYNO<span className="text-faint">//</span>HARDWIRED
+      <div data-tauri-drag-region className="mr-8 flex items-center">
+        {/* pointer-events-none: the drag region only reacts to the element it is set on, not its children. */}
+        <img src={logo} alt="LYNO//HARDWIRED" draggable={false} className="pointer-events-none h-6 w-auto" />
       </div>
       <nav className="flex items-stretch gap-1">
         {tabs.map((t) => (
