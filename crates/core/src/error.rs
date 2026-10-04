@@ -20,6 +20,9 @@ pub enum Error {
     Cancelled,
     #[error("invalid manifest: {0}")]
     Manifest(String),
+    /// Publishing a build: a check failed or the host refused.
+    #[error("{0}")]
+    Release(String),
     #[error(transparent)]
     Json(#[from] serde_json::Error),
 }

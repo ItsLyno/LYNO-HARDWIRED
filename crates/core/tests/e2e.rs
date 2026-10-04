@@ -6,6 +6,7 @@ use std::net::TcpListener;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicBool;
 
+use lyno_core::author::{adopt, pending, Pending};
 use lyno_core::download::Downloader;
 use lyno_core::install::{state_path, Event, Installer};
 use lyno_core::manifest::Manifest;
@@ -15,6 +16,7 @@ use lyno_core::modlist::{EntryState, ModList};
 use lyno_core::package::PackOptions;
 use lyno_core::plan::{plan, set_enabled, Action};
 use lyno_core::publish::{build, check_published, BuildOptions, ModInfo};
+use lyno_core::release::{publish, release_tag, Host, PublishOptions};
 use lyno_core::state::State;
 use lyno_core::tree::tree_hash;
 use lyno_core::verify::{mark, verify, Problem};
@@ -123,6 +125,7 @@ fn options(version: &str, base_url: &str, out: &Path, previous: Option<Manifest>
         changelog: vec![],
         pack: PackOptions { part_size: 100 * 1024, zstd_level: 1 },
         hash_cache: true,
+        cancel: None,
     }
 }
 
@@ -455,4 +458,410 @@ fn build_install_update() {
     assert!(next.assets.is_empty(), "{:?}", next.assets);
     assert!(logs.is_empty(), "nothing read or packed: {logs:?}");
     assert!(std::fs::read_dir(&out3).unwrap().all(|e| !e.unwrap().file_name().to_string_lossy().contains(".tar.zst.")));
+}
+
+/// Stands in for GitHub: releases are folders under the served directory, the
+/// published manifest is a string. `lose` names an asset whose upload
+/// "succeeds" without the file arriving.
+struct FakeHost {
+    releases: PathBuf,
+    published: Option<String>,
+    uploads: Vec<String>,
+    lose: Option<String>,
+}
+
+impl Host for FakeHost {
+    fn published_manifest(&mut self) -> lyno_core::Result<Option<String>> {
+        Ok(self.published.clone())
+    }
+
+    fn release_assets(&mut self, tag: &str) -> lyno_core::Result<Option<std::collections::HashMap<String, u64>>> {
+        let Ok(entries) = std::fs::read_dir(self.releases.join(tag)) else { return Ok(None) };
+        Ok(Some(entries.map(|e| e.unwrap()).map(|e| (e.file_name().to_string_lossy().into_owned(), e.metadata().unwrap().len())).collect()))
+    }
+
+    fn create_release(&mut self, tag: &str, _title: &str, _notes: &str) -> lyno_core::Result<()> {
+        std::fs::create_dir_all(self.releases.join(tag)).unwrap();
+        Ok(())
+    }
+
+    fn upload_asset(&mut self, tag: &str, path: &Path, _progress: &dyn Fn(u64)) -> lyno_core::Result<()> {
+        let name = path.file_name().unwrap().to_string_lossy().into_owned();
+        self.uploads.push(name.clone());
+        if self.lose.as_ref() != Some(&name) {
+            std::fs::copy(path, self.releases.join(tag).join(&name)).unwrap();
+        }
+        Ok(())
+    }
+
+    fn push_manifest(&mut self, _version: &str, path: &Path) -> lyno_core::Result<()> {
+        self.published = Some(std::fs::read_to_string(path).unwrap());
+        Ok(())
+    }
+}
+
+/// The author plays in their own launcher instance: mods under `LYNO USER
+/// MODS` are theirs and stay out of the build. Publishing uploads what is
+/// missing and makes the manifest live only once every part downloads and the
+/// author confirms; a re-run after a failure uploads only what is still missing.
+#[test]
+fn personal_mods_stay_out_and_publish_goes_live_last() {
+    let tmp = tempfile::tempdir().unwrap();
+    let author = tmp.path().join("author");
+    let releases = tmp.path().join("releases");
+    let out = tmp.path().join("out");
+    author_instance(&author);
+    std::fs::create_dir_all(author.join("mods/LYNO USER MODS_separator")).unwrap();
+    write(&author, "mods/My Test/archive/pc/mod/test.archive", b"experiment");
+    let mut list = ModList::load(&author.join("profiles/LYNO/modlist.txt")).unwrap();
+    list.entries.push(lyno_core::modlist::Entry::separator("LYNO USER MODS"));
+    list.entries.push(lyno_core::modlist::Entry::enabled("My Test"));
+    list.save(&author.join("profiles/LYNO/modlist.txt")).unwrap();
+
+    let (root, _) = serve(releases.clone());
+    let base_url = format!("{root}/{}", release_tag("1.0.0"));
+    let mut no_info = |_: &ModMeta| ModInfo::default();
+    let built = build(&author, &options("1.0.0", &base_url, &out, None), &mut no_info, &mut |_| {}).unwrap();
+    assert_eq!(built.manifest.mod_specs().map(|m| m.name.as_str()).collect::<Vec<_>>(), ["CET", "Archive Mod", "REDmod Thing"]);
+    let titles: Vec<_> = built
+        .manifest
+        .mods
+        .iter()
+        .filter_map(|e| match e {
+            lyno_core::manifest::ModEntry::Separator { title, .. } => Some(title.as_str()),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(titles, ["Core", "Extras"]);
+    assert_eq!(built.warnings, ["1 mod(s) under LYNO USER MODS are not shipped: My Test"]);
+    std::fs::write(out.join("manifest.json"), serde_json::to_string(&built.manifest).unwrap()).unwrap();
+
+    let lost = built.assets[0].file_name.clone();
+    let mut host = FakeHost { releases: releases.clone(), published: None, uploads: vec![], lose: Some(lost.clone()) };
+    let opts = PublishOptions { out: &out, download_root: &root };
+    let no = AtomicBool::new(false);
+    let run = |host: &mut FakeHost, answer: bool| publish(host, &opts, &Downloader::new(), &no, &mut |_| answer, &|_| {});
+
+    let err = run(&mut host, true).unwrap_err().to_string();
+    assert!(err.starts_with("1 part(s) are not downloadable") && err.contains(&lost), "{err}");
+    assert_eq!(host.published, None, "nothing goes live while a part is missing");
+    assert_eq!(host.uploads.len(), built.assets.len());
+
+    host.lose = None;
+    host.uploads.clear();
+    assert!(matches!(run(&mut host, false), Err(lyno_core::Error::Cancelled)));
+    assert_eq!(host.uploads, [lost], "only the missing asset is uploaded again");
+    assert_eq!(host.published, None, "not confirmed");
+
+    host.uploads.clear();
+    let live = run(&mut host, true).unwrap();
+    assert_eq!(live.build_version, "1.0.0");
+    assert!(host.uploads.is_empty());
+    assert_eq!(Manifest::from_json(host.published.as_ref().unwrap()).unwrap(), built.manifest);
+
+    let err = run(&mut host, true).unwrap_err().to_string();
+    assert_eq!(err, "build 1.0.0 is already published");
+}
+
+/// The author installs the build with the launcher like a player, keeps
+/// playing and editing mods there, and releases from that instance. Their
+/// changes show up as pending, not as damage; the release reuses every package
+/// they didn't touch; afterwards the instance is the installed build again,
+/// with nothing to download.
+#[test]
+fn author_releases_from_launcher_instance() {
+    let tmp = tempfile::tempdir().unwrap();
+    let author = tmp.path().join("author");
+    let release = tmp.path().join("release");
+    let out = tmp.path().join("out");
+    author_instance(&author);
+    let (base_url, _) = serve(release.clone());
+    let mut nexus = |_: &ModMeta| ModInfo { author: Some("psiberx".into()), title: None };
+    let out1 = build(&author, &options("1.0.0", &base_url, &out, None), &mut nexus, &mut |_| {}).unwrap();
+    upload(&out1, &release);
+    let m1 = out1.manifest;
+
+    let inst = Instance::new(tmp.path().join("launcher"));
+    install(&inst, &m1);
+    let check = || verify(&inst, &State::load(&state_path(&inst)).unwrap(), &AtomicBool::new(false), &mut |_| {}).unwrap();
+    assert_eq!(pending(&inst, &m1).unwrap(), Pending::default());
+    assert_eq!(check().damaged, []);
+
+    // Edit a mod, add one to the build, switch one off, try one privately.
+    write(inst.root(), "mods/Archive Mod/archive/pc/mod/a.archive", &noise(200_000, 9));
+    write(inst.root(), "mods/New Mod/archive/pc/mod/new.archive", b"new");
+    write(inst.root(), "mods/My Test/archive/pc/mod/test.archive", b"experiment");
+    std::fs::create_dir_all(inst.mods_dir().join("LYNO USER MODS_separator")).unwrap();
+    let path = inst.modlist_path("LYNO");
+    let mut list = ModList::load(&path).unwrap();
+    list.entries.iter_mut().find(|e| e.name == "REDmod Thing").unwrap().state = EntryState::Disabled;
+    list.entries.push(lyno_core::modlist::Entry::enabled("New Mod"));
+    list.entries.push(lyno_core::modlist::Entry::separator("LYNO USER MODS"));
+    list.entries.push(lyno_core::modlist::Entry::enabled("My Test"));
+    list.save(&path).unwrap();
+
+    let names = |v: &[&str]| v.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+    assert_eq!(
+        pending(&inst, &m1).unwrap(),
+        Pending { added: names(&["New Mod"]), toggled: names(&["REDmod Thing"]), personal: names(&["My Test"]), ..Default::default() }
+    );
+    let report = check();
+    assert_eq!(report.damaged.iter().map(|d| d.id.as_deref()).collect::<Vec<_>>(), [Some("archive-mod")], "{report:?}");
+
+    // No Nexus key in the launcher: authors stay as published.
+    let mut no_info = |_: &ModMeta| ModInfo::default();
+    let mut cancelled = options("1.1.0", &base_url, &out, Some(m1.clone()));
+    cancelled.cancel = Some(std::sync::Arc::new(AtomicBool::new(true)));
+    assert!(matches!(build(inst.root(), &cancelled, &mut no_info, &mut |_| {}), Err(lyno_core::Error::Cancelled)));
+    let out2 = build(inst.root(), &options("1.1.0", &base_url, &out, Some(m1.clone())), &mut no_info, &mut |_| {}).unwrap();
+    assert_eq!(out2.manifest.mod_specs().find(|m| m.id == "cet").unwrap().author.as_deref(), Some("psiberx"));
+    let repacked: Vec<_> = out2.repacked.iter().map(|r| r.name.as_str()).collect();
+    assert_eq!(repacked, ["Archive Mod", "New Mod"], "base, CET and the switched mod are reused");
+    let sizes: u64 = out2.repacked.iter().map(|r| out2.upload_size(&r.name)).sum();
+    assert_eq!(sizes, out2.assets.iter().map(|a| a.size).sum::<u64>(), "every new part belongs to a repacked package");
+    assert!(out2.upload_size("New Mod") > 0);
+    upload(&out2, &release);
+    let m2 = out2.manifest;
+    assert!(!m2.mod_specs().any(|m| m.name == "My Test"));
+    assert!(!m2.mod_specs().find(|m| m.name == "REDmod Thing").unwrap().enabled);
+
+    let st = adopt(&inst, &m2, Some(&out)).unwrap();
+    assert_eq!(st.build_version.as_deref(), Some("1.1.0"));
+    let record = st.last_update.as_ref().unwrap();
+    assert_eq!((record.added.as_slice(), record.updated.as_slice()), (&["new-mod".to_string()][..], &["archive-mod".to_string()][..]));
+    let p = plan(&m2, &st, &ModList::load(&path).unwrap());
+    assert!(p.is_up_to_date(), "{:?}", p.actions);
+    assert_eq!(pending(&inst, &m2).unwrap(), Pending { personal: vec!["My Test".into()], ..Default::default() });
+    assert_eq!(check().damaged, []);
+    assert!(inst.root().join("mods/My Test/archive/pc/mod/test.archive").exists());
+
+    // Rename (kept by `[LYNO] id=`), reorder and drop a mod.
+    write(inst.root(), "mods/New Mod/meta.ini", b"[LYNO]\nid=new-mod\n");
+    std::fs::rename(inst.mods_dir().join("New Mod"), inst.mods_dir().join("Newer Mod")).unwrap();
+    let mut list = ModList::load(&path).unwrap();
+    list.entries.iter_mut().find(|e| e.name == "New Mod").unwrap().name = "Newer Mod".into();
+    list.entries.retain(|e| e.name != "REDmod Thing");
+    let cet = list.entries.iter().position(|e| e.name == "CET").unwrap();
+    list.entries.swap(cet, cet + 1);
+    list.save(&path).unwrap();
+    let p = pending(&inst, &m2).unwrap();
+    assert_eq!(p.renamed, [("New Mod".to_string(), "Newer Mod".to_string())]);
+    assert_eq!(p.removed, ["REDmod Thing"]);
+    assert!(p.reordered && p.added.is_empty() && p.toggled.is_empty(), "{p:?}");
+
+    // A build from another instance is not adopted.
+    let other = Instance::new(tmp.path().join("other"));
+    install(&other, &m1);
+    assert!(adopt(&other, &m2, None).unwrap_err().to_string().contains("\"New Mod\""));
+}
+
+/// What a fake GitHub holds: the manifest on `main` and releases with assets.
+#[derive(Default)]
+struct FakeGitHub {
+    /// (blob sha, content)
+    manifest: Option<(String, Vec<u8>)>,
+    /// (id, tag)
+    releases: Vec<(u64, String)>,
+    /// asset id → (release id, name, bytes)
+    assets: std::collections::BTreeMap<u64, (u64, String, Vec<u8>)>,
+    next_id: u64,
+    /// "METHOD path" of every API call.
+    log: Vec<String>,
+}
+
+/// GitHub's REST API as far as [`lyno_core::github::GitHub`] uses it, plus
+/// release downloads under `/download/<tag>/<name>`. Uploads must carry a
+/// Content-Length, as on uploads.github.com.
+fn fake_github(token: &'static str) -> (String, std::sync::Arc<std::sync::Mutex<FakeGitHub>>) {
+    use base64::Engine;
+    use std::io::Read;
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let addr = listener.local_addr().unwrap();
+    let state = std::sync::Arc::new(std::sync::Mutex::new(FakeGitHub { next_id: 1, ..Default::default() }));
+    let shared = state.clone();
+    std::thread::spawn(move || {
+        for stream in listener.incoming() {
+            let mut stream = stream.unwrap();
+            let mut reader = BufReader::new(stream.try_clone().unwrap());
+            let mut request = String::new();
+            reader.read_line(&mut request).unwrap();
+            let mut headers = std::collections::HashMap::new();
+            loop {
+                let mut line = String::new();
+                reader.read_line(&mut line).unwrap();
+                if line == "\r\n" || line.is_empty() {
+                    break;
+                }
+                if let Some((k, v)) = line.split_once(':') {
+                    headers.insert(k.trim().to_ascii_lowercase(), v.trim().to_owned());
+                }
+            }
+            let mut words = request.split_whitespace();
+            let (method, target) = (words.next().unwrap().to_owned(), words.next().unwrap().to_owned());
+            let (path, query) = target.split_once('?').unwrap_or((&target, ""));
+            let mut body = Vec::new();
+            if headers.contains_key("transfer-encoding") {
+                write!(stream, "HTTP/1.1 411 Length Required\r\nContent-Length: 0\r\nConnection: close\r\n\r\n").unwrap();
+                continue;
+            }
+            if let Some(len) = headers.get("content-length") {
+                body.resize(len.parse().unwrap(), 0);
+                reader.read_exact(&mut body).unwrap();
+            }
+            let json = |v: serde_json::Value| v.to_string().into_bytes();
+            let mut st = shared.lock().unwrap();
+            let (status, out): (u16, Vec<u8>) = if let Some(rest) = path.strip_prefix("/download/") {
+                let (tag, name) = rest.split_once('/').unwrap();
+                let rid = st.releases.iter().find(|r| r.1 == tag).map(|r| r.0);
+                match st.assets.values().find(|a| Some(a.0) == rid && a.1 == name) {
+                    Some(a) => (200, a.2.clone()),
+                    None => (404, vec![]),
+                }
+            } else if headers.get("authorization").map(String::as_str) != Some(&format!("Bearer {token}")) {
+                (401, json(serde_json::json!({ "message": "Bad credentials" })))
+            } else {
+                st.log.push(format!("{method} {path}"));
+                let id_after = |prefix: &str| path.strip_prefix(prefix).and_then(|r| r.split('/').next()).and_then(|r| r.parse::<u64>().ok());
+                match (method.as_str(), path) {
+                    ("GET", "/repos/o/r") => (200, json(serde_json::json!({ "permissions": { "push": true } }))),
+                    ("GET", "/repos/o/r/contents/build/manifest.json") => match &st.manifest {
+                        None => (404, json(serde_json::json!({ "message": "Not Found" }))),
+                        Some((_, content)) if headers.get("accept").is_some_and(|a| a.contains("raw")) => (200, content.clone()),
+                        Some((sha, _)) => (200, json(serde_json::json!({ "sha": sha }))),
+                    },
+                    ("PUT", "/repos/o/r/contents/build/manifest.json") => {
+                        let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
+                        match (&st.manifest, v["sha"].as_str()) {
+                            (Some((sha, _)), Some(given)) if sha != given => (409, json(serde_json::json!({ "message": "is at x but expected y" }))),
+                            (Some(_), None) => (422, json(serde_json::json!({ "message": "\"sha\" wasn't supplied." }))),
+                            _ => {
+                                let content = base64::engine::general_purpose::STANDARD.decode(v["content"].as_str().unwrap()).unwrap();
+                                st.manifest = Some((blake3::hash(&content).to_hex()[..12].to_owned(), content));
+                                (200, json(serde_json::json!({})))
+                            }
+                        }
+                    }
+                    ("GET", p) if p.starts_with("/repos/o/r/releases/tags/") => {
+                        let tag = p.rsplit('/').next().unwrap();
+                        match st.releases.iter().find(|r| r.1 == tag) {
+                            Some((id, _)) => (200, json(serde_json::json!({ "id": id }))),
+                            None => (404, json(serde_json::json!({ "message": "Not Found" }))),
+                        }
+                    }
+                    ("GET", p) if p.ends_with("/assets") => {
+                        let rid = id_after("/repos/o/r/releases/").unwrap();
+                        let list: Vec<_> = st
+                            .assets
+                            .iter()
+                            .filter(|(_, a)| a.0 == rid)
+                            .map(|(id, a)| serde_json::json!({ "id": id, "name": a.1, "size": a.2.len(), "state": "uploaded" }))
+                            .collect();
+                        (200, json(serde_json::json!(list)))
+                    }
+                    ("POST", "/repos/o/r/releases") => {
+                        let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
+                        assert_eq!(v["make_latest"], "false", "the launcher installer stays the latest release");
+                        let id = st.next_id;
+                        st.next_id += 1;
+                        st.releases.push((id, v["tag_name"].as_str().unwrap().to_owned()));
+                        (201, json(serde_json::json!({ "id": id })))
+                    }
+                    ("DELETE", p) if p.starts_with("/repos/o/r/releases/assets/") => {
+                        let aid = id_after("/repos/o/r/releases/assets/").unwrap();
+                        st.assets.remove(&aid);
+                        (204, vec![])
+                    }
+                    ("POST", p) if p.ends_with("/assets") => {
+                        let rid = id_after("/repos/o/r/releases/").unwrap();
+                        let name = query.strip_prefix("name=").unwrap().to_owned();
+                        let id = st.next_id;
+                        st.next_id += 1;
+                        let size = body.len();
+                        st.assets.insert(id, (rid, name, body));
+                        (201, json(serde_json::json!({ "id": id, "size": size, "state": "uploaded" })))
+                    }
+                    _ => (404, json(serde_json::json!({ "message": format!("no route {method} {path}") }))),
+                }
+            };
+            drop(st);
+            let reason = if status < 300 { "OK" } else { "Error" };
+            write!(stream, "HTTP/1.1 {status} {reason}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", out.len()).unwrap();
+            if method != "HEAD" {
+                stream.write_all(&out).unwrap();
+            }
+        }
+    });
+    (format!("http://{addr}"), state)
+}
+
+/// The launcher publishes through the GitHub API: creates the release,
+/// uploads every part with progress, replaces a part an earlier run left
+/// half-uploaded, and commits the manifest last. A manifest changed on GitHub
+/// meanwhile is not overwritten.
+#[test]
+fn publishes_through_github_api() {
+    use lyno_core::github::GitHub;
+    use lyno_core::release::Event;
+    let tmp = tempfile::tempdir().unwrap();
+    let author = tmp.path().join("author");
+    let out = tmp.path().join("out");
+    author_instance(&author);
+    let (root, gh) = fake_github("tok");
+    let download = format!("{root}/download");
+    let mut no_info = |_: &ModMeta| ModInfo::default();
+    let built = build(&author, &options("1.0.0", &format!("{download}/build-1.0.0"), &out, None), &mut no_info, &mut |_| {}).unwrap();
+    std::fs::write(out.join("manifest.json"), serde_json::to_string(&built.manifest).unwrap()).unwrap();
+
+    let err = GitHub::with_roots("o/r", "wrong", &root, &root).check_access().unwrap_err().to_string();
+    assert!(err.contains("401") && err.contains("wrong or expired"), "{err}");
+    let mut host = GitHub::with_roots("o/r", "tok", &root, &root);
+    host.check_access().unwrap();
+
+    let opts = PublishOptions { out: &out, download_root: &download };
+    let no = AtomicBool::new(false);
+    let events = std::sync::Mutex::new(Vec::new());
+    let live = publish(&mut host, &opts, &Downloader::new(), &no, &mut |_| true, &|e| events.lock().unwrap().push(e)).unwrap();
+    assert_eq!(live, built.manifest);
+    let total: u64 = built.assets.iter().map(|a| a.size).sum();
+    assert!(events.lock().unwrap().contains(&Event::UploadBytes { done: total, total }), "upload progress reaches the end");
+    {
+        let st = gh.lock().unwrap();
+        assert_eq!(st.assets.len(), built.assets.len());
+        assert_eq!(Manifest::from_json(std::str::from_utf8(&st.manifest.as_ref().unwrap().1).unwrap()).unwrap(), built.manifest);
+    }
+
+    // 1.1.0: an earlier run created the release and left one part half-uploaded.
+    write(&author, "mods/Archive Mod/archive/pc/mod/a.archive", &noise(200_000, 5));
+    let m1 = built.manifest;
+    let built = build(&author, &options("1.1.0", &format!("{download}/build-1.1.0"), &out, Some(m1)), &mut no_info, &mut |_| {}).unwrap();
+    std::fs::write(out.join("manifest.json"), serde_json::to_string(&built.manifest).unwrap()).unwrap();
+    let half = &built.assets[0];
+    {
+        let mut st = gh.lock().unwrap();
+        let (rid, aid) = (st.next_id, st.next_id + 1);
+        st.next_id += 2;
+        st.releases.push((rid, "build-1.1.0".into()));
+        let data = std::fs::read(&half.path).unwrap();
+        st.assets.insert(aid, (rid, half.file_name.clone(), data[..data.len() / 2].to_vec()));
+        st.log.clear();
+    }
+
+    // Someone publishes from elsewhere while this publish is waiting for confirmation.
+    let mut host = GitHub::with_roots("o/r", "tok", &root, &root);
+    let mut meanwhile = |_: &Manifest| {
+        gh.lock().unwrap().manifest.as_mut().unwrap().0 = "other".into();
+        true
+    };
+    let err = publish(&mut host, &opts, &Downloader::new(), &no, &mut meanwhile, &|_| {}).unwrap_err().to_string();
+    assert!(err.contains("changed on GitHub"), "{err}");
+    let log = gh.lock().unwrap().log.clone();
+    assert!(log.iter().any(|l| l.starts_with("DELETE /repos/o/r/releases/assets/")), "half-uploaded part replaced: {log:?}");
+    assert!(!log.iter().any(|l| l == "POST /repos/o/r/releases"), "existing release reused: {log:?}");
+
+    gh.lock().unwrap().log.clear();
+    let mut host = GitHub::with_roots("o/r", "tok", &root, &root);
+    publish(&mut host, &opts, &Downloader::new(), &no, &mut |_| true, &|_| {}).unwrap();
+    let st = gh.lock().unwrap();
+    assert!(!st.log.iter().any(|l| l.starts_with("POST /repos/o/r/releases/")), "nothing uploaded again: {:?}", st.log);
+    assert_eq!(Manifest::from_json(std::str::from_utf8(&st.manifest.as_ref().unwrap().1).unwrap()).unwrap().build_version, "1.1.0");
 }

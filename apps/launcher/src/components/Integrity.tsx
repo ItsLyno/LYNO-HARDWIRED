@@ -165,7 +165,7 @@ function describe(d: Damaged): string[] {
 }
 
 /** File names, not full paths: the paths are long and the name is what the player recognizes. */
-function list(files: Files): string {
+export function list(files: Files): string {
   const names = files.sample.map((p) => p.slice(p.lastIndexOf("/") + 1));
   const more = files.count > names.length ? ` и ещё ${files.count - names.length}` : "";
   return names.join(", ") + more;

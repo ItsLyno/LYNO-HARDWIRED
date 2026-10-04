@@ -4,21 +4,25 @@
 //! from packages published on GitHub Releases, keeps it updated, and
 //! drives `ModOrganizer.exe` through its command line.
 
+pub mod author;
 pub mod download;
 pub mod error;
 pub mod files;
 pub mod game;
+pub mod github;
 pub mod hash;
 pub mod hash_cache;
 pub mod install;
 pub mod manifest;
 pub mod meta;
 pub mod mo2;
+pub mod nexus;
 pub mod modlist;
 pub mod package;
 pub mod plan;
 pub mod prefetch;
 pub mod publish;
+pub mod release;
 pub mod report;
 pub mod rules;
 pub mod state;

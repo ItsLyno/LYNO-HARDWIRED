@@ -2,8 +2,8 @@
 
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::{Arc, Mutex};
 
 use serde::{Deserialize, Serialize};
 
@@ -12,8 +12,9 @@ use crate::hash_cache::HashCache;
 use crate::manifest::{ChangelogEntry, Manifest, ModEntry, ModSpec, NexusRef, Package, Part, SCHEMA_VERSION};
 use crate::meta::ModMeta;
 use crate::mo2::Instance;
-use crate::modlist::{EntryState, ModList};
+use crate::modlist::{Entry, EntryState, ModList};
 use crate::package::{self, PackOptions, PackedPart};
+use crate::plan::USER_SEPARATOR;
 use crate::tree::FileEntry;
 use crate::{rules, tree};
 use crate::{Error, Result};
@@ -37,6 +38,9 @@ pub struct BuildOptions {
     pub pack: PackOptions,
     /// Remember file hashes in `<instance>/.lyno/pack-cache.json` between runs.
     pub hash_cache: bool,
+    /// Checked before each package: a package being packed is finished first.
+    /// A cancelled build resumes like an interrupted one.
+    pub cancel: Option<Arc<AtomicBool>>,
 }
 
 /// Extra info for a mod, e.g. from the Nexus API.
@@ -53,6 +57,20 @@ pub struct BuildOutput {
     /// Packages that had to be repacked, with the reason.
     pub repacked: Vec<Repacked>,
     pub warnings: Vec<String>,
+}
+
+impl BuildOutput {
+    /// Bytes to upload for a repacked package (`Repacked::name`).
+    pub fn upload_size(&self, name: &str) -> u64 {
+        let (id, pkg) = self
+            .manifest
+            .mod_specs()
+            .find(|m| m.name == name)
+            .map_or(("base", &self.manifest.base), |m| (m.id.as_str(), &m.package));
+        // Part names: `package_name` + `.tar.zst.NNN`.
+        let prefix = format!("{id}-{}.", &pkg.hash[..16]);
+        self.assets.iter().filter(|a| a.file_name.starts_with(&prefix)).map(|a| a.size).sum()
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -75,36 +93,16 @@ pub fn build(
     let mut warnings = Vec::new();
     let cache = if opts.hash_cache { HashCache::load(root.join(".lyno").join("pack-cache.json")) } else { HashCache::disabled() };
     let mut packer = Packer { opts, cache, assets: Vec::new(), repacked: Vec::new() };
-    let steps = 1 + list.entries.iter().filter(|e| e.state != EntryState::Unmanaged && e.separator_title().is_none()).count();
+    let (entries, personal) = split_user_section(&list);
+    let is_mod = |e: &&Entry| e.state != EntryState::Unmanaged && e.separator_title().is_none();
+    let personal: Vec<&str> = personal.iter().filter(is_mod).map(|e| e.name.as_str()).collect();
+    if !personal.is_empty() {
+        warnings.push(format!("{} mod(s) under {USER_SEPARATOR} are not shipped: {}", personal.len(), personal.join(", ")));
+    }
+    let steps = 1 + entries.iter().filter(is_mod).count();
 
-    let profile = opts.profile.clone();
-    // Never pack our own output if it sits inside the instance.
-    let out_rel = std::path::absolute(&opts.out_dir)
-        .ok()
-        .zip(std::path::absolute(root).ok())
-        .and_then(|(out, root)| out.strip_prefix(root).ok().map(tree::to_slash))
-        .filter(|r| !r.is_empty());
-    let keep_base = move |p: &str| {
-        if out_rel.as_deref().is_some_and(|o| p == o || p.starts_with(&format!("{o}/"))) {
-            return false;
-        }
-        if rules::is_generated(p) {
-            return false;
-        }
-        let (first, rest) = p.split_once('/').unwrap_or((p, ""));
-        if BASE_EXCLUDED.iter().any(|x| x.eq_ignore_ascii_case(first)) {
-            return false;
-        }
-        if first != "profiles" {
-            return true;
-        }
-        // Only the build's profile (other profiles are the author's own),
-        // without the author's private files.
-        rest.split_once('/')
-            .is_some_and(|(name, file)| name == profile && !rules::is_private_profile_file(file))
-    };
     warnings.extend(profile_warnings(&inst.profile_dir(&opts.profile)));
-    let files = tree::list_files_with(root, &keep_base)?;
+    let files = base_files(root, &opts.profile, Some(&opts.out_dir))?;
     let previous_base = opts.previous.as_ref().map(|m| &m.base);
     let base_label = format!("[1/{steps}] base ({})", base_breakdown(&files));
     let base = packer.package(root, "", &files, "base", "base", &base_label, previous_base, log)?;
@@ -114,7 +112,7 @@ pub fn build(
     let mut step = 1;
     // `[LYNO] core=true` of the separator the current mod sits under.
     let mut core_section = false;
-    for entry in &list.entries {
+    for entry in entries {
         if entry.state == EntryState::Unmanaged {
             continue;
         }
@@ -131,7 +129,7 @@ pub fn build(
         }
         step += 1;
         let meta = metas.get(&entry.name).cloned().unwrap_or_default();
-        let id = meta.lyno_id.clone().unwrap_or_else(|| slug(&entry.name));
+        let id = mod_id(&entry.name, &meta);
 
         let (generated, files): (Vec<_>, Vec<_>) =
             tree::list_files(&folder)?.into_iter().partition(|f| rules::is_generated(&f.path));
@@ -145,7 +143,12 @@ pub fn build(
         }
         redmod |= entry.state == EntryState::Enabled && has_redmod(&folder);
 
-        let previous = opts.previous.as_ref().and_then(|m| m.mod_specs().find(|s| s.id == id)).map(|s| &s.package);
+        if opts.cancel.as_ref().is_some_and(|c| c.load(Ordering::Relaxed)) {
+            packer.cache.save()?;
+            return Err(Error::Cancelled);
+        }
+        let previous_spec = opts.previous.as_ref().and_then(|m| m.mod_specs().find(|s| s.id == id));
+        let previous = previous_spec.map(|s| &s.package);
         let prefix = format!("mods/{}/", entry.name);
         let step_label = format!("[{step}/{steps}] {}", entry.name);
         let package = packer.package(&folder, &prefix, &files, &id, &entry.name, &step_label, previous, log)?;
@@ -157,7 +160,13 @@ pub fn build(
                 None
             }
         };
-        let extra = if nexus.is_some() { info(&meta) } else { ModInfo::default() };
+        let mut extra = if nexus.is_some() { info(&meta) } else { ModInfo::default() };
+        // Without a Nexus key (or with Nexus down) the same Nexus page keeps
+        // the author and title it had, instead of losing them for players.
+        if let Some(prev) = previous_spec.filter(|p| p.nexus.is_some() && p.nexus == nexus) {
+            extra.author = extra.author.or_else(|| prev.author.clone());
+            extra.title = extra.title.or_else(|| prev.title.clone());
+        }
         mods.push(ModEntry::Mod(ModSpec {
             id,
             name: entry.name.clone(),
@@ -195,6 +204,48 @@ pub fn build(
     };
     manifest.validate()?;
     Ok(BuildOutput { manifest, assets, repacked, warnings })
+}
+
+/// Build entries and the author's own ones. The author plays in a launcher
+/// instance like any player: what sits under `LYNO USER MODS` is theirs
+/// (tests, personal tweaks), not the build's. A mod goes into the build once it
+/// is moved above the separator.
+pub fn split_user_section(list: &ModList) -> (&[Entry], &[Entry]) {
+    let user_section = list.entries.iter().position(|e| e.separator_title() == Some(USER_SEPARATOR));
+    list.entries.split_at(user_section.unwrap_or(list.entries.len()))
+}
+
+/// Manifest id of a mod folder: `[LYNO] id=` survives renaming the folder.
+pub fn mod_id(folder: &str, meta: &ModMeta) -> String {
+    meta.lyno_id.clone().unwrap_or_else(|| slug(folder))
+}
+
+/// Files of the base package: MO2 and the build's profile, without what the
+/// game and MO2 generate, the author's other profiles and private files, and
+/// `out_dir` when it sits inside the instance.
+pub fn base_files(root: &Path, profile: &str, out_dir: Option<&Path>) -> Result<Vec<FileEntry>> {
+    let out_rel = out_dir
+        .and_then(|o| std::path::absolute(o).ok())
+        .zip(std::path::absolute(root).ok())
+        .and_then(|(out, root)| out.strip_prefix(root).ok().map(tree::to_slash))
+        .filter(|r| !r.is_empty());
+    let keep = |p: &str| {
+        if out_rel.as_deref().is_some_and(|o| p == o || p.starts_with(&format!("{o}/"))) {
+            return false;
+        }
+        if rules::is_generated(p) {
+            return false;
+        }
+        let (first, rest) = p.split_once('/').unwrap_or((p, ""));
+        if BASE_EXCLUDED.iter().any(|x| x.eq_ignore_ascii_case(first)) {
+            return false;
+        }
+        if first != "profiles" {
+            return true;
+        }
+        rest.split_once('/').is_some_and(|(name, file)| name == profile && !rules::is_private_profile_file(file))
+    };
+    tree::list_files_with(root, &keep)
 }
 
 /// Checks every part of `manifest` over HTTP, including parts reused from

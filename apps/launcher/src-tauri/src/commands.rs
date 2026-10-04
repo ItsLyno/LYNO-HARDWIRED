@@ -26,18 +26,18 @@ const MO2_PROCESS: &str = "ModOrganizer.exe";
 const DEFAULT_PROFILE: &str = "LYNO";
 
 /// Errors cross the IPC boundary as plain strings for the UI to show.
-type CmdResult<T> = Result<T, String>;
+pub(crate) type CmdResult<T> = Result<T, String>;
 
-fn err(e: impl std::fmt::Display) -> String {
+pub(crate) fn err(e: impl std::fmt::Display) -> String {
     e.to_string()
 }
 
 /// Manifest of the installed build, saved after every successful update.
-fn installed_manifest_path(inst: &Instance) -> PathBuf {
+pub(crate) fn installed_manifest_path(inst: &Instance) -> PathBuf {
     inst.root().join(".lyno").join("manifest.json")
 }
 
-fn installed_manifest(inst: &Instance) -> Option<Manifest> {
+pub(crate) fn installed_manifest(inst: &Instance) -> Option<Manifest> {
     let text = std::fs::read_to_string(installed_manifest_path(inst)).ok()?;
     Manifest::from_json(&text).ok()
 }
@@ -53,6 +53,10 @@ pub fn get_settings(state: TauriState<'_, AppState>) -> Settings {
 
 #[tauri::command]
 pub fn save_settings(state: TauriState<'_, AppState>, settings: Settings) -> CmdResult<()> {
+    // Turning author mode on goes through `author_enable`, which checks the token.
+    if settings.author_mode && !state.settings.lock().unwrap().author_mode {
+        return Err("Режим автора включается по токену GitHub: «Я автор сборки» внизу настроек".into());
+    }
     if let Some(dir) = &settings.game_dir {
         if !game::is_game_dir(dir) {
             return Err(format!("В папке нет bin\\x64\\Cyberpunk2077.exe: {}", dir.display()));
@@ -292,6 +296,9 @@ pub fn start_update(app: AppHandle) -> CmdResult<()> {
         .clone()
         .ok_or("Сначала нужно загрузить манифест сборки")?;
     let settings = state.settings.lock().unwrap().clone();
+    if settings.author_mode {
+        return Err(AUTHOR_MODE_NO_UPDATE.into());
+    }
     if running_processes() != (false, false) {
         return Err("Закройте игру и Mod Organizer 2 перед обновлением".into());
     }
@@ -395,6 +402,9 @@ pub async fn verify_build(app: AppHandle) -> CmdResult<Option<verify::Report>> {
         if state.update.lock().unwrap().is_some() {
             return Err("Дождитесь окончания обновления сборки".into());
         }
+        if state.author_job.lock().unwrap().is_some() {
+            return Err(AUTHOR_JOB_RUNNING.into());
+        }
         let mut slot = state.verify.lock().unwrap();
         if slot.is_some() {
             return Err("Проверка уже идёт".into());
@@ -457,10 +467,13 @@ pub fn start_repair(app: AppHandle, ids: Vec<String>, base: bool, reset_settings
     if state.update.lock().unwrap().is_some() {
         return Err("Обновление уже идёт".into());
     }
+    let settings = state.settings.lock().unwrap().clone();
+    if settings.author_mode {
+        return Err(AUTHOR_MODE_NO_UPDATE.into());
+    }
     if running_processes() != (false, false) {
         return Err("Закройте игру и Mod Organizer 2 перед починкой".into());
     }
-    let settings = state.settings.lock().unwrap().clone();
     let path = install::state_path(&Instance::new(&settings.instance_dir));
     let mut installed = State::load(&path).map_err(err)?;
     verify::mark(&mut installed, &ids, base, reset_settings);
@@ -468,6 +481,15 @@ pub fn start_repair(app: AppHandle, ids: Vec<String>, base: bool, reset_settings
     log::info!("repair: mods {ids:?}, base {base}, reset settings {reset_settings}");
     start_update(app)
 }
+
+/// The game and MO2 write into the instance being packed.
+const AUTHOR_JOB_RUNNING: &str = "Идёт сборка или публикация выпуска: дождитесь окончания";
+
+/// Both would undo the author's work: an update puts mods it doesn't know
+/// under `LYNO USER MODS`, a repair downloads edited mods again.
+const AUTHOR_MODE_NO_UPDATE: &str =
+    "В режиме автора обновление и починка выключены: они откатили бы ваши правки модов. \
+     Выключите режим автора в настройках, если нужно поставить опубликованную версию.";
 
 /// Switches a non-core build mod on or off in the player's `modlist.txt`.
 /// MO2 keeps the list in memory and writes it back on exit, so it must be closed.
@@ -546,6 +568,9 @@ fn open_dir(path: &std::path::Path) -> CmdResult<()> {
 #[tauri::command]
 pub fn launch_game(state: TauriState<'_, AppState>) -> CmdResult<()> {
     let settings = state.settings.lock().unwrap().clone();
+    if state.author_job.lock().unwrap().is_some() {
+        return Err(AUTHOR_JOB_RUNNING.into());
+    }
     if running_processes().0 {
         return Err("Cyberpunk 2077 уже запущен".into());
     }
@@ -568,6 +593,9 @@ pub fn launch_game(state: TauriState<'_, AppState>) -> CmdResult<()> {
 #[tauri::command]
 pub fn open_mo2(state: TauriState<'_, AppState>) -> CmdResult<()> {
     let settings = state.settings.lock().unwrap().clone();
+    if state.author_job.lock().unwrap().is_some() {
+        return Err(AUTHOR_JOB_RUNNING.into());
+    }
     let inst = Instance::new(&settings.instance_dir);
     spawn_mo2(&inst, &mo2::open_args(&profile(&inst)))
 }
@@ -587,7 +615,7 @@ fn spawn_mo2(inst: &Instance, args: &[String]) -> CmdResult<()> {
         })
 }
 
-fn running_processes() -> (bool, bool) {
+pub(crate) fn running_processes() -> (bool, bool) {
     let mut sys = System::new();
     sys.refresh_processes_specifics(ProcessesToUpdate::All, true, ProcessRefreshKind::nothing());
     let is_running = |name: &str| {

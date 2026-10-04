@@ -8,7 +8,8 @@ import { downloadLabel, plural } from "../format";
 import { isRepairOnly, useApp } from "../store";
 
 export function Updates() {
-  const { build, buildError, status, progress, refreshBuild, startUpdate } = useApp();
+  const { build, buildError, status, progress, settings, refreshBuild, startUpdate } = useApp();
+  const authorMode = !!settings?.authorMode;
   const installed = status?.installedVersion ?? null;
   const busy = !!progress || !!status?.updating;
   const repair = isRepairOnly(build);
@@ -40,6 +41,10 @@ export function Updates() {
               <span className="text-muted">Нет связи с GitHub. Показана установленная версия.</span>
             ) : build.upToDate ? (
               "Установлена последняя версия"
+            ) : authorMode ? (
+              <span className="text-muted">
+                Включён режим автора: обновление выключено, чтобы не откатить ваши правки модов.
+              </span>
             ) : (
               <>
                 {repair ? "Нужно восстановить повреждённые файлы" : installed ? "Доступно обновление" : "Сборка ещё не установлена"}
@@ -50,7 +55,7 @@ export function Updates() {
               </>
             )}
           </div>
-          {build?.online && !build.upToDate && (
+          {build?.online && !build.upToDate && !authorMode && (
             <Button variant="primary" onClick={startUpdate} disabled={busy}>
               {repair ? <Wrench size={15} /> : installed ? <RefreshCw size={15} /> : <Download size={15} />}
               {repair ? "Починить" : installed ? "Обновить" : "Установить"}

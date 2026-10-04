@@ -1,4 +1,6 @@
+mod author;
 mod commands;
+mod secrets;
 mod settings;
 
 use std::sync::atomic::AtomicBool;
@@ -16,6 +18,10 @@ pub struct AppState {
     update: Mutex<Option<Arc<AtomicBool>>>,
     /// Cancel flag of the running integrity check, if any.
     verify: Mutex<Option<Arc<AtomicBool>>>,
+    /// Cancel flag of the running author build or publish, if any.
+    author_job: Mutex<Option<Arc<AtomicBool>>>,
+    /// Build of this session waiting to be published.
+    built: Mutex<Option<author::BuiltRelease>>,
     /// Launcher release found by the last update check.
     launcher_update: Mutex<Option<tauri_plugin_updater::Update>>,
 }
@@ -51,6 +57,8 @@ pub fn run() {
                 manifest: Mutex::new(None),
                 update: Mutex::new(None),
                 verify: Mutex::new(None),
+                author_job: Mutex::new(None),
+                built: Mutex::new(None),
                 launcher_update: Mutex::new(None),
             });
             Ok(())
@@ -67,6 +75,15 @@ pub fn run() {
             commands::cancel_verify,
             commands::start_repair,
             commands::set_mod_enabled,
+            author::author_changes,
+            author::author_adopt,
+            author::author_secrets,
+            author::author_enable,
+            author::author_set_secret,
+            author::author_built,
+            author::author_build,
+            author::author_publish,
+            author::author_cancel,
             commands::open_mod_folder,
             commands::open_folder,
             commands::launch_game,

@@ -5,17 +5,19 @@ import type { ReactNode } from "react";
 import logo from "../assets/logo.webp";
 import { useApp, type Page } from "../store";
 
-const tabs: { id: Page; label: string }[] = [
+const tabs: { id: Page; label: string; author?: boolean }[] = [
   { id: "home", label: "Главная" },
   { id: "mods", label: "Моды" },
   { id: "updates", label: "Обновления" },
+  { id: "release", label: "Выпуск", author: true },
   { id: "settings", label: "Настройки" },
 ];
 
 // The window is frameless: this bar is the title bar, navigation and window controls.
 export function Header() {
-  const { page, setPage, build } = useApp();
-  const updateAvailable = !!build && !build.upToDate && build.online;
+  const { page, setPage, build, settings } = useApp();
+  const authorMode = !!settings?.authorMode;
+  const updateAvailable = !!build && !build.upToDate && build.online && !authorMode;
   const win = isTauri() ? getCurrentWindow() : null;
 
   return (
@@ -25,7 +27,7 @@ export function Header() {
         <img src={logo} alt="LYNO//HARDWIRED" draggable={false} className="pointer-events-none h-5 w-auto" />
       </div>
       <nav className="flex items-center gap-0.5 rounded-full bg-surface/80 p-1">
-        {tabs.map((t) => (
+        {tabs.filter((t) => !t.author || authorMode).map((t) => (
           <button
             key={t.id}
             onClick={() => setPage(t.id)}
