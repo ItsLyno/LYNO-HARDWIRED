@@ -1,5 +1,8 @@
 //! `lyno-pack build` turns the author's MO2 instance into a release:
 //! `out/manifest.json` plus `tar.zst` parts to upload to GitHub Releases.
+//! `lyno-pack publish` uploads them and pushes the manifest.
+
+mod publish;
 
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -60,9 +63,33 @@ enum Command {
         #[arg(long, default_value_t = 6)]
         zstd_level: i32,
     },
+    /// Upload the assets from `build` and push the manifest to players.
+    ///
+    /// Run inside the repository clone, on an up-to-date main. Safe to re-run
+    /// after a failure: uploaded assets are skipped.
+    Publish {
+        /// Output folder of `lyno-pack build`.
+        #[arg(short, long, default_value = "out")]
+        out: PathBuf,
+        #[arg(long, default_value = "ItsLyno/LYNO-HARDWIRED")]
+        repo: String,
+        /// Don't ask before pushing the manifest.
+        #[arg(short, long)]
+        yes: bool,
+    },
 }
 
 fn main() -> ExitCode {
+    match Cli::parse().command {
+        Command::Publish { out, repo, yes } => match publish::run(&publish::PublishArgs { out, repo, yes }) {
+            Ok(()) => ExitCode::SUCCESS,
+            Err(e) => fail(e),
+        },
+        build @ Command::Build { .. } => build_cmd(build),
+    }
+}
+
+fn build_cmd(command: Command) -> ExitCode {
     let Command::Build {
         instance,
         profile,
@@ -77,7 +104,10 @@ fn main() -> ExitCode {
         nexus_key,
         out,
         zstd_level,
-    } = Cli::parse().command;
+    } = command
+    else {
+        unreachable!()
+    };
 
     let previous = match load_previous(previous, fresh, &repo) {
         Ok(p) => p,
@@ -151,18 +181,12 @@ fn main() -> ExitCode {
         elapsed(started.elapsed())
     );
     eprintln!();
-    eprintln!("Next steps:");
-    if output.assets.is_empty() {
-        eprintln!("  no new assets: only the manifest changed");
-    } else {
-        eprintln!("  gh release create {tag} --repo {repo} --title \"Build {build_version}\" --notes \"\"");
-        eprintln!("  gh release upload {tag} --repo {repo} {}/*.tar.zst.*", out.display());
-    }
-    eprintln!("  copy {} to build/manifest.json, commit and push to main", manifest_path.display());
+    eprintln!("Next step: upload and push the manifest (in the repository clone, on an up-to-date main):");
+    eprintln!("  lyno-pack publish --out {} --repo {repo}", out.display());
     ExitCode::SUCCESS
 }
 
-const PUBLISHED_MANIFEST: &str = "build/manifest.json";
+pub(crate) const PUBLISHED_MANIFEST: &str = "build/manifest.json";
 
 /// `--previous` file, else the manifest published on `main`, else nothing
 /// (first release, or `--fresh`).

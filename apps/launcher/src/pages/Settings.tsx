@@ -1,4 +1,4 @@
-import { Check, Search } from "lucide-react";
+import { Check, FileArchive, Loader2, Search } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api, type Settings as SettingsT } from "../api";
 import { Button } from "../components/Button";
@@ -9,10 +9,15 @@ export function Settings() {
   const [draft, setDraft] = useState<SettingsT | null>(settings);
   const [saved, setSaved] = useState(false);
   const [detectNote, setDetectNote] = useState<string | null>(null);
+  const [version, setVersion] = useState<string | null>(null);
+  const [report, setReport] = useState<{ busy: boolean; path: string | null }>({ busy: false, path: null });
 
   useEffect(() => {
     if (settings && !draft) setDraft(settings);
   }, [settings, draft]);
+  useEffect(() => {
+    api.launcherVersion().then(setVersion, () => {});
+  }, []);
   if (!draft) return null;
 
   const dirty = JSON.stringify(draft) !== JSON.stringify(settings);
@@ -29,6 +34,17 @@ export function Settings() {
         setDetectNote(`Найдено: ${found.map((g) => g.store).join(", ")}`);
       } else {
         setDetectNote("Игра не найдена в Steam, GOG и Epic. Укажите папку вручную.");
+      }
+    });
+
+  const exportReport = () =>
+    run(async () => {
+      setReport({ busy: true, path: null });
+      try {
+        setReport({ busy: false, path: await api.exportReport() });
+      } catch (e) {
+        setReport({ busy: false, path: null });
+        throw e;
       }
     });
 
@@ -70,7 +86,28 @@ export function Settings() {
           </span>
         )}
       </div>
-      <p className="pt-4 text-xs text-faint">LYNO//HARDWIRED 0.1.0 · Моды принадлежат их авторам.</p>
+      <h2 className="pt-4 text-lg font-semibold tracking-tight">Диагностика</h2>
+      <div className="rounded-lg border border-line bg-surface">
+        <Field
+          label="Отчёт для автора сборки"
+          hint="Если игра вылетает или сборка не обновляется, соберите отчёт и отправьте файл автору. В архив попадут логи лаунчера, MO2, RED4ext, CET и redscript, список модов и состояние установки. Сохранений и настроек графики в нём нет."
+        >
+          <div className="flex items-center gap-3">
+            <Button onClick={exportReport} disabled={report.busy}>
+              {report.busy ? <Loader2 size={15} className="animate-spin" /> : <FileArchive size={15} />}
+              Собрать отчёт
+            </Button>
+            {report.path && (
+              <span className="min-w-0 truncate font-mono text-[13px] text-muted" title={report.path}>
+                {report.path}
+              </span>
+            )}
+          </div>
+        </Field>
+      </div>
+      <p className="pt-4 text-xs text-faint">
+        LYNO//HARDWIRED {version ?? ""} · Моды принадлежат их авторам.
+      </p>
     </div>
   );
 }

@@ -2,9 +2,12 @@
 
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Mutex;
 
 use serde::{Deserialize, Serialize};
 
+use crate::download::Downloader;
 use crate::hash_cache::HashCache;
 use crate::manifest::{ChangelogEntry, Manifest, ModEntry, ModSpec, NexusRef, Package, Part, SCHEMA_VERSION};
 use crate::meta::ModMeta;
@@ -182,6 +185,36 @@ pub fn build(
     manifest.validate()?;
     Ok(BuildOutput { manifest, assets, repacked, warnings })
 }
+
+/// Checks every part of `manifest` over HTTP, including parts reused from
+/// older releases, before the manifest goes live. Returns one message per
+/// broken part; empty means every player can download the build.
+pub fn check_published(manifest: &Manifest, downloader: &Downloader, progress: &(dyn Fn(usize, usize) + Sync)) -> Vec<String> {
+    let parts: Vec<&Part> = std::iter::once(&manifest.base)
+        .chain(manifest.mod_specs().map(|m| &m.package))
+        .flat_map(|p| &p.parts)
+        .collect();
+    let next = AtomicUsize::new(0);
+    let done = AtomicUsize::new(0);
+    let errors = Mutex::new(Vec::new());
+    std::thread::scope(|s| {
+        for _ in 0..CHECK_THREADS.min(parts.len()) {
+            s.spawn(|| {
+                while let Some(part) = parts.get(next.fetch_add(1, Ordering::Relaxed)) {
+                    if let Err(e) = downloader.check_part(part) {
+                        errors.lock().unwrap().push(e.to_string());
+                    }
+                    progress(done.fetch_add(1, Ordering::Relaxed) + 1, parts.len());
+                }
+            });
+        }
+    });
+    let mut errors = errors.into_inner().unwrap();
+    errors.sort();
+    errors
+}
+
+const CHECK_THREADS: usize = 8;
 
 /// REDmod mods keep their content in `mods/<name>/` with an `info.json`.
 fn has_redmod(folder: &Path) -> bool {

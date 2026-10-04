@@ -42,6 +42,26 @@ impl Downloader {
             .map_err(|e| Error::Download(format!("{url}: {e}")))
     }
 
+    /// Checks that `part` is downloadable and has the expected size without
+    /// fetching it: a HEAD request follows the GitHub redirect to the storage
+    /// host, which reports the asset's Content-Length.
+    pub fn check_part(&self, part: &Part) -> Result<()> {
+        let resp = self.agent.head(&part.url).call().map_err(|e| Error::Download(format!("{}: {e}", part.url)))?;
+        if !resp.status().is_success() {
+            return Err(Error::Download(format!("{}: HTTP {}", part.url, resp.status())));
+        }
+        let len = resp
+            .headers()
+            .get("content-length")
+            .and_then(|v| v.to_str().ok())
+            .and_then(|v| v.trim().parse::<u64>().ok());
+        match len {
+            Some(n) if n == part.size => Ok(()),
+            Some(n) => Err(Error::Download(format!("{}: {n} bytes, expected {}", part.url, part.size))),
+            None => Err(Error::Download(format!("{}: no Content-Length", part.url))),
+        }
+    }
+
     /// Downloads `part` to `dest`, resuming from `<dest>.partial` and
     /// skipping the transfer when `dest` is already complete.
     /// `progress` receives the number of new bytes as they arrive.

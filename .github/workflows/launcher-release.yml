@@ -1,0 +1,115 @@
+name: Launcher release
+
+# Run manually from main (Actions → Launcher release → Run workflow) after
+# bumping the version. Builds and signs the installer, publishes it as
+# `launcher-v<version>`, then points `launcher/latest.json` on main at it.
+# Launchers check that file on start, so it is written only after the
+# release assets exist.
+
+on:
+  workflow_dispatch:
+    inputs:
+      notes:
+        description: Что нового (показывается игрокам в лаунчере)
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+concurrency: launcher-release
+
+jobs:
+  release:
+    name: Build, sign and publish
+    if: github.ref == 'refs/heads/main'
+    runs-on: windows-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Version and signing key
+        id: version
+        shell: pwsh
+        run: |
+          $conf = Get-Content apps/launcher/src-tauri/tauri.conf.json -Raw | ConvertFrom-Json
+          $version = $conf.version
+          $pkg = (Get-Content apps/launcher/package.json -Raw | ConvertFrom-Json).version
+          if ($pkg -ne $version) { throw "package.json has $pkg, tauri.conf.json has $version" }
+          if (-not $conf.plugins.updater.pubkey) { throw "plugins.updater.pubkey in tauri.conf.json is empty, see docs/release-process.md" }
+          if (-not $env:KEY) { throw "secret TAURI_SIGNING_PRIVATE_KEY is not set, see docs/release-process.md" }
+          gh release view "launcher-v$version" --repo $env:GITHUB_REPOSITORY *> $null
+          if ($LASTEXITCODE -eq 0) { throw "launcher-v$version already exists: bump the version" }
+          $global:LASTEXITCODE = 0
+          "version=$version" >> $env:GITHUB_OUTPUT
+        env:
+          KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: apps/launcher/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+        working-directory: apps/launcher
+      - run: pnpm tauri build --config src-tauri/tauri.release.conf.json
+        working-directory: apps/launcher
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+      - name: Publish release
+        shell: pwsh
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          NOTES: ${{ inputs.notes }}
+        run: |
+          $tag = "launcher-v$env:VERSION"
+          $exe = Get-ChildItem target/release/bundle/nsis/*-setup.exe | Select-Object -First 1
+          # GitHub turns spaces in asset names into dots; use a stable name.
+          $name = "LYNO-HARDWIRED_$($env:VERSION)_x64-setup.exe"
+          Copy-Item $exe.FullName $name
+          Copy-Item "$($exe.FullName).sig" "$name.sig"
+          $latest = [ordered]@{
+            version   = $env:VERSION
+            notes     = $env:NOTES
+            pub_date  = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+            platforms = @{
+              "windows-x86_64" = @{
+                signature = (Get-Content "$name.sig" -Raw).Trim()
+                url       = "https://github.com/$env:GITHUB_REPOSITORY/releases/download/$tag/$name"
+              }
+            }
+          }
+          $latest | ConvertTo-Json -Depth 4 | Set-Content latest.json -Encoding utf8NoBOM
+          gh release create $tag $name "$name.sig" latest.json --repo $env:GITHUB_REPOSITORY `
+            --target $env:GITHUB_SHA --title "Лаунчер $env:VERSION" --notes "$env:NOTES" --latest
+      - uses: actions/upload-artifact@v4
+        with:
+          name: latest-json
+          path: latest.json
+
+  announce:
+    name: Point launchers at the release
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/download-artifact@v4
+        with:
+          name: latest-json
+          path: launcher
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add launcher/latest.json
+          git commit -m "Launcher ${{ needs.release.outputs.version }}"
+          git pull --rebase origin main
+          git push origin HEAD:main

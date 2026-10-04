@@ -10,10 +10,12 @@ use lyno_core::manifest::{ChangelogEntry, Manifest, ModEntry};
 use lyno_core::mo2::{self, Instance};
 use lyno_core::modlist::{EntryState, ModList};
 use lyno_core::plan;
+use lyno_core::report;
 use lyno_core::state::State;
 use serde::Serialize;
 use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, System};
 use tauri::{AppHandle, Emitter, Manager, State as TauriState};
+use tauri_plugin_updater::UpdaterExt;
 
 use crate::settings::Settings;
 use crate::AppState;
@@ -60,6 +62,7 @@ pub fn save_settings(state: TauriState<'_, AppState>, settings: Settings) -> Cmd
         }
     }
     settings.save(&state.settings_path).map_err(err)?;
+    log::info!("settings saved: instance {:?}, game {:?}, manifest {}", settings.instance_dir, settings.game_dir, settings.manifest_url);
     *state.settings.lock().unwrap() = settings;
     Ok(())
 }
@@ -155,6 +158,9 @@ pub async fn fetch_build(app: AppHandle) -> CmdResult<BuildInfo> {
     .map_err(err)?;
 
     let inst = Instance::new(&settings.instance_dir);
+    if let Err(e) = &remote {
+        log::warn!("manifest {}: {e}", settings.manifest_url);
+    }
     let (manifest, online) = match remote {
         Ok(m) => (m, true),
         Err(e) => match installed_manifest(&inst) {
@@ -168,6 +174,13 @@ pub async fn fetch_build(app: AppHandle) -> CmdResult<BuildInfo> {
     let installed = State::load(&install::state_path(&inst)).map_err(err)?;
     let current = ModList::load(&inst.modlist_path(&manifest.profile)).unwrap_or_default();
     let plan = plan::plan(&manifest, &installed, &current);
+    log::info!(
+        "build {} (installed {:?}, online {online}): {} action(s), {} bytes to download",
+        manifest.build_version,
+        installed.build_version,
+        plan.actions.len(),
+        plan.download_size
+    );
 
     let mods = manifest
         .mods
@@ -239,12 +252,22 @@ pub fn start_update(app: AppHandle) -> CmdResult<()> {
     }
 
     std::thread::spawn(move || {
+        log::info!("update to build {} started", manifest.build_version);
         let result = run_update(&app, &manifest, &settings, &cancel);
         *app.state::<AppState>().update.lock().unwrap() = None;
         let finished = match result {
-            Ok(()) => Finished { ok: true, error: None },
-            Err(lyno_core::Error::Cancelled) => Finished { ok: false, error: None },
-            Err(e) => Finished { ok: false, error: Some(e.to_string()) },
+            Ok(()) => {
+                log::info!("update to build {} finished", manifest.build_version);
+                Finished { ok: true, error: None }
+            }
+            Err(lyno_core::Error::Cancelled) => {
+                log::info!("update cancelled");
+                Finished { ok: false, error: None }
+            }
+            Err(e) => {
+                log::error!("update failed: {e}");
+                Finished { ok: false, error: Some(e.to_string()) }
+            }
         };
         let _ = app.emit("update-finished", finished);
     });
@@ -261,6 +284,9 @@ fn run_update(app: &AppHandle, manifest: &Manifest, settings: &Settings, cancel:
     let installer = Installer { inst: &inst, manifest, downloader: &downloader, cancel };
     let mut last_emit = std::time::Instant::now() - std::time::Duration::from_secs(1);
     installer.apply(&plan, &mut |event| {
+        if let install::Event::Step { index, total, label } = &event {
+            log::info!("[{}/{total}] {label}", index + 1);
+        }
         // Byte events arrive per chunk; throttle them for the UI.
         let is_bytes = matches!(event, install::Event::Bytes { .. });
         if !is_bytes || last_emit.elapsed().as_millis() >= 100 {
@@ -302,6 +328,7 @@ pub fn launch_game(state: TauriState<'_, AppState>) -> CmdResult<()> {
             .into());
     }
     let profile = manifest.map_or_else(|| DEFAULT_PROFILE.to_owned(), |m| m.profile);
+    log::info!("launching the game (profile {profile}, REDmod {redmod})");
     spawn_mo2(&inst, &mo2::run_args(&profile, mo2::game_executable(redmod)))
 }
 
@@ -321,7 +348,10 @@ fn spawn_mo2(inst: &Instance, args: &[String]) -> CmdResult<()> {
         .current_dir(inst.root())
         .spawn()
         .map(drop)
-        .map_err(|e| format!("Не удалось запустить MO2: {e}"))
+        .map_err(|e| {
+            log::error!("{}: {e}", inst.exe().display());
+            format!("Не удалось запустить MO2: {e}")
+        })
 }
 
 fn running_processes() -> (bool, bool) {
@@ -333,4 +363,135 @@ fn running_processes() -> (bool, bool) {
             .any(|p| p.name().to_string_lossy().eq_ignore_ascii_case(name))
     };
     (is_running(GAME_PROCESS), is_running(MO2_PROCESS))
+}
+
+/// Packs logs and install state into a zip on the desktop for the player to
+/// send to the build author, and shows it in Explorer.
+#[tauri::command]
+pub async fn export_report(app: AppHandle) -> CmdResult<PathBuf> {
+    let state = app.state::<AppState>();
+    let settings = state.settings.lock().unwrap().clone();
+    let latest = state.manifest.lock().unwrap().as_ref().map(|m| (m.build_version.clone(), m.game_version.clone()));
+    let now = time::OffsetDateTime::now_utc();
+    let stamp = now
+        .format(time::macros::format_description!("[year]-[month]-[day]_[hour]-[minute]-[second]"))
+        .map_err(err)?;
+    let dir = app.path().desktop_dir().or_else(|_| app.path().download_dir()).map_err(err)?;
+    let dest = dir.join(format!("LYNO-report-{stamp}.zip"));
+    let launcher_logs: Vec<(String, PathBuf)> = app
+        .path()
+        .app_log_dir()
+        .ok()
+        .and_then(|d| std::fs::read_dir(d).ok())
+        .into_iter()
+        .flatten()
+        .flatten()
+        .map(|e| (format!("launcher/{}", e.file_name().to_string_lossy()), e.path()))
+        .collect();
+
+    let inst = Instance::new(&settings.instance_dir);
+    let (game_running, mo2_running) = running_processes();
+    let game_dir = settings.game_dir.as_deref();
+    let installed = State::load(&install::state_path(&inst)).unwrap_or_default();
+    let yes_no = |b: bool| if b { "yes" } else { "no" };
+    let summary = format!(
+        "LYNO//HARDWIRED {version}\n\
+         Created: {stamp} UTC\n\
+         OS: {os}\n\
+         Instance: {instance} (MO2 installed: {mo2})\n\
+         Game: {game} (found: {found}, REDmod: {redmod})\n\
+         Manifest URL: {url}\n\
+         Installed build: {installed}\n\
+         Latest build: {latest}\n\
+         Running: game {game_running}, MO2 {mo2_running}\n",
+        version = app.package_info().version,
+        os = System::long_os_version().unwrap_or_default(),
+        instance = settings.instance_dir.display(),
+        mo2 = yes_no(inst.is_installed()),
+        game = game_dir.map_or_else(|| "not set".into(), |d| d.display().to_string()),
+        found = yes_no(game_dir.is_some_and(game::is_game_dir)),
+        redmod = yes_no(game_dir.is_some_and(game::has_redmod)),
+        url = settings.manifest_url,
+        installed = installed.build_version.as_deref().unwrap_or("none"),
+        latest = latest.map_or_else(|| "not fetched".into(), |(v, g)| format!("{v} (game {g})")),
+        game_running = yes_no(game_running),
+        mo2_running = yes_no(mo2_running),
+    );
+    log::info!("writing report {}", dest.display());
+
+    let profile = profile(&inst);
+    let game_dir = settings.game_dir.clone();
+    let path = dest.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let input = report::ReportInput {
+            summary,
+            inst: &inst,
+            profile: &profile,
+            game_dir: game_dir.as_deref(),
+            extra: launcher_logs,
+        };
+        report::write_report(&path, &input)
+    })
+    .await
+    .map_err(err)?
+    .map_err(|e| format!("Не удалось создать отчёт: {e}"))?;
+    let _ = tauri_plugin_opener::reveal_item_in_dir(&dest);
+    Ok(dest)
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LauncherUpdate {
+    version: String,
+    current_version: String,
+    notes: Option<String>,
+}
+
+/// Updates are signed; without the author's public key in `tauri.conf.json`
+/// no update could be verified, so the launcher doesn't offer any.
+fn updater_configured(app: &AppHandle) -> bool {
+    app.config()
+        .plugins
+        .0
+        .get("updater")
+        .and_then(|c| c["pubkey"].as_str())
+        .is_some_and(|k| !k.trim().is_empty())
+}
+
+#[tauri::command]
+pub async fn check_launcher_update(app: AppHandle) -> CmdResult<Option<LauncherUpdate>> {
+    if !updater_configured(&app) {
+        return Ok(None);
+    }
+    let update = app.updater().map_err(err)?.check().await.map_err(|e| {
+        log::warn!("launcher update check: {e}");
+        format!("Не удалось проверить обновления лаунчера: {e}")
+    })?;
+    let info = update.as_ref().map(|u| LauncherUpdate {
+        version: u.version.clone(),
+        current_version: u.current_version.clone(),
+        notes: u.body.clone(),
+    });
+    if let Some(u) = &info {
+        log::info!("launcher {} available (running {})", u.version, u.current_version);
+    }
+    *app.state::<AppState>().launcher_update.lock().unwrap() = update;
+    Ok(info)
+}
+
+/// Downloads the signed installer and runs it. On Windows the installer
+/// closes the launcher itself and starts the new version when done.
+#[tauri::command]
+pub async fn install_launcher_update(app: AppHandle) -> CmdResult<()> {
+    let state = app.state::<AppState>();
+    if state.update.lock().unwrap().is_some() {
+        return Err("Дождитесь окончания обновления сборки".into());
+    }
+    let update = state.launcher_update.lock().unwrap().clone().ok_or("Обновление лаунчера не найдено")?;
+    log::info!("installing launcher {}", update.version);
+    update.download_and_install(|_, _| {}, || {}).await.map_err(|e| {
+        log::error!("launcher update: {e}");
+        format!("Не удалось обновить лаунчер: {e}")
+    })?;
+    app.restart()
 }
