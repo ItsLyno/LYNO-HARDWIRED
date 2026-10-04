@@ -15,6 +15,8 @@ pub struct FileEntry {
     /// Relative path with forward slashes.
     pub path: String,
     pub size: u64,
+    /// Modification time in nanoseconds since the Unix epoch, 0 if unknown.
+    pub mtime: u64,
 }
 
 /// Regular files under `root`, sorted by relative path.
@@ -38,8 +40,13 @@ pub fn list_files_with(root: &Path, keep: &dyn Fn(&str) -> bool) -> Result<Vec<F
         if !keep(&path) {
             continue;
         }
-        let size = entry.metadata().map_err(|e| Error::io(entry.path(), e.into()))?.len();
-        out.push(FileEntry { path, size });
+        let meta = entry.metadata().map_err(|e| Error::io(entry.path(), e.into()))?;
+        let mtime = meta
+            .modified()
+            .ok()
+            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+            .map_or(0, |d| d.as_nanos() as u64);
+        out.push(FileEntry { path, size: meta.len(), mtime });
     }
     out.sort_by(|a, b| a.path.cmp(&b.path));
     Ok(out)
@@ -58,17 +65,23 @@ pub fn tree_hash(root: &Path) -> Result<TreeHash> {
 
 pub fn tree_hash_with(root: &Path, keep: &dyn Fn(&str) -> bool) -> Result<TreeHash> {
     let files = list_files_with(root, keep)?;
+    let hashes = files.iter().map(|f| blake3_file(&from_slash(root, &f.path))).collect::<Result<Vec<_>>>()?;
+    Ok(combine(files.iter().zip(&hashes).map(|(f, h)| (f, h.as_str()))))
+}
+
+/// Tree hash from per-file hashes; `files` must be sorted by path.
+pub fn combine<'a>(files: impl IntoIterator<Item = (&'a FileEntry, &'a str)>) -> TreeHash {
     let mut hasher = blake3::Hasher::new();
-    let mut size = 0;
-    for f in &files {
-        let h = blake3_file(&root.join(&f.path))?;
+    let (mut size, mut count) = (0, 0);
+    for (f, h) in files {
         hasher.update(f.path.as_bytes());
         hasher.update(b"\0");
         hasher.update(h.as_bytes());
         hasher.update(b"\n");
         size += f.size;
+        count += 1;
     }
-    Ok(TreeHash { hash: hasher.finalize().to_hex().to_string(), size, files: files.len() })
+    TreeHash { hash: hasher.finalize().to_hex().to_string(), size, files: count }
 }
 
 pub fn to_slash(p: &Path) -> String {
@@ -116,6 +129,8 @@ mod tests {
         let a = tempfile::tempdir().unwrap();
         write(a.path(), "r6/scripts/a.reds", "1");
         let files = list_files(a.path()).unwrap();
-        assert_eq!(files, [FileEntry { path: "r6/scripts/a.reds".into(), size: 1 }]);
+        assert_eq!(files.len(), 1);
+        assert_eq!((files[0].path.as_str(), files[0].size), ("r6/scripts/a.reds", 1));
+        assert!(files[0].mtime > 0);
     }
 }
