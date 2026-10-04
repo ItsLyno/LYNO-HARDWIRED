@@ -273,6 +273,15 @@ export type JobState =
   | { kind: "failed"; error: string }
   | { kind: "cancelled" };
 
+/** What installing an archive would replace, asked before the install. */
+export interface ArchiveTarget {
+  modName: string;
+  version: string | null;
+  /** The installed mod folder the archive goes over; `null`: a new mod. */
+  replaces: string | null;
+  installedVersion: string | null;
+}
+
 export interface NexusJob {
   id: number;
   /** "file": an archive from MO2's downloads or dropped from Explorer. */
@@ -437,6 +446,7 @@ export const api = isTauri()
       downloadsRecent: () => invoke<DownloadItem[]>("downloads_recent"),
       /** A file name in MO2's downloads or an absolute path; `after`: the list entry it was dropped below. */
       installArchive: (file: string, after: string | null) => invoke<number>("install_archive", { file, after }),
+      archiveTarget: (file: string) => invoke<ArchiveTarget>("archive_target", { file }),
       installRoots: (id: number) => invoke<ArchiveRoot[]>("install_roots", { id }),
       installSetRoot: (id: number, root: string) => invoke<void>("install_set_root", { id, root }),
       userMods: () => invoke<UserRow[]>("user_mods"),

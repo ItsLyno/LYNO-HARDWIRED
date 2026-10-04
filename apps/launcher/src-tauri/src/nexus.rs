@@ -22,6 +22,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use lyno_core::archive::Root;
 use lyno_core::download::Downloader;
 use lyno_core::fomod::{Evaluated, Outline, Selection};
+use lyno_core::meta::ModMeta;
 use lyno_core::mo2::Instance;
 use lyno_core::mod_install::{self, BuildMod, Context, Download, DownloadItem, Fomod, Outcome, Progress, Target};
 use lyno_core::nexus::{NexusApi, RateLimit, User};
@@ -796,21 +797,68 @@ pub async fn downloads_recent(app: AppHandle) -> CmdResult<Vec<DownloadItem>> {
     tauri::async_runtime::spawn_blocking(move || mod_install::recent_downloads(&inst, 40)).await.map_err(err)?.map_err(err)
 }
 
+/// An archive of the downloads list (a file name in MO2's downloads) or a
+/// path dropped from Explorer.
+fn archive_path(inst: &Instance, file: &str) -> CmdResult<PathBuf> {
+    let path = PathBuf::from(file);
+    let archive = match path.is_absolute() {
+        true => path,
+        false if file.contains(['/', '\\']) => return Err(format!("Непонятный путь: {file}")),
+        false => inst.downloads_dir().join(file),
+    };
+    if !archive.is_file() {
+        return Err(format!("Файл не найден: {}", archive.display()));
+    }
+    Ok(archive)
+}
+
+/// What installing an archive would replace, asked before the install: a new
+/// version of an installed mod goes over its folder, which the player confirms.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ArchiveTarget {
+    mod_name: String,
+    version: Option<String>,
+    /// The installed mod folder the archive goes over.
+    replaces: Option<String>,
+    installed_version: Option<String>,
+}
+
+#[tauri::command]
+pub async fn archive_target(app: AppHandle, file: String) -> CmdResult<ArchiveTarget> {
+    let state = app.state::<AppState>();
+    let (inst, profile) = instance(&state)?;
+    let author = state.settings.lock().unwrap().author_mode;
+    tauri::async_runtime::spawn_blocking(move || {
+        let archive = archive_path(&inst, &file)?;
+        let download = mod_install::download_for(&archive);
+        // A player's build mod: the install itself says why it can't go there.
+        let replaces = match mod_install::target_for(&inst, &profile, &download, author, None).map_err(err)? {
+            Ok(Target::Replace(folder)) => Some(folder),
+            _ => None,
+        };
+        let installed_version = replaces
+            .as_ref()
+            .and_then(|f| ModMeta::load(&inst.mods_dir().join(f).join("meta.ini")).ok())
+            .and_then(|m| m.version);
+        Ok(ArchiveTarget {
+            mod_name: download.mod_name,
+            version: download.version.as_deref().map(lyno_core::meta::display_version),
+            replaces,
+            installed_version,
+        })
+    })
+    .await
+    .map_err(err)?
+}
+
 /// Installs an archive: a file name in MO2's downloads (the downloads list)
 /// or a path dropped from Explorer. `after`: the list entry it was dropped
 /// below (`None`: the end of the player's section).
 #[tauri::command]
 pub fn install_archive(app: AppHandle, file: String, after: Option<String>) -> CmdResult<u64> {
     let (inst, _) = instance(&app.state::<AppState>())?;
-    let path = PathBuf::from(&file);
-    let archive = match path.is_absolute() {
-        true => path,
-        false if file.contains(['/', '\\']) => return Err(format!("Непонятный путь: {file}")),
-        false => inst.downloads_dir().join(&file),
-    };
-    if !archive.is_file() {
-        return Err(format!("Файл не найден: {}", archive.display()));
-    }
+    let archive = archive_path(&inst, &file)?;
     log::info!("install {} (after {after:?})", archive.display());
     Ok(push_job(&app, |id| {
         let mut job = Job::new(id, Source::File, Some(Work::Install { archive: archive.clone(), after }), JobState::Queued);

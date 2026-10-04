@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import {
   api,
+  type ArchiveTarget,
   type AuthorEvent,
   type AuthorJob,
   type BuildInfo,
@@ -99,8 +100,11 @@ interface AppStore {
   setRootJob: (id: number | null) => void;
   refreshDownloads: () => Promise<void>;
   refreshUserMods: () => Promise<void>;
-  /** A file name in MO2's downloads or a path from Explorer. */
+  /** Archives that would go over an installed mod, waiting for the player's yes (first one asked). */
+  replaceAsks: ReplaceAsk[];
+  /** A file name in MO2's downloads or a path from Explorer. Over an installed mod only after `answerReplace`. */
   installArchive: (file: string, after: string | null) => Promise<void>;
+  answerReplace: (replace: boolean) => void;
   clearError: () => void;
 }
 
@@ -129,6 +133,7 @@ export const useApp = create<AppStore>((set, get) => ({
   userMods: null,
   drag: null,
   fileOver: null,
+  replaceAsks: [],
   setPage: (page) => set({ page }),
   refreshStatus: async () => {
     try {
@@ -319,14 +324,31 @@ export const useApp = create<AppStore>((set, get) => ({
     }
   },
   installArchive: async (file, after) => {
+    // Unknown target (unreadable archive, no build): the install itself reports why.
+    const target = await api.archiveTarget(file).catch(() => null);
+    if (target?.replaces) {
+      set({ replaceAsks: [...get().replaceAsks, { file, after, target }] });
+      return;
+    }
     try {
       await api.installArchive(file, after);
     } catch (e) {
       set({ error: String(e) });
     }
   },
+  answerReplace: (replace) => {
+    const [ask, ...rest] = get().replaceAsks;
+    set({ replaceAsks: rest });
+    if (ask && replace) void api.installArchive(ask.file, ask.after).catch((e) => set({ error: String(e) }));
+  },
   clearError: () => set({ error: null }),
 }));
+
+export interface ReplaceAsk {
+  file: string;
+  after: string | null;
+  target: ArchiveTarget;
+}
 
 /** Where a dropped archive lands: below this entry of the list (`after`), `null` for the end of the player's section. */
 export interface DropSpot {

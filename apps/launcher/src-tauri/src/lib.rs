@@ -134,6 +134,7 @@ pub fn run() {
             nexus::nexus_fomod_install,
             nexus::nexus_limits,
             nexus::downloads_recent,
+            nexus::archive_target,
             nexus::install_archive,
             nexus::install_roots,
             nexus::install_set_root,
