@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { api, type Folder, type Settings as SettingsT } from "../api";
 import { Button } from "../components/Button";
 import { Integrity } from "../components/Integrity";
+import { PageTitle } from "../components/PageTitle";
 import { useApp } from "../store";
 
 export function Settings() {
@@ -51,8 +52,8 @@ export function Settings() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      <h1 className="text-2xl font-semibold tracking-tight">Настройки</h1>
-      <div className="divide-y divide-line rounded-lg border border-line bg-surface">
+      <PageTitle>Настройки</PageTitle>
+      <div className="panel divide-y divide-line/60">
         <Field label="Папка Cyberpunk 2077" hint="Папка, в которой лежит bin\x64\Cyberpunk2077.exe.">
           <div className="flex gap-2">
             <Input value={draft.gameDir ?? ""} onChange={(v) => update({ gameDir: v || null })} />
@@ -87,8 +88,8 @@ export function Settings() {
           </span>
         )}
       </div>
-      <h2 className="pt-4 text-lg font-semibold tracking-tight">Папки</h2>
-      <div className="rounded-lg border border-line bg-surface">
+      <h2 className="label pt-4">Папки</h2>
+      <div className="panel">
         <Field
           label="Открыть в проводнике"
           hint="Сохранения лежат в обычной папке игры и общие с игрой без модов. Логи лаунчера пригодятся, если что-то пошло не так при установке."
@@ -103,8 +104,8 @@ export function Settings() {
           </div>
         </Field>
       </div>
-      <h2 className="pt-4 text-lg font-semibold tracking-tight">Диагностика</h2>
-      <div className="divide-y divide-line rounded-lg border border-line bg-surface">
+      <h2 className="label pt-4">Диагностика</h2>
+      <div className="panel divide-y divide-line/60">
         <Field
           label="Проверка целостности"
           hint="Лаунчер перечитает все файлы модов сборки и сравнит их с установленными. Это займёт столько же времени, сколько чтение всей сборки с диска. Повреждённый мод скачается заново целиком, а настройки, которые вы меняли в игре, сохранятся."
@@ -128,7 +129,7 @@ export function Settings() {
           </div>
         </Field>
       </div>
-      <p className="pt-4 text-xs text-faint">
+      <p className="pt-4 font-mono text-[11px] text-faint">
         LYNO//HARDWIRED {version ?? ""} · Моды принадлежат их авторам.
       </p>
     </div>
@@ -144,10 +145,10 @@ const folders: [Folder, string][] = [
 
 function Field(props: { label: string; hint: string; children: React.ReactNode }) {
   return (
-    <div className="px-5 py-4">
+    <div className="px-5 py-5">
       <div className="text-sm font-medium">{props.label}</div>
       <div className="mt-0.5 text-[13px] text-muted">{props.hint}</div>
-      <div className="mt-2.5">{props.children}</div>
+      <div className="mt-3">{props.children}</div>
     </div>
   );
 }
@@ -158,7 +159,7 @@ function Input({ value, onChange }: { value: string; onChange: (v: string) => vo
       value={value}
       spellCheck={false}
       onChange={(e) => onChange(e.target.value)}
-      className="h-9 w-full rounded-md border border-line bg-bg px-3 font-mono text-[13px] outline-none focus:border-muted"
+      className="h-9 w-full rounded-full border border-line bg-bg/80 px-4 font-mono text-[13px] outline-none focus:border-neon/50"
     />
   );
 }

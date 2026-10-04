@@ -36,19 +36,19 @@ export function Home() {
   return (
     <div className="grid h-full grid-cols-[1fr_380px] gap-6">
       <div className="flex min-h-0 flex-col">
-        <div className="text-[13px] text-muted">Cyberpunk 2077 · сборка модов</div>
+        <div className="label">Cyberpunk 2077 · сборка модов</div>
         <h1 className="mt-3">
-          <img src={logo} alt="LYNO//HARDWIRED" draggable={false} className="h-20 w-auto max-w-full" />
+          <img src={logo} alt="LYNO//HARDWIRED" draggable={false} className="h-20 w-auto max-w-full drop-shadow-[0_0_28px_rgb(243_230_0/0.22)]" />
         </h1>
-        <div className="mt-2 flex gap-4 text-[13px] text-muted tabular-nums">
-          <span>{status?.installedVersion ? `Версия ${status.installedVersion}` : "Не установлена"}</span>
-          {build && <span>Патч игры {build.gameVersion}</span>}
+        <div className="mt-3 flex gap-2 font-mono text-xs text-muted tabular-nums">
+          <Tag>{status?.installedVersion ? `v${status.installedVersion}` : "не установлена"}</Tag>
+          {build && <Tag>патч {build.gameVersion}</Tag>}
         </div>
 
         {showUpdateBanner && (
           <button
             onClick={() => setPage("updates")}
-            className="mt-6 flex items-center gap-3 rounded-lg border border-line bg-surface px-4 py-3 text-left transition-colors hover:bg-raised"
+            className="mt-8 flex items-center gap-3 rounded-full border border-warn/25 bg-warn/[0.05] py-2.5 pr-4 pl-5 text-left transition-colors hover:border-warn/50"
           >
             <StatusDot tone="warn" />
             <span className="flex-1">
@@ -56,7 +56,7 @@ export function Home() {
                 "Нужно восстановить повреждённые файлы"
               ) : (
                 <>
-                  Доступна версия <span className="font-semibold tabular-nums">{build.latestVersion}</span>
+                  Доступна версия <span className="font-mono font-semibold tabular-nums">{build.latestVersion}</span>
                 </>
               )}
               <span className="text-muted"> · {formatBytes(build.downloadSize)} к загрузке</span>
@@ -65,13 +65,13 @@ export function Home() {
           </button>
         )}
         {buildError && !build && (
-          <div className="mt-6 flex items-center gap-3 rounded-lg border border-line bg-surface px-4 py-3 text-[13px]">
+          <div className="mt-8 flex items-center gap-3 rounded-full border border-bad/25 bg-bad/[0.05] px-5 py-2.5 text-[13px]">
             <StatusDot tone="bad" />
             <span className="flex-1 text-muted">{buildError}</span>
           </div>
         )}
 
-        <dl className="mt-6 divide-y divide-line rounded-lg border border-line bg-surface">
+        <dl className="panel mt-6 divide-y divide-line/60 py-1">
           <Row
             label="Сборка"
             tone={!status ? "idle" : status.installedVersion ? "ok" : "warn"}
@@ -89,13 +89,13 @@ export function Home() {
           />
         </dl>
 
-        <div className="mt-auto space-y-4 pt-6">
+        <div className="mt-auto space-y-4 pt-8">
           {progress && <UpdateProgress progress={progress} />}
           <div className="flex items-center gap-3">
             <Button
               variant="primary"
               size="lg"
-              className="min-w-52"
+              className="min-w-56"
               disabled={action === "loading" || action === "running" || action === "updating" || launching}
               onClick={onPrimary}
             >
@@ -114,7 +114,7 @@ export function Home() {
           {build ? (
             <Changelog entries={build.changelog} installed={build.installedVersion} />
           ) : (
-            <p className="px-5 py-4 text-[13px] text-muted">{buildError ? "Нет данных о сборке." : "Загрузка…"}</p>
+            <p className="px-5 pb-4 text-[13px] text-muted">{buildError ? "Нет данных о сборке." : "Загрузка…"}</p>
           )}
         </div>
       </Section>
@@ -144,12 +144,16 @@ function primaryLabel(action: PrimaryAction, launching: boolean, latest: string 
 
 function Row({ label, value, tone }: { label: string; value: string; tone: Tone }) {
   return (
-    <div className="flex h-11 items-center gap-3 px-4">
+    <div className="flex h-11 items-center gap-3 px-5">
       <StatusDot tone={tone} />
-      <dt className="w-36 shrink-0 text-muted">{label}</dt>
+      <dt className="label w-40 shrink-0">{label}</dt>
       <dd className="truncate" title={value}>
         {value}
       </dd>
     </div>
   );
+}
+
+function Tag({ children }: { children: ReactNode }) {
+  return <span className="rounded-full border border-line px-2.5 py-0.5">{children}</span>;
 }

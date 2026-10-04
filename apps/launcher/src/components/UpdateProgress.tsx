@@ -8,24 +8,24 @@ export function UpdateProgress({ progress, onCancel = api.cancelUpdate }: { prog
   const pct = bytes && bytes.total > 0 ? Math.min(100, (bytes.done / bytes.total) * 100) : null;
 
   return (
-    <div className="rounded-lg border border-line bg-surface px-5 py-4">
+    <div className="panel px-5 py-4">
       <div className="flex items-baseline gap-3">
         <div className="min-w-0 flex-1 truncate">{step?.label ?? "Подготовка…"}</div>
         {step && (
-          <div className="text-[13px] text-muted tabular-nums">
-            {step.index} из {step.total}
+          <div className="font-mono text-xs text-muted tabular-nums">
+            {step.index}/{step.total}
           </div>
         )}
       </div>
-      <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-raised">
+      <div className="mt-3 h-1 rounded-full bg-raised">
         <div
-          className="h-full rounded-full bg-accent transition-[width] duration-200"
+          className="h-full rounded-full bg-gradient-to-r from-neon to-accent shadow-[0_0_12px_rgb(243_230_0/0.5)] transition-[width] duration-200"
           style={{ width: `${pct ?? (step ? (step.index / step.total) * 100 : 0)}%` }}
         />
       </div>
-      <div className="mt-3 flex items-center justify-between text-[13px] text-muted tabular-nums">
-        <span>{bytes ? `${formatBytes(bytes.done)} из ${formatBytes(bytes.total)}` : " "}</span>
-        <Button variant="ghost" className="-mr-2 h-7 px-2" onClick={() => void onCancel()}>
+      <div className="mt-3 flex items-center justify-between font-mono text-xs text-muted tabular-nums">
+        <span>{bytes ? `${formatBytes(bytes.done)} / ${formatBytes(bytes.total)}` : " "}</span>
+        <Button variant="ghost" className="-mr-2 h-7 px-3 font-sans text-[13px]" onClick={() => void onCancel()}>
           Отменить
         </Button>
       </div>

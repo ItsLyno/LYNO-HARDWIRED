@@ -41,13 +41,14 @@ export default function App() {
     <div className="flex h-full flex-col">
       <Header />
       <LauncherUpdateBar />
-      <main className="relative min-h-0 flex-1 overflow-y-auto p-8">
+      <main className="relative min-h-0 flex-1 overflow-y-auto px-8 pt-6 pb-8">
         <PageView />
         {error && (
           <div
             role="alert"
-            className="absolute right-6 bottom-6 flex max-w-md items-start gap-3 rounded-lg border border-line border-l-2 border-l-bad bg-raised px-4 py-3 shadow-xl"
+            className="fixed right-6 bottom-6 flex max-w-md items-start gap-3 rounded-2xl border border-bad/40 bg-raised/95 px-4 py-3 shadow-[0_0_32px_-8px_rgb(255_59_92/0.5)] backdrop-blur"
           >
+            <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-bad shadow-[0_0_8px_var(--color-bad)]" />
             <div className="flex-1 text-[13px]">{error}</div>
             <button onClick={clearError} aria-label="Закрыть" className="text-muted hover:text-fg">
               <X size={15} />

@@ -59,12 +59,12 @@ export function Integrity() {
       )}
 
       {verifyReport && verifyReport.damaged.length > 0 && (
-        <div className="rounded-md border border-line bg-bg">
+        <div className="overflow-hidden rounded-xl border border-line bg-bg/60">
           <div className="border-b border-line px-4 py-2.5 text-[13px]">
             Повреждено: {verifyReport.damaged.length} из {verifyReport.checked}{" "}
             {plural(verifyReport.checked, "мода", "модов", "модов")}
           </div>
-          <ul className="divide-y divide-line">
+          <ul className="divide-y divide-line/60">
             {verifyReport.damaged.map((d) => {
               const settings = settingsOf(d.id);
               return (
@@ -123,13 +123,13 @@ export function Integrity() {
       )}
 
       {tunedOnly.length > 0 && (
-        <div className="rounded-md border border-line bg-bg">
+        <div className="overflow-hidden rounded-xl border border-line bg-bg/60">
           <div className="flex items-center gap-2 border-b border-line px-4 py-2.5 text-[13px]">
             <SlidersHorizontal size={14} className="text-muted" />
             Изменены настройки: {tunedOnly.length} {plural(tunedOnly.length, "мод", "мода", "модов")}
             <span className="text-muted">· это не повреждение</span>
           </div>
-          <ul className="divide-y divide-line">
+          <ul className="divide-y divide-line/60">
             {tunedOnly.map((c) => (
               <li key={c.id} className="px-4 py-2" title={c.files.sample.join("\n")}>
                 <span className="block truncate text-sm">{titleOf(c.id, c.folder)}</span>
