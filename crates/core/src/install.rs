@@ -11,6 +11,7 @@ use serde::Serialize;
 use crate::download::Downloader;
 use crate::files::{self, FileList};
 use crate::manifest::{Manifest, ModEntry, ModSpec, Package};
+use crate::meta;
 use crate::mo2::Instance;
 use crate::modlist::Entry;
 use crate::package;
@@ -132,9 +133,13 @@ impl Installer<'_> {
 
         on(Event::Step { index: total, total, label: "Порядок загрузки".into() });
         for e in &self.manifest.mods {
-            if let ModEntry::Separator { title } = e {
+            if let ModEntry::Separator { title, color } = e {
                 let dir = mods_dir.join(Entry::separator(title).name);
                 std::fs::create_dir_all(&dir).map_err(|e| Error::io(&dir, e))?;
+                // The player's MO2 shows the author's separator colors too.
+                if let Some(color) = color {
+                    meta::save_color(&dir.join("meta.ini"), color)?;
+                }
             }
         }
         let modlist_path = self.inst.modlist_path(&self.manifest.profile);

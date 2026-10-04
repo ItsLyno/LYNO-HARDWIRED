@@ -51,7 +51,12 @@ pub struct ChangelogEntry {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum ModEntry {
-    Separator { title: String },
+    Separator {
+        title: String,
+        /// `#rrggbb` from the separator's `meta.ini` in the author's MO2. Old launchers ignore it.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        color: Option<String>,
+    },
     Mod(ModSpec),
 }
 
@@ -155,9 +160,13 @@ impl Manifest {
             }
         }
         for e in &self.mods {
-            if let ModEntry::Separator { title } = e {
+            if let ModEntry::Separator { title, color } = e {
                 if !is_safe_folder_name(title) {
                     return Err(Error::Manifest(format!("bad separator title {:?}", title)));
+                }
+                // The UI puts it into a style attribute: only a plain hex color gets through.
+                if color.as_deref().is_some_and(|c| crate::meta::parse_hex_color(c).is_none()) {
+                    return Err(Error::Manifest(format!("bad separator color {:?}", color)));
                 }
             }
         }
@@ -216,7 +225,7 @@ pub(crate) mod tests {
 
     #[test]
     fn json_roundtrip() {
-        let m = manifest(vec![ModEntry::Separator { title: "Core".into() }, ModEntry::Mod(spec("cet", "h1"))]);
+        let m = manifest(vec![ModEntry::Separator { title: "Core".into(), color: None }, ModEntry::Mod(spec("cet", "h1"))]);
         let json = serde_json::to_string_pretty(&m).unwrap();
         assert!(json.contains("\"kind\": \"separator\""));
         assert_eq!(Manifest::from_json(&json).unwrap(), m);

@@ -22,13 +22,14 @@ export function LauncherUpdateBar() {
     });
 
   return (
-    <div className="flex shrink-0 items-center gap-4 border-b border-line bg-surface px-8 py-2.5 text-[13px]">
-      <span className="flex-1">
-        Доступна новая версия лаунчера <span className="font-semibold tabular-nums">{launcherUpdate.version}</span>
+    <div className="mx-6 mt-1 flex shrink-0 items-center gap-4 rounded-full bg-neon/[0.07] py-1.5 pr-1.5 pl-5 text-[13px]">
+      <span className="flex-1 truncate">
+        Доступна новая версия лаунчера <span className="font-mono font-semibold tabular-nums">{launcherUpdate.version}</span>
         <span className="text-muted"> · сейчас {launcherUpdate.currentVersion}</span>
         {launcherUpdate.notes && <span className="text-muted"> · {launcherUpdate.notes}</span>}
       </span>
       <Button
+        className="h-8"
         onClick={install}
         disabled={installing || busy}
         title={busy ? "Дождитесь окончания обновления сборки" : undefined}

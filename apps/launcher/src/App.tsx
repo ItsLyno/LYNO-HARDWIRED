@@ -41,14 +41,14 @@ export default function App() {
     <div className="flex h-full flex-col">
       <Header />
       <LauncherUpdateBar />
-      <main className="relative min-h-0 flex-1 overflow-y-auto p-8">
+      <main className="relative min-h-0 flex-1 overflow-y-auto px-8 pt-6 pb-8">
         <PageView />
         {error && (
           <div
             role="alert"
-            className="absolute right-6 bottom-6 flex max-w-md items-start gap-3 rounded-lg border border-line border-l-2 border-l-bad bg-raised px-4 py-3 shadow-xl"
+            className="fixed right-6 bottom-6 flex max-w-md items-start gap-3 rounded-2xl bg-raised px-4 py-3 shadow-xl"
           >
-            <div className="flex-1 text-[13px]">{error}</div>
+            <div className="flex-1 text-[13px] text-bad">{error}</div>
             <button onClick={clearError} aria-label="Закрыть" className="text-muted hover:text-fg">
               <X size={15} />
             </button>

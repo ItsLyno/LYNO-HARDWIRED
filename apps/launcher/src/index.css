@@ -2,20 +2,25 @@
 
 @theme {
   --font-sans: "Inter Variable", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, monospace;
 
-  --color-bg: #0e0e10;
-  --color-surface: #16161a;
-  --color-raised: #1d1d22;
-  --color-line: #2a2a31;
-  --color-fg: #ececef;
-  --color-muted: #9b9ba5;
-  --color-faint: #6b6b75;
-  /* The one accent: reserved for the primary action and focus. */
+  --color-bg: #07080b;
+  --color-surface: #0f1117;
+  --color-raised: #181b23;
+  --color-line: #222632;
+  --color-fg: #eef0f5;
+  --color-muted: #8b91a1;
+  --color-faint: #5b6172;
+  /* The main accent: reserved for the primary action. */
   --color-accent: #f3e600;
   --color-accent-fg: #121200;
-  --color-ok: #4ade80;
-  --color-warn: #fbbf24;
-  --color-bad: #f87171;
+  /* Secondary neon: focus, progress, the launcher update bar. Never on a button fill. */
+  --color-neon: #00e5ff;
+  --color-ok: #3cf2a0;
+  --color-warn: #ffb020;
+  --color-bad: #ff3b5c;
+
+  --shadow-glow: 0 0 28px -6px rgb(243 230 0 / 0.55);
 }
 
 html,
@@ -26,7 +31,11 @@ body,
 
 body {
   margin: 0;
-  background: var(--color-bg);
+  /* Two faint neon washes in opposite corners: the only decoration, everything else stays flat. */
+  background:
+    radial-gradient(900px 520px at 0% 0%, rgb(243 230 0 / 0.045), transparent 65%),
+    radial-gradient(900px 620px at 100% 100%, rgb(0 229 255 / 0.05), transparent 65%),
+    var(--color-bg);
   color: var(--color-fg);
   font-family: var(--font-sans);
   font-size: 14px;
@@ -39,7 +48,40 @@ input {
   user-select: text;
 }
 
+::selection {
+  background: rgb(0 229 255 / 0.3);
+}
+
 :focus-visible {
-  outline: 2px solid var(--color-accent);
+  outline: 2px solid var(--color-neon);
   outline-offset: 2px;
+}
+
+/* WebView2 is Chromium: thin rounded scrollbars instead of the Windows default. */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-line);
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--color-faint);
+}
+
+@utility label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-muted);
+}
+
+@utility panel {
+  border-radius: var(--radius-2xl);
+  background: rgb(15 17 23 / 0.8);
 }

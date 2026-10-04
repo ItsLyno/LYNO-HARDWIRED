@@ -1,17 +1,25 @@
-import { ExternalLink, FolderOpen, Search } from "lucide-react";
-import { useState } from "react";
+import { ChevronRight, ExternalLink, FolderOpen, Search } from "lucide-react";
+import { useState, type CSSProperties } from "react";
 import { api, type ModRow } from "../api";
+import { PageTitle } from "../components/PageTitle";
 import { formatBytes, plural } from "../format";
 import { useApp } from "../store";
 
 type Mod = Extract<ModRow, { kind: "mod" }>;
-type Group = { title: string | null; mods: Mod[] };
+type Group = { title: string | null; color: string | null; mods: Mod[] };
 type Filter = "all" | "optional" | "changes";
 
 export function Mods() {
   const { build, buildError, status, progress, run, setModEnabled } = useApp();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
+  const [collapsed, setCollapsed] = useState<Set<string>>(loadCollapsed);
+  const toggleGroup = (title: string) => {
+    const next = new Set(collapsed);
+    if (!next.delete(title)) next.add(title);
+    setCollapsed(next);
+    saveCollapsed(next);
+  };
 
   const isChange = (m: Mod) => !!m.recent || m.outdated || m.damaged || (!m.installed && !!build?.installedVersion);
   const keep = (m: Mod) => filter === "all" || (filter === "optional" ? m.optional : isChange(m));
@@ -35,12 +43,11 @@ export function Mods() {
   return (
     <div className="mx-auto flex h-full max-w-5xl flex-col">
       <div className="flex items-end justify-between gap-6">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Моды</h1>
-          <p className="mt-1 text-[13px] text-muted tabular-nums">
-            {all.length} {plural(all.length, "мод", "мода", "модов")} · {formatBytes(totalSize)} · сборка {build.latestVersion}
-          </p>
-        </div>
+        <PageTitle
+          sub={`${all.length} ${plural(all.length, "мод", "мода", "модов")} · ${formatBytes(totalSize)} · сборка ${build.latestVersion}`}
+        >
+          Моды
+        </PageTitle>
         <label className="relative w-72">
           <Search size={15} className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-faint" />
           <input
@@ -48,7 +55,7 @@ export function Mods() {
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Поиск по названию или автору"
             spellCheck={false}
-            className="h-9 w-full rounded-md border border-line bg-surface pr-3 pl-9 text-sm outline-none placeholder:text-faint focus:border-muted"
+            className="h-9 w-full rounded-full bg-surface pr-4 pl-9 text-sm outline-none placeholder:text-faint focus:ring-1 focus:ring-neon/50"
           />
         </label>
       </div>
@@ -82,7 +89,7 @@ export function Mods() {
         </p>
       )}
 
-      <div className="mt-4 min-h-0 flex-1 overflow-y-auto rounded-lg border border-line bg-surface">
+      <div className="panel mt-4 min-h-0 flex-1 overflow-y-auto">
         <table className="w-full table-fixed text-left">
           <colgroup>
             <col />
@@ -91,8 +98,8 @@ export function Mods() {
             <col className="w-24" />
             <col className="w-40" />
           </colgroup>
-          <thead className="sticky top-0 z-10 bg-surface text-xs text-muted">
-            <tr className="h-10 border-b border-line">
+          <thead className="sticky top-0 z-10 bg-surface">
+            <tr className="label h-10 border-b border-line">
               <th className="pl-5 font-medium">Название</th>
               <th className="font-medium">Автор</th>
               <th className="font-medium">Версия</th>
@@ -103,15 +110,17 @@ export function Mods() {
           {groups.map((g, i) => (
             <tbody key={g.title ?? `group-${i}`}>
               {g.title && (
-                <tr className="h-9 border-b border-line bg-bg/60">
-                  <td colSpan={5} className="pl-5 text-xs font-semibold text-muted">
-                    {g.title}
-                    <span className="ml-2 font-normal text-faint tabular-nums">{g.mods.length}</span>
-                  </td>
-                </tr>
+                <SeparatorRow
+                  title={g.title}
+                  color={g.color}
+                  count={g.mods.length}
+                  // A search shows every match, folded or not.
+                  open={!!query.trim() || !collapsed.has(g.title)}
+                  onToggle={() => toggleGroup(g.title!)}
+                />
               )}
-              {g.mods.map((m) => (
-                <tr key={m.id} className="h-12 border-b border-line last:border-b-0 hover:bg-raised/50">
+              {(!g.title || query.trim() || !collapsed.has(g.title)) && g.mods.map((m) => (
+                <tr key={m.id} className="h-12 border-b border-line/60 last:border-b-0 hover:bg-raised/50">
                   <td className="truncate pl-5">
                     <span className={m.enabled ? "" : "text-faint"}>{m.title ?? m.name}</span>
                     {!m.enabled && <Badge>выключен</Badge>}
@@ -129,8 +138,8 @@ export function Mods() {
                     {!m.installed && build.installedVersion && <Badge tone="warn">новый</Badge>}
                   </td>
                   <td className="truncate text-muted">{m.author ?? "—"}</td>
-                  <td className="truncate text-[13px] text-muted tabular-nums">{m.version ?? "—"}</td>
-                  <td className="pr-4 text-right text-[13px] text-muted tabular-nums">{formatBytes(m.size)}</td>
+                  <td className="truncate font-mono text-xs text-muted tabular-nums">{m.version ?? "—"}</td>
+                  <td className="pr-4 text-right font-mono text-xs text-muted tabular-nums">{formatBytes(m.size)}</td>
                   <td className="pr-5">
                     <div className="flex items-center justify-end gap-1">
                       {m.optional && m.installed && (
@@ -144,7 +153,7 @@ export function Mods() {
                       {m.installed && (
                         <button
                           onClick={() => run(() => api.openModFolder(m.id))}
-                          className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted transition-colors hover:bg-raised hover:text-fg"
+                          className="inline-flex h-7 w-7 items-center justify-center rounded-full text-muted transition-colors hover:bg-raised hover:text-fg"
                           title="Открыть папку мода"
                         >
                           <FolderOpen size={14} />
@@ -153,7 +162,7 @@ export function Mods() {
                       {m.nexusUrl && (
                         <button
                           onClick={() => run(() => api.openUrl(m.nexusUrl!))}
-                          className="inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-[13px] text-muted transition-colors hover:bg-raised hover:text-fg"
+                          className="inline-flex h-7 items-center gap-1.5 rounded-full px-2.5 text-[13px] text-muted transition-colors hover:bg-raised hover:text-fg"
                           title={m.nexusUrl}
                         >
                           Nexus
@@ -185,7 +194,7 @@ const badgeTones = {
 
 function Badge({ children, tone = "muted", title }: { children: string; tone?: keyof typeof badgeTones; title?: string }) {
   return (
-    <span title={title} className={`ml-2 rounded px-1.5 py-0.5 align-[1px] text-[11px] ${badgeTones[tone]}`}>
+    <span title={title} className={`ml-2 rounded-full px-2 py-0.5 align-[1px] text-[11px] ${badgeTones[tone]}`}>
       {children}
     </span>
   );
@@ -195,12 +204,12 @@ function Chip(props: { active: boolean; onClick: () => void; count?: number; chi
   return (
     <button
       onClick={props.onClick}
-      className={`h-7 rounded-md px-2.5 text-[13px] transition-colors ${
+      className={`h-8 rounded-full px-3.5 text-[13px] transition-colors ${
         props.active ? "bg-raised text-fg" : "text-muted hover:bg-raised/60 hover:text-fg"
       }`}
     >
       {props.children}
-      {props.count !== undefined && <span className="ml-1.5 text-faint tabular-nums">{props.count}</span>}
+      {props.count !== undefined && <span className="ml-1.5 font-mono text-[11px] text-faint tabular-nums">{props.count}</span>}
     </button>
   );
 }
@@ -226,13 +235,58 @@ function Switch(props: { checked: boolean; disabled?: boolean; title: string; on
   );
 }
 
+// Separators come from the author's MO2 (title, order and color); like in MO2, a click folds the group.
+function SeparatorRow(props: { title: string; color: string | null; count: number; open: boolean; onToggle: () => void }) {
+  // Opaque background: the row sticks under the table header while its group scrolls by.
+  const style: CSSProperties = props.color
+    ? {
+        background: `linear-gradient(color-mix(in srgb, ${props.color} 14%, transparent), color-mix(in srgb, ${props.color} 14%, transparent)), var(--color-surface)`,
+        color: `color-mix(in srgb, ${props.color} 55%, var(--color-fg))`,
+      }
+    : { background: "var(--color-raised)" };
+  return (
+    <tr>
+      <td colSpan={5} className="sticky top-10 z-[5] p-0">
+        <button
+          onClick={props.onToggle}
+          aria-expanded={props.open}
+          style={style}
+          className="flex h-10 w-full items-center gap-2 pr-5 pl-4 text-left text-[13px] font-semibold transition-[filter] hover:brightness-125"
+        >
+          <ChevronRight size={14} className={`shrink-0 opacity-70 transition-transform ${props.open ? "rotate-90" : ""}`} />
+          <span className="truncate">{props.title}</span>
+          <span className="font-mono text-[11px] font-normal opacity-60 tabular-nums">{props.count}</span>
+        </button>
+      </td>
+    </tr>
+  );
+}
+
+const COLLAPSED_KEY = "mods.collapsed";
+
+function loadCollapsed(): Set<string> {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(COLLAPSED_KEY) ?? "[]") as string[]);
+  } catch {
+    return new Set();
+  }
+}
+
+function saveCollapsed(titles: Set<string>) {
+  try {
+    localStorage.setItem(COLLAPSED_KEY, JSON.stringify([...titles]));
+  } catch {
+    // Folding is a convenience; losing it is fine.
+  }
+}
+
 function groupMods(rows: ModRow[], query: string, keep: (m: Mod) => boolean): Group[] {
   const q = query.trim().toLowerCase();
   const matches = (m: Mod) =>
     keep(m) && (!q || [m.name, m.title, m.author].some((s) => s?.toLowerCase().includes(q)));
-  const groups: Group[] = [{ title: null, mods: [] }];
+  const groups: Group[] = [{ title: null, color: null, mods: [] }];
   for (const r of rows) {
-    if (r.kind === "separator") groups.push({ title: r.title, mods: [] });
+    if (r.kind === "separator") groups.push({ title: r.title, color: r.color, mods: [] });
     else if (matches(r)) groups[groups.length - 1].mods.push(r);
   }
   return groups.filter((g) => g.mods.length > 0);

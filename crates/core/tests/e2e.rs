@@ -9,6 +9,7 @@ use std::sync::atomic::AtomicBool;
 use lyno_core::download::Downloader;
 use lyno_core::install::{state_path, Event, Installer};
 use lyno_core::manifest::Manifest;
+use lyno_core::meta::ModMeta;
 use lyno_core::mo2::Instance;
 use lyno_core::modlist::{EntryState, ModList};
 use lyno_core::package::PackOptions;
@@ -49,7 +50,10 @@ fn author_instance(root: &Path) {
     write(root, "profiles/Private/modlist.txt", b"+Secret\r\n");
     write(root, "downloads/cet.zip", b"not shipped");
     write(root, "overwrite/r6/cache/x", b"not shipped");
-    write(root, "mods/Core_separator/meta.ini", b"");
+    // The separator color as MO2 writes it: #0393e1.
+    write(root, "mods/Core_separator/meta.ini", br"[General]
+color=@Variant(\0\0\0\x43\x1\xff\xff\x3\x3\x93\x93\xe1\xe1\0\0)
+");
     write(root, "mods/CET/meta.ini", b"[General]\nmodid=107\nversion=1.35\ngameName=cyberpunk2077\n");
     write(root, "mods/CET/bin/x64/plugins/cyber_engine_tweaks.asi", &noise(300_000, 1));
     write(root, "mods/CET/bin/x64/plugins/cyber_engine_tweaks/bindings.json", b"{\"overlay\": \"F1\"}");
@@ -182,6 +186,8 @@ fn build_install_update() {
         assert_eq!(tree_hash(&user.mods_dir().join(name)).unwrap(), tree_hash(&author.join("mods").join(name)).unwrap());
     }
     assert!(user.mods_dir().join("Core_separator").is_dir());
+    let separator = ModMeta::load(&user.mods_dir().join("Core_separator/meta.ini")).unwrap();
+    assert_eq!(separator.color.as_deref(), Some("#0393e1"));
     let managed = |l: ModList| l.entries.into_iter().filter(|e| e.state != EntryState::Unmanaged).collect::<Vec<_>>();
     assert_eq!(
         managed(ModList::load(&user.modlist_path("LYNO")).unwrap()),
