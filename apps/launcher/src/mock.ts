@@ -1,7 +1,7 @@
 // Browser-only stand-in for the Tauri backend (`pnpm dev` without Tauri),
 // so screens can be built and screenshotted without Windows or MO2.
 // The data is illustrative, not the real build.
-import type { BuildInfo, Folder, GameInstall, LauncherUpdate, ModRow, Settings, Status, UpdateEvent, UpdateFinished } from "./api";
+import type { BuildInfo, Folder, GameInstall, LauncherUpdate, ModRow, Settings, Status, UpdateEvent, UpdateFinished, VerifyReport } from "./api";
 
 const GB = 1024 ** 3;
 const MB = 1024 ** 2;
@@ -21,6 +21,7 @@ function mod(name: string, author: string, version: string, size: number, nexusI
     outdated: false,
     installed: true,
     recent: null,
+    damaged: false,
     ...extra,
   } as ModRow;
 }
@@ -84,6 +85,7 @@ let build: BuildInfo = {
   mods,
   upToDate: false,
   changes: 4,
+  repairs: 0,
   downloadSize: 28 * MB,
   online: true,
   lastUpdate: { from: "1.3.0", to: "1.3.2", removed: ["Immersive Traffic"] },
@@ -93,6 +95,33 @@ const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 let progress: ((e: UpdateEvent) => void) | null = null;
 let finished: ((f: UpdateFinished) => void) | null = null;
 let cancelled = false;
+let verifyProgress: ((e: UpdateEvent) => void) | null = null;
+let verifyCancelled = false;
+
+async function simulateVerify(): Promise<VerifyReport | null> {
+  verifyCancelled = false;
+  const installed = build.mods.filter((m) => m.kind === "mod" && m.installed);
+  const total = installed.reduce((n, m) => n + (m.kind === "mod" ? m.size : 0), 0);
+  let done = 0;
+  for (const [i, m] of installed.entries()) {
+    if (m.kind !== "mod") continue;
+    verifyProgress?.({ kind: "step", index: i + 1, total: installed.length, label: m.name });
+    for (let t = 0; t < 4; t++) {
+      if (verifyCancelled) return null;
+      await delay(80);
+      done += m.size / 4;
+      verifyProgress?.({ kind: "bytes", done, total });
+    }
+  }
+  return {
+    checked: installed.length,
+    damaged: [
+      { id: null, folder: "", problem: { kind: "missingFiles", count: 2, files: ["ModOrganizer.exe", "dlls/QtCore.dll"] } },
+      { id: "cyber-engine-tweaks", folder: "Cyber Engine Tweaks", problem: { kind: "changed" } },
+      { id: "nova-lut", folder: "Nova LUT", problem: { kind: "missingFolder" } },
+    ],
+  };
+}
 
 async function simulateUpdate() {
   const steps = ["Обновление: Cyber Engine Tweaks", "Обновление: RED4ext", "Установка: Better Vehicle Handling", "Удаление: Immersive Traffic", "Порядок загрузки"];
@@ -141,6 +170,15 @@ export const mock = {
     cancelled = true;
     status = { ...status, updating: false };
   },
+  verifyBuild: () => simulateVerify(),
+  cancelVerify: async () => {
+    verifyCancelled = true;
+  },
+  startRepair: async (_ids: string[], _base: boolean) => {
+    cancelled = false;
+    status = { ...status, updating: true };
+    void simulateUpdate();
+  },
   setModEnabled: async (id: string, enabled: boolean) => {
     if (status.gameRunning || status.mo2Running) throw new Error("Закройте игру и Mod Organizer 2, чтобы включать и выключать моды");
     build = { ...build, mods: build.mods.map((m) => (m.kind === "mod" && m.id === id ? { ...m, enabled } : m)) };
@@ -164,6 +202,12 @@ export const mock = {
   },
   openUrl: async (url: string) => {
     window.open(url, "_blank");
+  },
+  onVerifyProgress: async (p: (e: UpdateEvent) => void) => {
+    verifyProgress = p;
+    return () => {
+      verifyProgress = null;
+    };
   },
   onUpdate: async (p: (e: UpdateEvent) => void, f: (r: UpdateFinished) => void) => {
     progress = p;

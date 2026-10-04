@@ -1,16 +1,17 @@
-import { Download, RefreshCw, RotateCw } from "lucide-react";
+import { Download, RefreshCw, RotateCw, Wrench } from "lucide-react";
 import { Button } from "../components/Button";
 import { Changelog } from "../components/Changelog";
 import { Section } from "../components/Section";
 import { StatusDot } from "../components/StatusDot";
 import { UpdateProgress } from "../components/UpdateProgress";
 import { formatBytes, plural } from "../format";
-import { useApp } from "../store";
+import { isRepairOnly, useApp } from "../store";
 
 export function Updates() {
   const { build, buildError, status, progress, refreshBuild, startUpdate } = useApp();
   const installed = status?.installedVersion ?? null;
   const busy = !!progress || !!status?.updating;
+  const repair = isRepairOnly(build);
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -42,7 +43,7 @@ export function Updates() {
               "Установлена последняя версия"
             ) : (
               <>
-                {installed ? "Доступно обновление" : "Сборка ещё не установлена"}
+                {repair ? "Нужно восстановить повреждённые файлы" : installed ? "Доступно обновление" : "Сборка ещё не установлена"}
                 <div className="mt-0.5 text-muted tabular-nums">
                   {build.changes} {plural(build.changes, "изменение", "изменения", "изменений")} ·{" "}
                   {formatBytes(build.downloadSize)} к загрузке
@@ -52,8 +53,8 @@ export function Updates() {
           </div>
           {build?.online && !build.upToDate && (
             <Button variant="primary" onClick={startUpdate} disabled={busy}>
-              {installed ? <RefreshCw size={15} /> : <Download size={15} />}
-              {installed ? "Обновить" : "Установить"}
+              {repair ? <Wrench size={15} /> : installed ? <RefreshCw size={15} /> : <Download size={15} />}
+              {repair ? "Починить" : installed ? "Обновить" : "Установить"}
             </Button>
           )}
         </div>

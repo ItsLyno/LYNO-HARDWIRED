@@ -21,5 +21,6 @@ pub mod report;
 pub mod rules;
 pub mod state;
 pub mod tree;
+pub mod verify;
 
 pub use error::{Error, Result};

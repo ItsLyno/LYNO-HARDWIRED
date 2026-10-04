@@ -3,7 +3,7 @@ import { formatBytes } from "../format";
 import type { Progress } from "../store";
 import { Button } from "./Button";
 
-export function UpdateProgress({ progress }: { progress: Progress }) {
+export function UpdateProgress({ progress, onCancel = api.cancelUpdate }: { progress: Progress; onCancel?: () => unknown }) {
   const { step, bytes } = progress;
   const pct = bytes && bytes.total > 0 ? Math.min(100, (bytes.done / bytes.total) * 100) : null;
 
@@ -25,7 +25,7 @@ export function UpdateProgress({ progress }: { progress: Progress }) {
       </div>
       <div className="mt-3 flex items-center justify-between text-[13px] text-muted tabular-nums">
         <span>{bytes ? `${formatBytes(bytes.done)} из ${formatBytes(bytes.total)}` : " "}</span>
-        <Button variant="ghost" className="-mr-2 h-7 px-2" onClick={() => api.cancelUpdate()}>
+        <Button variant="ghost" className="-mr-2 h-7 px-2" onClick={() => void onCancel()}>
           Отменить
         </Button>
       </div>

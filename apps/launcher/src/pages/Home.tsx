@@ -1,4 +1,4 @@
-import { ArrowRight, Download, FolderCog, FolderSearch, Loader2, Play, RefreshCw } from "lucide-react";
+import { ArrowRight, Download, FolderCog, FolderSearch, Loader2, Play, RefreshCw, Wrench } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { api } from "../api";
 import { Button } from "../components/Button";
@@ -8,7 +8,7 @@ import { StatusDot, type Tone } from "../components/StatusDot";
 import { UpdateProgress } from "../components/UpdateProgress";
 import logo from "../assets/logo.webp";
 import { formatBytes } from "../format";
-import { primaryAction, useApp, type PrimaryAction } from "../store";
+import { isRepairOnly, primaryAction, useApp, type PrimaryAction } from "../store";
 
 export function Home() {
   const { status, build, buildError, progress, run, setPage, startUpdate } = useApp();
@@ -52,7 +52,13 @@ export function Home() {
           >
             <StatusDot tone="warn" />
             <span className="flex-1">
-              Доступна версия <span className="font-semibold tabular-nums">{build.latestVersion}</span>
+              {isRepairOnly(build) ? (
+                "Нужно восстановить повреждённые файлы"
+              ) : (
+                <>
+                  Доступна версия <span className="font-semibold tabular-nums">{build.latestVersion}</span>
+                </>
+              )}
               <span className="text-muted"> · {formatBytes(build.downloadSize)} к загрузке</span>
             </span>
             <ArrowRight size={16} className="text-muted" />
@@ -93,7 +99,7 @@ export function Home() {
               disabled={action === "loading" || action === "running" || action === "updating" || launching}
               onClick={onPrimary}
             >
-              {primaryLabel(action, launching, build?.latestVersion)}
+              {primaryLabel(action, launching, build?.latestVersion, isRepairOnly(build))}
             </Button>
             <Button size="lg" disabled={!status?.mo2Installed || !!progress} onClick={() => run(api.openMo2)}>
               <FolderCog size={17} />
@@ -116,7 +122,7 @@ export function Home() {
   );
 }
 
-function primaryLabel(action: PrimaryAction, launching: boolean, latest?: string): ReactNode {
+function primaryLabel(action: PrimaryAction, launching: boolean, latest: string | undefined, repair: boolean): ReactNode {
   if (launching) return <><Loader2 size={18} className="animate-spin" />Запуск…</>;
   switch (action) {
     case "loading":
@@ -130,7 +136,7 @@ function primaryLabel(action: PrimaryAction, launching: boolean, latest?: string
     case "install":
       return <><Download size={18} />Установить сборку</>;
     case "update":
-      return <><RefreshCw size={18} />Обновить до {latest}</>;
+      return repair ? <><Wrench size={18} />Восстановить файлы</> : <><RefreshCw size={18} />Обновить до {latest}</>;
     case "play":
       return <><Play size={18} fill="currentColor" />Играть</>;
   }

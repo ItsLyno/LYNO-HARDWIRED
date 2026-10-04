@@ -69,24 +69,29 @@ impl Installer<'_> {
                     remove_stale_base_files(self.inst.root(), &state.base_files, &files)?;
                     state.base_hash = Some(pkg.hash.clone());
                     state.base_files = files;
+                    state.base_damaged = false;
                 }
-                Action::Install { id } | Action::Update { id, .. } => {
+                Action::Install { id } | Action::Update { id, .. } | Action::Repair { id, .. } => {
                     let spec = self.spec(id)?;
                     let dest = staging.join(&spec.id);
                     self.fetch_and_unpack(&spec.package, &spec.id, &cache, &dest, &mut done_bytes, total_bytes, on)?;
                     package::swap_folder(&dest, &mods_dir.join(&spec.name))?;
                     move_shadowing_files(&self.inst.overwrite_dir(), &mods_dir.join(&spec.name), &backup)?;
-                    if let Action::Update { from_folder, .. } = action {
+                    if let Action::Update { from_folder, .. } | Action::Repair { from_folder, .. } = action {
                         if *from_folder != spec.name {
                             remove_dir(&mods_dir.join(from_folder))?;
                         }
                     }
-                    state.mods.insert(spec.id.clone(), InstalledMod { folder: spec.name.clone(), hash: spec.package.hash.clone() });
-                    let record = state.begin_update(&self.manifest.build_version);
-                    if !record.added.contains(id) && !record.updated.contains(id) {
-                        match action {
-                            Action::Install { .. } => record.added.push(id.clone()),
-                            _ => record.updated.push(id.clone()),
+                    let installed = InstalledMod { folder: spec.name.clone(), hash: spec.package.hash.clone(), damaged: false };
+                    state.mods.insert(spec.id.clone(), installed);
+                    // A repaired mod is the same version: no "updated" mark.
+                    if !matches!(action, Action::Repair { .. }) {
+                        let record = state.begin_update(&self.manifest.build_version);
+                        if !record.added.contains(id) && !record.updated.contains(id) {
+                            match action {
+                                Action::Install { .. } => record.added.push(id.clone()),
+                                _ => record.updated.push(id.clone()),
+                            }
                         }
                     }
                 }
@@ -176,6 +181,7 @@ impl Installer<'_> {
             Action::Base => "Mod Organizer 2 и настройки".into(),
             Action::Install { id } => format!("Установка: {}", name(id)),
             Action::Update { id, .. } => format!("Обновление: {}", name(id)),
+            Action::Repair { id, .. } => format!("Восстановление: {}", name(id)),
             Action::Rename { id, .. } => format!("Переименование: {}", name(id)),
             Action::Remove { folder, .. } => format!("Удаление: {folder}"),
         }
@@ -202,7 +208,7 @@ fn remove_stale_base_files(root: &Path, old: &[String], new: &[String]) -> Resul
 
 /// Profile files that may have been shipped by an older build but have
 /// since become the player's own (saves, game settings).
-fn is_player_file(rel: &str) -> bool {
+pub(crate) fn is_player_file(rel: &str) -> bool {
     let mut parts = rel.splitn(3, '/');
     matches!((parts.next(), parts.next(), parts.next()), (Some("profiles"), Some(_), Some(file)) if rules::is_private_profile_file(file))
 }

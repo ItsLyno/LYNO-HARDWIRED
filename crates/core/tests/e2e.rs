@@ -16,6 +16,7 @@ use lyno_core::plan::{plan, set_enabled, Action};
 use lyno_core::publish::{build, check_published, BuildOptions, ModInfo};
 use lyno_core::state::State;
 use lyno_core::tree::tree_hash;
+use lyno_core::verify::{mark, verify, Problem};
 
 fn write(root: &Path, rel: &str, data: &[u8]) {
     let p = root.join(rel);
@@ -274,6 +275,36 @@ fn build_install_update() {
     assert_eq!(record.added, ["lyno-settings"]);
     assert_eq!(record.updated, ["archive-mod"]);
     assert!(!user_root.join(".lyno/cache").exists());
+
+    // Integrity check: a fresh install is intact even after MO2 and the game
+    // touched it; then antivirus eats CET and an MO2 file, and repair downloads
+    // only those again without counting as an update.
+    let check_integrity = || verify(&user, &State::load(&state_path(&user)).unwrap(), &AtomicBool::new(false), &mut |_| {}).unwrap();
+    write(&user_root, "mods/CET/meta.ini", b"[General]\nlastNexusQuery=2026-10-05\n");
+    write(&user_root, "mods/CET/bin/x64/plugins/cyber_engine_tweaks/cyber_engine_tweaks.log", b"log");
+    assert_eq!(check_integrity().damaged, []);
+    std::fs::remove_file(user_root.join("mods/CET/bin/x64/plugins/cyber_engine_tweaks.asi")).unwrap();
+    std::fs::remove_file(user_root.join("ModOrganizer.exe")).unwrap();
+    let report = check_integrity();
+    assert_eq!(report.checked, 4);
+    assert_eq!(report.damaged.len(), 2, "{report:?}");
+    assert_eq!(report.damaged[0].problem, Problem::MissingFiles { count: 1, files: vec!["ModOrganizer.exe".into()] });
+    assert_eq!((report.damaged[1].id.as_deref(), &report.damaged[1].problem), (Some("cet"), &Problem::Changed));
+    let mut st = State::load(&state_path(&user)).unwrap();
+    mark(&mut st, &["cet".into()], true);
+    st.save(&state_path(&user)).unwrap();
+    requests.lock().unwrap().clear();
+    let actions = install(&user, &m2);
+    assert_eq!(actions, [Action::Base, Action::Repair { id: "cet".into(), from_folder: "CET".into() }]);
+    assert!(requests.lock().unwrap().iter().all(|r| r.starts_with("cet-") || r.starts_with("base-")), "{requests:?}");
+    assert_eq!(check_integrity().damaged, []);
+    assert!(user_root.join("ModOrganizer.exe").exists());
+    let st = State::load(&state_path(&user)).unwrap();
+    assert!(!st.base_damaged && !st.mods["cet"].damaged);
+    assert_eq!(st.last_update.as_ref().unwrap().updated, ["archive-mod"], "repair is not an update");
+    let list = ModList::load(&user.modlist_path("LYNO")).unwrap();
+    assert_eq!(list.get("Archive Mod").unwrap().state, EntryState::Disabled, "player's choice survives a repair");
+    assert!(user_root.join("mods/My Tweak/x.archive").exists());
 
     // Before publishing: every part, including ones reused from 1.0.0, is
     // reachable with the right size; a missing or truncated asset is caught.

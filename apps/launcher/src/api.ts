@@ -47,6 +47,8 @@ export type ModRow =
       installed: boolean;
       /** Changed by the last update (see `BuildInfo.lastUpdate`). */
       recent: "added" | "updated" | null;
+      /** Marked for repair; the next update downloads it again. */
+      damaged: boolean;
     };
 
 export interface LastUpdate {
@@ -67,6 +69,8 @@ export interface BuildInfo {
   mods: ModRow[];
   upToDate: boolean;
   changes: number;
+  /** Of `changes`: damaged mods and MO2 itself to download again. */
+  repairs: number;
   downloadSize: number;
   online: boolean;
   lastUpdate: LastUpdate | null;
@@ -87,6 +91,23 @@ export interface UpdateFinished {
   error: string | null;
 }
 
+export type Problem =
+  | { kind: "missingFolder" }
+  | { kind: "changed" }
+  | { kind: "missingFiles"; count: number; files: string[] };
+
+export interface Damaged {
+  /** Manifest mod id; null for MO2 and its config (the base package). */
+  id: string | null;
+  folder: string;
+  problem: Problem;
+}
+
+export interface VerifyReport {
+  checked: number;
+  damaged: Damaged[];
+}
+
 export interface LauncherUpdate {
   version: string;
   currentVersion: string;
@@ -102,6 +123,10 @@ export const api = isTauri()
       fetchBuild: () => invoke<BuildInfo>("fetch_build"),
       startUpdate: () => invoke<void>("start_update"),
       cancelUpdate: () => invoke<void>("cancel_update"),
+      /** Null when cancelled. */
+      verifyBuild: () => invoke<VerifyReport | null>("verify_build"),
+      cancelVerify: () => invoke<void>("cancel_verify"),
+      startRepair: (ids: string[], base: boolean) => invoke<void>("start_repair", { ids, base }),
       setModEnabled: (id: string, enabled: boolean) => invoke<void>("set_mod_enabled", { id, enabled }),
       openModFolder: (id: string) => invoke<void>("open_mod_folder", { id }),
       openFolder: (folder: Folder) => invoke<void>("open_folder", { folder }),
@@ -121,6 +146,8 @@ export const api = isTauri()
           listen<UpdateEvent>("update-progress", (e) => progress(e.payload)),
           listen<UpdateFinished>("update-finished", (e) => finished(e.payload)),
         ]).then((fns) => () => fns.forEach((f) => f())),
+      onVerifyProgress: (progress: (e: UpdateEvent) => void): Promise<UnlistenFn> =>
+        listen<UpdateEvent>("verify-progress", (e) => progress(e.payload)),
     }
   : mock;
 

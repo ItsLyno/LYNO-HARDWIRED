@@ -23,6 +23,9 @@ pub enum Action {
     Install { id: String },
     /// Content changed: download the new package and replace the folder.
     Update { id: String, from_folder: String },
+    /// Same package, but the installed folder is damaged (see
+    /// [`crate::verify`]): download it again and replace the folder.
+    Repair { id: String, from_folder: String },
     /// Same content, new folder name.
     Rename { id: String, from_folder: String },
     /// Managed mod no longer in the build.
@@ -48,14 +51,14 @@ pub fn plan(manifest: &Manifest, state: &State, current: &ModList) -> UpdatePlan
     let mut actions = Vec::new();
     let mut download_size = 0;
 
-    if state.base_hash.as_deref() != Some(manifest.base.hash.as_str()) {
+    if state.base_hash.as_deref() != Some(manifest.base.hash.as_str()) || state.base_damaged {
         actions.push(Action::Base);
         download_size += manifest.base.download_size();
     }
 
     for spec in manifest.mod_specs() {
         if let Some(a) = action_for(spec, state) {
-            if matches!(a, Action::Install { .. } | Action::Update { .. }) {
+            if matches!(a, Action::Install { .. } | Action::Update { .. } | Action::Repair { .. }) {
                 download_size += spec.package.download_size();
             }
             actions.push(a);
@@ -80,6 +83,9 @@ fn action_for(spec: &ModSpec, state: &State) -> Option<Action> {
     };
     if installed.hash != spec.package.hash {
         return Some(Action::Update { id: spec.id.clone(), from_folder: installed.folder.clone() });
+    }
+    if installed.damaged {
+        return Some(Action::Repair { id: spec.id.clone(), from_folder: installed.folder.clone() });
     }
     (installed.folder != spec.name).then(|| Action::Rename { id: spec.id.clone(), from_folder: installed.folder.clone() })
 }
@@ -172,10 +178,11 @@ mod tests {
             build_version: None,
             base_hash: base.map(Into::into),
             base_files: vec![],
+            base_damaged: false,
             last_update: None,
             mods: mods
                 .iter()
-                .map(|(id, folder, hash)| (id.to_string(), InstalledMod { folder: folder.to_string(), hash: hash.to_string() }))
+                .map(|(id, folder, hash)| (id.to_string(), InstalledMod { folder: folder.to_string(), hash: hash.to_string(), damaged: false }))
                 .collect(),
         }
     }
@@ -244,6 +251,27 @@ mod tests {
         let first = plan(&m, &st, &ModList::default());
         let second = plan(&m, &st, &first.modlist);
         assert!(second.is_up_to_date(), "{second:?}");
+    }
+
+    #[test]
+    fn damaged_mods_and_base_are_downloaded_again() {
+        let m = manifest(vec![ModEntry::Mod(spec("cet", "h")), ModEntry::Mod(spec("r4x", "new")), ModEntry::Mod(spec("ok", "o"))]);
+        let mut st = state(Some("base"), &[("cet", "cet folder", "h"), ("r4x", "r4x folder", "old"), ("ok", "ok folder", "o")]);
+        st.base_damaged = true;
+        st.mods.get_mut("cet").unwrap().damaged = true;
+        st.mods.get_mut("r4x").unwrap().damaged = true;
+
+        let p = plan(&m, &st, &ModList::default());
+        assert_eq!(
+            p.actions,
+            [
+                Action::Base,
+                Action::Repair { id: "cet".into(), from_folder: "cet folder".into() },
+                Action::Update { id: "r4x".into(), from_folder: "r4x folder".into() },
+            ],
+            "a damaged mod with a newer package is just updated"
+        );
+        assert_eq!(p.download_size, 15);
     }
 
     fn optional(id: &str, hash: &str, enabled: bool) -> ModSpec {

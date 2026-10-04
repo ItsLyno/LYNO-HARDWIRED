@@ -2,6 +2,7 @@ import { Check, FileArchive, FolderOpen, Loader2, Search } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api, type Folder, type Settings as SettingsT } from "../api";
 import { Button } from "../components/Button";
+import { Integrity } from "../components/Integrity";
 import { useApp } from "../store";
 
 export function Settings() {
@@ -103,7 +104,13 @@ export function Settings() {
         </Field>
       </div>
       <h2 className="pt-4 text-lg font-semibold tracking-tight">Диагностика</h2>
-      <div className="rounded-lg border border-line bg-surface">
+      <div className="divide-y divide-line rounded-lg border border-line bg-surface">
+        <Field
+          label="Проверка целостности"
+          hint="Лаунчер перечитает все файлы модов сборки и сравнит их с опубликованными. Это займёт столько же времени, сколько чтение всей сборки с диска. Повреждённые моды скачаются заново целиком. Мод, настройки которого вы меняли в игре, тоже покажется изменённым: починка вернёт ему настройки сборки, такой мод можно не отмечать."
+        >
+          <Integrity />
+        </Field>
         <Field
           label="Отчёт для автора сборки"
           hint="Если игра вылетает или сборка не обновляется, соберите отчёт и отправьте файл автору. В архив попадут логи лаунчера, MO2, RED4ext, CET и redscript, список модов и состояние установки. Сохранений и настроек графики в нём нет."

@@ -16,6 +16,10 @@ pub struct State {
     /// Lets an update remove what a newer base no longer has.
     #[serde(default)]
     pub base_files: Vec<String>,
+    /// A base file went missing (see [`crate::verify`]): the next update
+    /// unpacks the base package again.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub base_damaged: bool,
     /// Keyed by manifest mod id.
     pub mods: BTreeMap<String, InstalledMod>,
     /// What the latest update changed, for "added / updated in 1.4.0" marks.
@@ -41,6 +45,10 @@ pub struct LastUpdate {
 pub struct InstalledMod {
     pub folder: String,
     pub hash: String,
+    /// The folder no longer matches `hash` (see [`crate::verify`]): the next
+    /// update downloads the package again.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub damaged: bool,
 }
 
 impl State {
@@ -91,7 +99,7 @@ mod tests {
         assert_eq!(State::load(&p).unwrap(), State::default());
 
         let mut s = State { build_version: Some("1.0".into()), ..Default::default() };
-        s.mods.insert("cet".into(), InstalledMod { folder: "CET".into(), hash: "h".into() });
+        s.mods.insert("cet".into(), InstalledMod { folder: "CET".into(), hash: "h".into(), damaged: false });
         s.save(&p).unwrap();
         assert_eq!(State::load(&p).unwrap(), s);
         assert!(s.is_managed_folder("CET"));
