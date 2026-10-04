@@ -12,7 +12,7 @@ use lyno_core::manifest::Manifest;
 use lyno_core::mo2::Instance;
 use lyno_core::modlist::{EntryState, ModList};
 use lyno_core::package::PackOptions;
-use lyno_core::plan::{plan, Action};
+use lyno_core::plan::{plan, set_enabled, Action};
 use lyno_core::publish::{build, check_published, BuildOptions, ModInfo};
 use lyno_core::state::State;
 use lyno_core::tree::tree_hash;
@@ -51,7 +51,7 @@ fn author_instance(root: &Path) {
     write(root, "mods/Core_separator/meta.ini", b"");
     write(root, "mods/CET/meta.ini", b"[General]\nmodid=107\nversion=1.35\ngameName=cyberpunk2077\n");
     write(root, "mods/CET/bin/x64/plugins/cyber_engine_tweaks.asi", &noise(300_000, 1));
-    write(root, "mods/Archive Mod/meta.ini", b"[General]\nmodid=555\nversion=2.0\n");
+    write(root, "mods/Archive Mod/meta.ini", b"[General]\nmodid=555\nversion=2.0\n[LYNO]\noptional=true\n");
     write(root, "mods/Archive Mod/archive/pc/mod/a.archive", &noise(200_000, 2));
     write(root, "mods/REDmod Thing/meta.ini", b"[General]\nmodid=777\n");
     write(root, "mods/REDmod Thing/mods/Thing/info.json", b"{\"name\":\"Thing\"}");
@@ -160,6 +160,8 @@ fn build_install_update() {
     assert!(cet.package.parts.len() > 1, "CET should be split into parts");
     assert_eq!(cet.nexus.as_ref().unwrap().url(), "https://www.nexusmods.com/cyberpunk2077/mods/107");
     assert_eq!(cet.author.as_deref(), Some("psiberx"));
+    assert!(!cet.optional);
+    assert!(m1.mod_specs().find(|m| m.id == "archive-mod").unwrap().optional);
 
     let user = Instance::new(&user_root);
     let actions = install(&user, &m1);
@@ -190,6 +192,15 @@ fn build_install_update() {
     write(&user_root, "mods/My Tweak/x.archive", b"mine");
     let mut list = ModList::load(&user.modlist_path("LYNO")).unwrap();
     list.entries.push(lyno_core::modlist::Entry::enabled("My Tweak"));
+    list.save(&user.modlist_path("LYNO")).unwrap();
+
+    let st = State::load(&state_path(&user)).unwrap();
+    assert_eq!(st.last_update.as_ref().unwrap().from, None, "first install");
+
+    // The player switches the optional mod off in the launcher; required mods can't be.
+    let mut list = ModList::load(&user.modlist_path("LYNO")).unwrap();
+    set_enabled(&m1, &st, &mut list, "archive-mod", false).unwrap();
+    assert!(set_enabled(&m1, &st, &mut list, "cet", false).is_err());
     list.save(&user.modlist_path("LYNO")).unwrap();
 
     // The user's game already created a mod settings file in overwrite.
@@ -254,7 +265,14 @@ fn build_install_update() {
     assert!(user_root.join("mods/My Tweak/x.archive").exists());
     let list = ModList::load(&user.modlist_path("LYNO")).unwrap();
     assert_eq!(list.entries.last().unwrap().name, "My Tweak");
-    assert_eq!(State::load(&state_path(&user)).unwrap().build_version.as_deref(), Some("1.1.0"));
+    assert_eq!(list.get("Archive Mod").unwrap().state, EntryState::Disabled, "player's choice survives the update");
+    assert_eq!(list.get("CET").unwrap().state, EntryState::Enabled);
+    let st = State::load(&state_path(&user)).unwrap();
+    assert_eq!(st.build_version.as_deref(), Some("1.1.0"));
+    let record = st.last_update.unwrap();
+    assert_eq!(record.from.as_deref(), Some("1.0.0"));
+    assert_eq!(record.added, ["lyno-settings"]);
+    assert_eq!(record.updated, ["archive-mod"]);
     assert!(!user_root.join(".lyno/cache").exists());
 
     // Before publishing: every part, including ones reused from 1.0.0, is

@@ -38,11 +38,25 @@ export type ModRow =
       version: string | null;
       author: string | null;
       nexusUrl: string | null;
+      /** For an installed optional mod, the player's choice. */
       enabled: boolean;
+      /** The player may switch it on or off. */
+      optional: boolean;
       size: number;
       outdated: boolean;
       installed: boolean;
+      /** Changed by the last update (see `BuildInfo.lastUpdate`). */
+      recent: "added" | "updated" | null;
     };
+
+export interface LastUpdate {
+  from: string;
+  to: string;
+  /** Folder names of mods the update removed. */
+  removed: string[];
+}
+
+export type Folder = "instance" | "game" | "saves" | "logs";
 
 export interface BuildInfo {
   name: string;
@@ -55,6 +69,7 @@ export interface BuildInfo {
   changes: number;
   downloadSize: number;
   online: boolean;
+  lastUpdate: LastUpdate | null;
 }
 
 export interface GameInstall {
@@ -87,6 +102,9 @@ export const api = isTauri()
       fetchBuild: () => invoke<BuildInfo>("fetch_build"),
       startUpdate: () => invoke<void>("start_update"),
       cancelUpdate: () => invoke<void>("cancel_update"),
+      setModEnabled: (id: string, enabled: boolean) => invoke<void>("set_mod_enabled", { id, enabled }),
+      openModFolder: (id: string) => invoke<void>("open_mod_folder", { id }),
+      openFolder: (folder: Folder) => invoke<void>("open_folder", { folder }),
       launchGame: () => invoke<void>("launch_game"),
       openMo2: () => invoke<void>("open_mo2"),
       /** Path of the zip written to the desktop. */

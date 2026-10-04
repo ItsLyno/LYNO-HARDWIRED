@@ -22,6 +22,7 @@ interface AppStore {
   refreshBuild: () => Promise<void>;
   saveSettings: (s: Settings) => Promise<boolean>;
   startUpdate: () => Promise<void>;
+  setModEnabled: (id: string, enabled: boolean) => Promise<void>;
   onUpdateEvent: (e: UpdateEvent) => void;
   onUpdateFinished: (ok: boolean, error: string | null) => void;
   run: (action: () => Promise<void>) => Promise<void>;
@@ -71,6 +72,19 @@ export const useApp = create<AppStore>((set, get) => ({
       await get().refreshStatus();
     } catch (e) {
       set({ progress: null, error: String(e) });
+    }
+  },
+  // Patches the row in place: refetching the manifest for one switch is a round trip to GitHub.
+  setModEnabled: async (id, enabled) => {
+    try {
+      await api.setModEnabled(id, enabled);
+      const build = get().build;
+      if (build) {
+        set({ build: { ...build, mods: build.mods.map((m) => (m.kind === "mod" && m.id === id ? { ...m, enabled } : m)) } });
+      }
+      await get().refreshStatus();
+    } catch (e) {
+      set({ error: String(e) });
     }
   },
   onUpdateEvent: (e) => {

@@ -63,6 +63,12 @@ pub struct ModSpec {
     /// Folder name under `mods/`.
     pub name: String,
     pub enabled: bool,
+    /// The player may switch the mod on or off; `enabled` is only the default.
+    /// The choice lives in the player's `modlist.txt` and survives updates
+    /// (see [`crate::plan::is_enabled`]). Set by `[LYNO] optional=true` in
+    /// the author's `meta.ini`.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub optional: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub version: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -184,6 +190,7 @@ pub(crate) mod tests {
             id: id.into(),
             name: format!("{id} folder"),
             enabled: true,
+            optional: false,
             version: Some("1.0".into()),
             author: Some("someone".into()),
             title: None,

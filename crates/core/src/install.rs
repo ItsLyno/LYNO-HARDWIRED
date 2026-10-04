@@ -51,6 +51,8 @@ impl Installer<'_> {
         let mods_dir = self.inst.mods_dir();
         std::fs::create_dir_all(&mods_dir).map_err(|e| Error::io(&mods_dir, e))?;
 
+        state.begin_update(&self.manifest.build_version);
+
         let total_bytes = plan.download_size;
         let mut done_bytes = 0u64;
         let total = plan.actions.len() + 1;
@@ -80,6 +82,13 @@ impl Installer<'_> {
                         }
                     }
                     state.mods.insert(spec.id.clone(), InstalledMod { folder: spec.name.clone(), hash: spec.package.hash.clone() });
+                    let record = state.begin_update(&self.manifest.build_version);
+                    if !record.added.contains(id) && !record.updated.contains(id) {
+                        match action {
+                            Action::Install { .. } => record.added.push(id.clone()),
+                            _ => record.updated.push(id.clone()),
+                        }
+                    }
                 }
                 Action::Rename { id, from_folder } => {
                     let spec = self.spec(id)?;
@@ -92,6 +101,12 @@ impl Installer<'_> {
                 Action::Remove { id, folder } => {
                     remove_dir(&mods_dir.join(folder))?;
                     state.mods.remove(id);
+                    let record = state.begin_update(&self.manifest.build_version);
+                    record.added.retain(|a| a != id);
+                    record.updated.retain(|a| a != id);
+                    if !record.removed.contains(folder) {
+                        record.removed.push(folder.clone());
+                    }
                 }
             }
             state.save(&state_file)?;
