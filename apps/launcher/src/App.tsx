@@ -46,10 +46,9 @@ export default function App() {
         {error && (
           <div
             role="alert"
-            className="fixed right-6 bottom-6 flex max-w-md items-start gap-3 rounded-2xl border border-bad/40 bg-raised/95 px-4 py-3 shadow-[0_0_32px_-8px_rgb(255_59_92/0.5)] backdrop-blur"
+            className="fixed right-6 bottom-6 flex max-w-md items-start gap-3 rounded-2xl bg-raised px-4 py-3 shadow-xl"
           >
-            <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-bad shadow-[0_0_8px_var(--color-bad)]" />
-            <div className="flex-1 text-[13px]">{error}</div>
+            <div className="flex-1 text-[13px] text-bad">{error}</div>
             <button onClick={clearError} aria-label="Закрыть" className="text-muted hover:text-fg">
               <X size={15} />
             </button>

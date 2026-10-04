@@ -3,7 +3,6 @@ import { Button } from "../components/Button";
 import { Changelog } from "../components/Changelog";
 import { PageTitle } from "../components/PageTitle";
 import { Section } from "../components/Section";
-import { StatusDot } from "../components/StatusDot";
 import { UpdateProgress } from "../components/UpdateProgress";
 import { formatBytes, plural } from "../format";
 import { isRepairOnly, useApp } from "../store";
@@ -34,7 +33,6 @@ export function Updates() {
         <UpdateProgress progress={progress} />
       ) : (
         <div className="panel flex items-center gap-4 px-5 py-4">
-          <StatusDot tone={!build ? "bad" : build.upToDate ? "ok" : "warn"} />
           <div className="flex-1 text-[13px]">
             {!build ? (
               <span className="text-muted">{buildError ?? "Загрузка…"}</span>

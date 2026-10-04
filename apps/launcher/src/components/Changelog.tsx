@@ -16,7 +16,7 @@ export function Changelog({ entries, installed }: { entries: ChangelogEntry[]; i
               </span>
             )}
           </div>
-          <ul className="mt-2 space-y-1 border-l border-line pl-3 text-[13px] leading-relaxed text-muted">
+          <ul className="mt-2 space-y-1 text-[13px] leading-relaxed text-muted">
             {e.notes.map((n) => (
               <li key={n}>{n}</li>
             ))}

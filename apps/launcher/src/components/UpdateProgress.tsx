@@ -19,7 +19,7 @@ export function UpdateProgress({ progress, onCancel = api.cancelUpdate }: { prog
       </div>
       <div className="mt-3 h-1 rounded-full bg-raised">
         <div
-          className="h-full rounded-full bg-gradient-to-r from-neon to-accent shadow-[0_0_12px_rgb(243_230_0/0.5)] transition-[width] duration-200"
+          className="h-full rounded-full bg-gradient-to-r from-neon to-accent transition-[width] duration-200"
           style={{ width: `${pct ?? (step ? (step.index / step.total) * 100 : 0)}%` }}
         />
       </div>

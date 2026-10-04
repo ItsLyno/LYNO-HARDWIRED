@@ -14,14 +14,13 @@
   /* The main accent: reserved for the primary action. */
   --color-accent: #f3e600;
   --color-accent-fg: #121200;
-  /* Secondary neon: navigation, focus, progress. Never on a button fill. */
+  /* Secondary neon: focus, progress, the launcher update bar. Never on a button fill. */
   --color-neon: #00e5ff;
   --color-ok: #3cf2a0;
   --color-warn: #ffb020;
   --color-bad: #ff3b5c;
 
   --shadow-glow: 0 0 28px -6px rgb(243 230 0 / 0.55);
-  --shadow-panel: 0 1px 0 0 rgb(255 255 255 / 0.03) inset, 0 20px 40px -24px rgb(0 0 0 / 0.8);
 }
 
 html,
@@ -77,17 +76,12 @@ input {
 }
 
 @utility label {
-  font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 500;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
   color: var(--color-muted);
 }
 
 @utility panel {
-  border: 1px solid var(--color-line);
   border-radius: var(--radius-2xl);
-  background: rgb(15 17 23 / 0.72);
-  box-shadow: var(--shadow-panel);
+  background: rgb(15 17 23 / 0.8);
 }

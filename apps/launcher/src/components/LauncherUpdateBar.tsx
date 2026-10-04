@@ -22,8 +22,7 @@ export function LauncherUpdateBar() {
     });
 
   return (
-    <div className="mx-6 mt-1 flex shrink-0 items-center gap-4 rounded-full border border-neon/20 bg-neon/[0.04] py-1.5 pr-1.5 pl-5 text-[13px]">
-      <span className="size-1.5 shrink-0 rounded-full bg-neon shadow-[0_0_8px_var(--color-neon)]" />
+    <div className="mx-6 mt-1 flex shrink-0 items-center gap-4 rounded-full bg-neon/[0.07] py-1.5 pr-1.5 pl-5 text-[13px]">
       <span className="flex-1 truncate">
         Доступна новая версия лаунчера <span className="font-mono font-semibold tabular-nums">{launcherUpdate.version}</span>
         <span className="text-muted"> · сейчас {launcherUpdate.currentVersion}</span>

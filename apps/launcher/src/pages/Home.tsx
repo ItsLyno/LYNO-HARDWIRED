@@ -4,7 +4,6 @@ import { api } from "../api";
 import { Button } from "../components/Button";
 import { Changelog } from "../components/Changelog";
 import { Section } from "../components/Section";
-import { StatusDot, type Tone } from "../components/StatusDot";
 import { UpdateProgress } from "../components/UpdateProgress";
 import logo from "../assets/logo.webp";
 import { formatBytes } from "../format";
@@ -36,9 +35,9 @@ export function Home() {
   return (
     <div className="grid h-full grid-cols-[1fr_380px] gap-6">
       <div className="flex min-h-0 flex-col">
-        <div className="label">Cyberpunk 2077 · сборка модов</div>
+        <div className="text-[13px] text-muted">Cyberpunk 2077 · сборка модов</div>
         <h1 className="mt-3">
-          <img src={logo} alt="LYNO//HARDWIRED" draggable={false} className="h-20 w-auto max-w-full drop-shadow-[0_0_28px_rgb(243_230_0/0.22)]" />
+          <img src={logo} alt="LYNO//HARDWIRED" draggable={false} className="h-20 w-auto max-w-full" />
         </h1>
         <div className="mt-3 flex gap-2 font-mono text-xs text-muted tabular-nums">
           <Tag>{status?.installedVersion ? `v${status.installedVersion}` : "не установлена"}</Tag>
@@ -48,9 +47,8 @@ export function Home() {
         {showUpdateBanner && (
           <button
             onClick={() => setPage("updates")}
-            className="mt-8 flex items-center gap-3 rounded-full border border-warn/25 bg-warn/[0.05] py-2.5 pr-4 pl-5 text-left transition-colors hover:border-warn/50"
+            className="mt-8 flex items-center gap-3 rounded-full bg-warn/[0.07] py-2.5 pr-4 pl-5 text-left transition-colors hover:bg-warn/[0.12]"
           >
-            <StatusDot tone="warn" />
             <span className="flex-1">
               {isRepairOnly(build) ? (
                 "Нужно восстановить повреждённые файлы"
@@ -65,9 +63,8 @@ export function Home() {
           </button>
         )}
         {buildError && !build && (
-          <div className="mt-8 flex items-center gap-3 rounded-full border border-bad/25 bg-bad/[0.05] px-5 py-2.5 text-[13px]">
-            <StatusDot tone="bad" />
-            <span className="flex-1 text-muted">{buildError}</span>
+          <div className="mt-8 flex items-center gap-3 rounded-full bg-bad/[0.07] px-5 py-2.5 text-[13px]">
+            <span className="flex-1 text-bad">{buildError}</span>
           </div>
         )}
 
@@ -142,12 +139,16 @@ function primaryLabel(action: PrimaryAction, launching: boolean, latest: string 
   }
 }
 
+type Tone = "ok" | "warn" | "bad" | "idle";
+
+// Only problems get a color; a healthy row stays plain.
+const toneText: Record<Tone, string> = { ok: "", idle: "", warn: "text-warn", bad: "text-bad" };
+
 function Row({ label, value, tone }: { label: string; value: string; tone: Tone }) {
   return (
     <div className="flex h-11 items-center gap-3 px-5">
-      <StatusDot tone={tone} />
       <dt className="label w-40 shrink-0">{label}</dt>
-      <dd className="truncate" title={value}>
+      <dd className={`truncate ${toneText[tone]}`} title={value}>
         {value}
       </dd>
     </div>
@@ -155,5 +156,5 @@ function Row({ label, value, tone }: { label: string; value: string; tone: Tone 
 }
 
 function Tag({ children }: { children: ReactNode }) {
-  return <span className="rounded-full border border-line px-2.5 py-0.5">{children}</span>;
+  return <span className="rounded-full bg-raised px-2.5 py-0.5">{children}</span>;
 }

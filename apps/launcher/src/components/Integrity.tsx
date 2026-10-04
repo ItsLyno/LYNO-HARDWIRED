@@ -4,7 +4,6 @@ import { api, type Damaged, type Files } from "../api";
 import { plural } from "../format";
 import { useApp } from "../store";
 import { Button } from "./Button";
-import { StatusDot } from "./StatusDot";
 import { UpdateProgress } from "./UpdateProgress";
 
 /** Integrity check and repair: the result lists damaged mods, the player picks what to download again. */
@@ -59,8 +58,8 @@ export function Integrity() {
       )}
 
       {verifyReport && verifyReport.damaged.length > 0 && (
-        <div className="overflow-hidden rounded-xl border border-line bg-bg/60">
-          <div className="border-b border-line px-4 py-2.5 text-[13px]">
+        <div className="overflow-hidden rounded-xl bg-bg/60">
+          <div className="px-4 pt-3 pb-1 text-[13px] text-warn">
             Повреждено: {verifyReport.damaged.length} из {verifyReport.checked}{" "}
             {plural(verifyReport.checked, "мода", "модов", "модов")}
           </div>
@@ -76,9 +75,6 @@ export function Integrity() {
                       onChange={() => toggle(key(d))}
                       className="mt-0.5 accent-[var(--color-accent)]"
                     />
-                    <span className="mt-1">
-                      <StatusDot tone="warn" />
-                    </span>
                     <span className="min-w-0 flex-1 space-y-0.5">
                       <span className="block truncate text-sm">{titleOf(d.id, d.folder)}</span>
                       {describe(d).map((line) => (
@@ -98,7 +94,7 @@ export function Integrity() {
               );
             })}
           </ul>
-          <div className="space-y-3 border-t border-line px-4 py-3">
+          <div className="space-y-3 px-4 pt-2 pb-4">
             <label className="flex cursor-pointer items-start gap-2.5 text-[13px] text-muted">
               <input
                 type="checkbox"
@@ -123,8 +119,8 @@ export function Integrity() {
       )}
 
       {tunedOnly.length > 0 && (
-        <div className="overflow-hidden rounded-xl border border-line bg-bg/60">
-          <div className="flex items-center gap-2 border-b border-line px-4 py-2.5 text-[13px]">
+        <div className="overflow-hidden rounded-xl bg-bg/60">
+          <div className="flex items-center gap-2 px-4 pt-3 pb-1 text-[13px]">
             <SlidersHorizontal size={14} className="text-muted" />
             Изменены настройки: {tunedOnly.length} {plural(tunedOnly.length, "мод", "мода", "модов")}
             <span className="text-muted">· это не повреждение</span>

@@ -88,7 +88,7 @@ export function Settings() {
           </span>
         )}
       </div>
-      <h2 className="label pt-4">Папки</h2>
+      <h2 className="pt-4 text-base font-semibold">Папки</h2>
       <div className="panel">
         <Field
           label="Открыть в проводнике"
@@ -104,7 +104,7 @@ export function Settings() {
           </div>
         </Field>
       </div>
-      <h2 className="label pt-4">Диагностика</h2>
+      <h2 className="pt-4 text-base font-semibold">Диагностика</h2>
       <div className="panel divide-y divide-line/60">
         <Field
           label="Проверка целостности"
@@ -159,7 +159,7 @@ function Input({ value, onChange }: { value: string; onChange: (v: string) => vo
       value={value}
       spellCheck={false}
       onChange={(e) => onChange(e.target.value)}
-      className="h-9 w-full rounded-full border border-line bg-bg/80 px-4 font-mono text-[13px] outline-none focus:border-neon/50"
+      className="h-9 w-full rounded-full bg-raised px-4 font-mono text-[13px] outline-none focus:ring-1 focus:ring-neon/50"
     />
   );
 }

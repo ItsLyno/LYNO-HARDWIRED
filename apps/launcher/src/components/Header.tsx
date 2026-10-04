@@ -24,22 +24,21 @@ export function Header() {
         {/* pointer-events-none: the drag region only reacts to the element it is set on, not its children. */}
         <img src={logo} alt="LYNO//HARDWIRED" draggable={false} className="pointer-events-none h-5 w-auto" />
       </div>
-      <nav className="flex items-center gap-0.5 rounded-full border border-line bg-surface/70 p-1">
+      <nav className="flex items-center gap-0.5 rounded-full bg-surface/80 p-1">
         {tabs.map((t) => (
           <button
             key={t.id}
             onClick={() => setPage(t.id)}
-            className={`relative h-8 rounded-full px-4 text-[13px] transition-colors ${
-              page === t.id ? "bg-raised text-fg shadow-[inset_0_0_0_1px_rgb(0_229_255/0.25)]" : "text-muted hover:text-fg"
+            title={t.id === "updates" && updateAvailable ? "Есть обновление" : undefined}
+            className={`h-8 rounded-full px-4 text-[13px] transition-colors ${
+              page === t.id
+                ? "bg-raised text-fg"
+                : t.id === "updates" && updateAvailable
+                  ? "text-accent hover:text-fg"
+                  : "text-muted hover:text-fg"
             }`}
           >
             {t.label}
-            {t.id === "updates" && updateAvailable && (
-              <span
-                className="absolute top-1.5 right-2 size-1.5 rounded-full bg-accent shadow-[0_0_6px_var(--color-accent)]"
-                aria-label="есть обновление"
-              />
-            )}
           </button>
         ))}
       </nav>

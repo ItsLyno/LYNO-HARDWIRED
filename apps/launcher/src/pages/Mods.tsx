@@ -48,7 +48,7 @@ export function Mods() {
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Поиск по названию или автору"
             spellCheck={false}
-            className="h-9 w-full rounded-full border border-line bg-surface/80 pr-4 pl-9 text-sm outline-none placeholder:text-faint focus:border-neon/50"
+            className="h-9 w-full rounded-full bg-surface pr-4 pl-9 text-sm outline-none placeholder:text-faint focus:ring-1 focus:ring-neon/50"
           />
         </label>
       </div>
@@ -105,7 +105,7 @@ export function Mods() {
               {g.title && (
                 <tr className="h-10 border-b border-line/60">
                   <td colSpan={5} className="pl-5">
-                    <span className="label text-fg/80">{g.title}</span>
+                    <span className="label text-fg">{g.title}</span>
                     <span className="ml-2 font-mono text-[11px] text-faint tabular-nums">{g.mods.length}</span>
                   </td>
                 </tr>
@@ -195,8 +195,8 @@ function Chip(props: { active: boolean; onClick: () => void; count?: number; chi
   return (
     <button
       onClick={props.onClick}
-      className={`h-8 rounded-full border px-3.5 text-[13px] transition-colors ${
-        props.active ? "border-neon/30 bg-raised text-fg" : "border-transparent text-muted hover:bg-raised/60 hover:text-fg"
+      className={`h-8 rounded-full px-3.5 text-[13px] transition-colors ${
+        props.active ? "bg-raised text-fg" : "text-muted hover:bg-raised/60 hover:text-fg"
       }`}
     >
       {props.children}
@@ -214,7 +214,7 @@ function Switch(props: { checked: boolean; disabled?: boolean; title: string; on
       title={props.title}
       onClick={() => props.onChange(!props.checked)}
       className={`relative mr-1 inline-flex h-[18px] w-8 shrink-0 items-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-        props.checked ? "bg-ok/80 shadow-[0_0_10px_-2px_var(--color-ok)]" : "bg-line"
+        props.checked ? "bg-ok/80" : "bg-line"
       }`}
     >
       <span
