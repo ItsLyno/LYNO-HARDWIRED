@@ -13,7 +13,7 @@ use lyno_core::mo2::Instance;
 use lyno_core::modlist::{EntryState, ModList};
 use lyno_core::package::PackOptions;
 use lyno_core::plan::{plan, Action};
-use lyno_core::publish::{build, BuildOptions, ModInfo};
+use lyno_core::publish::{build, check_published, BuildOptions, ModInfo};
 use lyno_core::state::State;
 use lyno_core::tree::tree_hash;
 
@@ -87,7 +87,9 @@ fn serve(dir: PathBuf) -> (String, std::sync::Arc<std::sync::Mutex<Vec<String>>>
                     let body = &data[start..];
                     let status = if start > 0 { "206 Partial Content" } else { "200 OK" };
                     write!(stream, "HTTP/1.1 {status}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", body.len()).unwrap();
-                    stream.write_all(body).unwrap();
+                    if !request.starts_with("HEAD ") {
+                        stream.write_all(body).unwrap();
+                    }
                 }
                 Err(_) => {
                     write!(stream, "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n").unwrap();
@@ -234,4 +236,17 @@ fn build_install_update() {
     assert_eq!(list.entries.last().unwrap().name, "My Tweak");
     assert_eq!(State::load(&state_path(&user)).unwrap().build_version.as_deref(), Some("1.1.0"));
     assert!(!user_root.join(".lyno/cache").exists());
+
+    // Before publishing: every part, including ones reused from 1.0.0, is
+    // reachable with the right size; a missing or truncated asset is caught.
+    let check = |m: &Manifest| check_published(m, &Downloader::new(), &|_, _| {});
+    assert_eq!(check(&m2), Vec::<String>::new());
+    let cet_part = &m2.mod_specs().find(|m| m.id == "cet").unwrap().package.parts[0];
+    let file = |url: &str| release.join(url.rsplit('/').next().unwrap());
+    std::fs::write(file(&cet_part.url), b"short").unwrap();
+    std::fs::remove_file(file(&m2.base.parts[0].url)).unwrap();
+    let errors = check(&m2);
+    assert_eq!(errors.len(), 2, "{errors:?}");
+    assert!(errors.iter().any(|e| e.contains("HTTP 404")), "{errors:?}");
+    assert!(errors.iter().any(|e| e.contains("5 bytes, expected")), "{errors:?}");
 }
