@@ -42,7 +42,7 @@ pub(crate) fn installed_manifest(inst: &Instance) -> Option<Manifest> {
     Manifest::from_json(&text).ok()
 }
 
-fn profile(inst: &Instance) -> String {
+pub(crate) fn profile(inst: &Instance) -> String {
     installed_manifest(inst).map_or_else(|| DEFAULT_PROFILE.to_owned(), |m| m.profile)
 }
 

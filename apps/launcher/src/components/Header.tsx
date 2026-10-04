@@ -9,6 +9,7 @@ const tabs: { id: Page; label: string; author?: boolean }[] = [
   { id: "home", label: "Главная" },
   { id: "mods", label: "Моды" },
   { id: "updates", label: "Обновления" },
+  { id: "nexus", label: "Nexus" },
   { id: "release", label: "Выпуск", author: true },
   { id: "settings", label: "Настройки" },
 ];

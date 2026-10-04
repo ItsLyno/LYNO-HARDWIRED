@@ -9,6 +9,12 @@ import type {
   GameInstall,
   LauncherUpdate,
   ModRow,
+  ModUpdateRow,
+  NexusHandlers,
+  NexusJob,
+  NexusStatus,
+  NxmHandler,
+  UpdatesView,
   Pending,
   Secret,
   Settings,
@@ -260,6 +266,77 @@ async function simulateUpdate() {
   finished?.({ ok: true, error: null });
 }
 
+let nexus: NexusStatus = {
+  keySaved: false,
+  account: null,
+  accountError: null,
+  sso: false,
+  handler: { supported: true, ours: false, other: "nxmhandler.exe" },
+};
+
+function tracked(folder: string, modId: number, version: string, extra: Partial<ModUpdateRow> = {}): ModUpdateRow {
+  return {
+    folder,
+    game: "cyberpunk2077",
+    modId,
+    version,
+    personal: false,
+    managed: true,
+    canUpdate: settings.authorMode,
+    status: { kind: "upToDate" },
+    pageUrl: `https://www.nexusmods.com/cyberpunk2077/mods/${modId}?tab=files`,
+    ...extra,
+  };
+}
+
+function updatesView(): UpdatesView {
+  const checked = !!nexus.account;
+  const update = (fileId: number, version: string, name = "Main File") => ({
+    kind: "update" as const,
+    file: { fileId, name, fileName: `mod-${fileId}.zip`, size: 12 * MB },
+    version,
+  });
+  const mods: ModUpdateRow[] = [
+    tracked("Cyber Engine Tweaks", 107, "1.35.0", { status: checked ? update(98000, "1.36.0") : { kind: "unknown" } }),
+    tracked("RED4ext", 2380, "1.27.0", { status: checked ? update(97001, "1.28.1") : { kind: "unknown" } }),
+    tracked("redscript", 1511, "0.5.27"),
+    tracked("Nova LUT", 2075, "2.3", { status: checked ? { kind: "update", file: null, version: "2.4" } : { kind: "unknown" } }),
+    tracked("Immersive Rippers", 9330, "1.2", { status: { kind: "unavailable" } }),
+    tracked("Better Lightning", 15520, "3.1", {
+      personal: true,
+      managed: false,
+      canUpdate: true,
+      status: checked ? update(96000, "3.2", "Better Lightning — main") : { kind: "unknown" },
+    }),
+    tracked("Photo Mode Unlocker", 2711, "1.0", { personal: true, managed: false, canUpdate: true }),
+  ];
+  return { mods, untracked: ["LYNO Settings", "My Test Weapon"], checkedAt: checked ? Date.now() / 1000 - 3600 : null, rateLimit: { daily: 19840, hourly: 500 } };
+}
+
+let jobs: NexusJob[] = [];
+let nexusHandlers: NexusHandlers | null = null;
+let jobSeq = 0;
+
+async function simulateDownload(job: NexusJob) {
+  const emit = (patch: Partial<NexusJob>) => {
+    job = { ...job, ...patch };
+    jobs = jobs.map((j) => (j.id === job.id ? job : j));
+    nexusHandlers?.job(job);
+  };
+  await delay(400);
+  const total = 12 * MB;
+  emit({ title: job.title ?? "Better Lightning", fileTitle: "Main File", version: "3.2", replaces: "Better Lightning", state: { kind: "downloading", done: 0, total } });
+  for (let done = 0; done <= total; done += total / 20) {
+    if (jobs.find((j) => j.id === job.id)?.state.kind === "cancelled") return;
+    emit({ state: { kind: "downloading", done, total } });
+    await delay(120);
+  }
+  emit({ state: { kind: "installing" } });
+  await delay(500);
+  emit({ state: { kind: "done", outcome: { kind: "installed", folder: "Better Lightning" } } });
+  nexusHandlers?.changed();
+}
+
 export const mock = {
   getSettings: async () => settings,
   saveSettings: async (s: Settings) => {
@@ -366,6 +443,65 @@ export const mock = {
   },
   openUrl: async (url: string) => {
     window.open(url, "_blank");
+  },
+  nexusStatus: async () => {
+    await delay(150);
+    return nexus;
+  },
+  nexusSetKey: async (key: string) => {
+    await delay(500);
+    if (key.trim().length < 20) throw new Error("Nexus не принял ключ: проверьте, что он скопирован целиком");
+    nexus = { ...nexus, keySaved: true, account: { name: "V", premium: false }, accountError: null };
+    return nexus;
+  },
+  nexusLogout: async () => {
+    nexus = { ...nexus, keySaved: false, account: null };
+  },
+  nexusSsoLogin: async (): Promise<NexusStatus> => {
+    throw new Error("Вход через Nexus пока недоступен: вставьте ключ API");
+  },
+  nexusSsoCancel: async () => {},
+  nxmRegister: async (): Promise<NxmHandler> => {
+    nexus = { ...nexus, handler: { supported: true, ours: true, other: null } };
+    return nexus.handler;
+  },
+  nxmUnregister: async (): Promise<NxmHandler> => {
+    nexus = { ...nexus, handler: { supported: true, ours: false, other: "nxmhandler.exe" } };
+    return nexus.handler;
+  },
+  nexusUpdates: async () => updatesView(),
+  nexusCheck: async (_force: boolean) => {
+    if (!nexus.account) throw new Error("Войдите в Nexus Mods на вкладке «Nexus»");
+    for (let done = 0; done <= 7; done++) {
+      nexusHandlers?.check({ done, total: 7 });
+      await delay(150);
+    }
+    return updatesView();
+  },
+  nexusCheckCancel: async () => {},
+  nexusJobs: async () => jobs,
+  nexusCancelJob: async (id: number) => {
+    jobs = jobs.map((j) => (j.id === id ? { ...j, state: { kind: "cancelled" } } : j));
+    const job = jobs.find((j) => j.id === id);
+    if (job) nexusHandlers?.job(job);
+  },
+  nexusClearJobs: async () => {
+    jobs = jobs.filter((j) => !["done", "failed", "cancelled"].includes(j.state.kind));
+  },
+  nexusDownload: async (game: string, modId: number, fileId: number) => {
+    if (!nexus.account?.premium) throw new Error("Без Premium Nexus отдаёт файлы только по кнопке «Mod Manager Download» на сайте");
+    const job: NexusJob = { id: ++jobSeq, game, modId, fileId, title: null, fileTitle: null, version: null, replaces: null, state: { kind: "queued" } };
+    jobs = [...jobs, job];
+    nexusHandlers?.job(job);
+    void simulateDownload(job);
+    return job.id;
+  },
+  onNexus: async (h: NexusHandlers) => {
+    const mine = { ...h };
+    nexusHandlers = mine;
+    return () => {
+      if (nexusHandlers === mine) nexusHandlers = null;
+    };
   },
   onVerifyProgress: async (p: (e: UpdateEvent) => void) => {
     const mine = (e: UpdateEvent) => p(e);

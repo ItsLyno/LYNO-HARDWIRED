@@ -1,5 +1,6 @@
 mod author;
 mod commands;
+mod nexus;
 mod secrets;
 mod settings;
 
@@ -24,6 +25,7 @@ pub struct AppState {
     built: Mutex<Option<author::BuiltRelease>>,
     /// Launcher release found by the last update check.
     launcher_update: Mutex<Option<tauri_plugin_updater::Update>>,
+    nexus: nexus::NexusState,
 }
 
 /// One rotated file is kept so a report still covers the session before
@@ -40,8 +42,25 @@ fn log_plugin<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
 
 const LOG_FILE: &str = "launcher";
 
+/// The nxm link among command-line arguments: Windows starts the launcher
+/// with the link as its argument (see `lyno_core::nxm::register`).
+fn nxm_arg(args: &[String]) -> Option<&String> {
+    args.iter().skip(1).find(|a| a.to_ascii_lowercase().starts_with("nxm://"))
+}
+
 pub fn run() {
     tauri::Builder::default()
+        // First: a second launcher (started for an nxm link) hands its arguments
+        // over to this one and exits.
+        .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.unminimize();
+                let _ = window.set_focus();
+            }
+            if let Some(url) = nxm_arg(&args) {
+                nexus::receive(app, url);
+            }
+        }))
         .plugin(log_plugin())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
@@ -60,7 +79,12 @@ pub fn run() {
                 author_job: Mutex::new(None),
                 built: Mutex::new(None),
                 launcher_update: Mutex::new(None),
+                nexus: nexus::NexusState::default(),
             });
+            let args: Vec<String> = std::env::args().collect();
+            if let Some(url) = nxm_arg(&args) {
+                nexus::receive(app.handle(), url);
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -91,6 +115,20 @@ pub fn run() {
             commands::export_report,
             commands::check_launcher_update,
             commands::install_launcher_update,
+            nexus::nexus_status,
+            nexus::nexus_set_key,
+            nexus::nexus_logout,
+            nexus::nexus_sso_login,
+            nexus::nexus_sso_cancel,
+            nexus::nxm_register,
+            nexus::nxm_unregister,
+            nexus::nexus_updates,
+            nexus::nexus_check,
+            nexus::nexus_check_cancel,
+            nexus::nexus_jobs,
+            nexus::nexus_cancel_job,
+            nexus::nexus_clear_jobs,
+            nexus::nexus_download,
         ])
         .run(tauri::generate_context!())
         .expect("error while running LYNO//HARDWIRED");

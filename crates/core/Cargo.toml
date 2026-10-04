@@ -17,9 +17,17 @@ zstd.workspace = true
 ureq.workspace = true
 base64 = "0.22"
 zip = { version = "8", default-features = false, features = ["deflate"] }
+# Mod archives from Nexus; pure Rust, so the launcher builds without a C toolchain for 7-Zip.
+sevenz-rust2 = { version = "0.23", default-features = false, features = ["bzip2", "deflate", "ppmd"] }
+# Nexus SSO; TLS on the same rustls + ring as ureq.
+tungstenite = { version = "0.30", features = ["rustls-tls-webpki-roots"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "logging", "tls12"] }
+webpki-roots = "1"
+uuid = { version = "1", features = ["v4"] }
 
 [target.'cfg(windows)'.dependencies]
 winreg = "0.55"
 
 [dev-dependencies]
 tempfile.workspace = true
+sevenz-rust2 = { version = "0.23", default-features = false, features = ["compress", "util"] }

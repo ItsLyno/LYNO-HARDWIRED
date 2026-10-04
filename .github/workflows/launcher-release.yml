@@ -63,6 +63,8 @@ jobs:
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          # Nexus application slug for "log in with Nexus" (SSO); empty: players paste an API key.
+          LYNO_NEXUS_APP: ${{ vars.LYNO_NEXUS_APP }}
       - name: Publish release
         shell: pwsh
         env:

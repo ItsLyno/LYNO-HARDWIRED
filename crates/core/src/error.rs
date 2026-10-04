@@ -23,6 +23,9 @@ pub enum Error {
     /// Publishing a build: a check failed or the host refused.
     #[error("{0}")]
     Release(String),
+    /// The Nexus API answered with an error status.
+    #[error("Nexus: HTTP {status} {message}")]
+    Nexus { status: u16, message: String },
     #[error(transparent)]
     Json(#[from] serde_json::Error),
 }

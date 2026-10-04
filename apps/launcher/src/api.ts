@@ -174,6 +174,114 @@ export type AuthorEvent =
   | { kind: "log"; line: string }
   | { kind: "finished"; job: AuthorJob; ok: boolean; error: string | null };
 
+export interface NexusUser {
+  name: string;
+  /** Premium accounts get download links from the API; free ones only via "Mod Manager Download" on the site. */
+  premium: boolean;
+}
+
+export interface NxmHandler {
+  /** Registering is possible here (Windows). */
+  supported: boolean;
+  ours: boolean;
+  /** Program that opens nxm links now, when not the launcher (nxmhandler.exe of MO2, Vortex.exe). */
+  other: string | null;
+}
+
+export interface NexusStatus {
+  keySaved: boolean;
+  account: NexusUser | null;
+  /** The saved key could not be checked or no longer works. */
+  accountError: string | null;
+  /** "Log in with Nexus" is available. */
+  sso: boolean;
+  handler: NxmHandler;
+}
+
+export interface NewFile {
+  fileId: number;
+  name: string;
+  fileName: string;
+  size: number | null;
+}
+
+export type ModStatus =
+  | { kind: "unknown" }
+  | { kind: "upToDate" }
+  /** file: null when Nexus doesn't say which file replaces the installed one. */
+  | { kind: "update"; file: NewFile | null; version: string | null }
+  | { kind: "unavailable" };
+
+export interface ModUpdateRow {
+  folder: string;
+  game: string;
+  modId: number;
+  version: string | null;
+  /** Under LYNO USER MODS. */
+  personal: boolean;
+  /** Installed by the build. */
+  managed: boolean;
+  /** The player's own mod, or any mod in author mode. */
+  canUpdate: boolean;
+  status: ModStatus;
+  /** Files tab on Nexus, at the new file when known. */
+  pageUrl: string;
+}
+
+export interface RateLimit {
+  daily: number | null;
+  hourly: number | null;
+}
+
+export interface UpdatesView {
+  mods: ModUpdateRow[];
+  /** Mods without a Nexus page in meta.ini. */
+  untracked: string[];
+  /** Unix seconds of the oldest check; null when some mod was never checked. */
+  checkedAt: number | null;
+  rateLimit: RateLimit | null;
+}
+
+export type Mo2Reason = "fomod" | "format" | "layout";
+
+export type Outcome =
+  | { kind: "installed"; folder: string }
+  /** Left in MO2's downloads for the player to install there. */
+  | { kind: "mo2"; reason: Mo2Reason }
+  | { kind: "mo2Open" };
+
+export type JobState =
+  | { kind: "queued" }
+  | { kind: "downloading"; done: number; total: number }
+  | { kind: "retry"; attempt: number; delaySecs: number; error: string }
+  | { kind: "waiting" }
+  | { kind: "installing" }
+  | { kind: "done"; outcome: Outcome }
+  | { kind: "failed"; error: string }
+  | { kind: "cancelled" };
+
+export interface NexusJob {
+  id: number;
+  game: string;
+  modId: number;
+  fileId: number;
+  title: string | null;
+  fileTitle: string | null;
+  version: string | null;
+  /** Installed mod folder this file replaces. */
+  replaces: string | null;
+  state: JobState;
+}
+
+export interface NexusHandlers {
+  job: (j: NexusJob) => void;
+  check: (p: { done: number; total: number }) => void;
+  /** A download finished: installed mods changed. */
+  changed: () => void;
+  /** An nxm link arrived. */
+  link: () => void;
+}
+
 export interface LauncherUpdate {
   version: string;
   currentVersion: string;
@@ -220,6 +328,30 @@ export const api = isTauri()
       checkLauncherUpdate: () => invoke<LauncherUpdate | null>("check_launcher_update"),
       installLauncherUpdate: () => invoke<void>("install_launcher_update"),
       openUrl: (url: string) => tauriOpenUrl(url),
+      nexusStatus: () => invoke<NexusStatus>("nexus_status"),
+      nexusSetKey: (key: string) => invoke<NexusStatus>("nexus_set_key", { key }),
+      nexusLogout: () => invoke<void>("nexus_logout"),
+      nexusSsoLogin: () => invoke<NexusStatus>("nexus_sso_login"),
+      nexusSsoCancel: () => invoke<void>("nexus_sso_cancel"),
+      nxmRegister: () => invoke<NxmHandler>("nxm_register"),
+      nxmUnregister: () => invoke<NxmHandler>("nxm_unregister"),
+      /** What the last check knew, without asking Nexus. */
+      nexusUpdates: () => invoke<UpdatesView>("nexus_updates"),
+      /** Null when cancelled. */
+      nexusCheck: (force: boolean) => invoke<UpdatesView | null>("nexus_check", { force }),
+      nexusCheckCancel: () => invoke<void>("nexus_check_cancel"),
+      nexusJobs: () => invoke<NexusJob[]>("nexus_jobs"),
+      nexusCancelJob: (id: number) => invoke<void>("nexus_cancel_job", { id }),
+      nexusClearJobs: () => invoke<void>("nexus_clear_jobs"),
+      /** Premium only: downloads the file without a visit to the site. */
+      nexusDownload: (game: string, modId: number, fileId: number) => invoke<number>("nexus_download", { game, modId, fileId }),
+      onNexus: (handlers: NexusHandlers): Promise<UnlistenFn> =>
+        Promise.all([
+          listen<NexusJob>("nexus-job", (e) => handlers.job(e.payload)),
+          listen<{ done: number; total: number }>("nexus-check", (e) => handlers.check(e.payload)),
+          listen("nexus-changed", () => handlers.changed()),
+          listen("nexus-link", () => handlers.link()),
+        ]).then((fns) => () => fns.forEach((f) => f())),
       onUpdate: (
         progress: (e: UpdateEvent) => void,
         finished: (f: UpdateFinished) => void,

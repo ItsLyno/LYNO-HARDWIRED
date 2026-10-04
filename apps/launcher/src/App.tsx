@@ -5,6 +5,7 @@ import { Header } from "./components/Header";
 import { LauncherUpdateBar } from "./components/LauncherUpdateBar";
 import { Home } from "./pages/Home";
 import { Mods } from "./pages/Mods";
+import { Nexus } from "./pages/Nexus";
 import { Release } from "./pages/Release";
 import { Settings } from "./pages/Settings";
 import { Updates } from "./pages/Updates";
@@ -16,6 +17,7 @@ const pages: Record<Page, () => React.JSX.Element | null> = {
   home: Home,
   mods: Mods,
   updates: Updates,
+  nexus: Nexus,
   release: Release,
   settings: Settings,
 };
@@ -25,20 +27,43 @@ export default function App() {
   const PageView = pages[page];
 
   useEffect(() => {
-    const { refreshStatus, refreshBuild, checkLauncherUpdate, onUpdateEvent, onUpdateFinished, onVerifyEvent, onAuthorEvent } =
-      useApp.getState();
+    const {
+      refreshStatus,
+      refreshBuild,
+      checkLauncherUpdate,
+      onUpdateEvent,
+      onUpdateFinished,
+      onVerifyEvent,
+      onAuthorEvent,
+      refreshNexus,
+      onNexusJob,
+    } = useApp.getState();
     void refreshStatus();
     void refreshBuild();
     void checkLauncherUpdate();
+    // The launcher may have been started by an nxm link: its download is already queued.
+    void refreshNexus().then(() => {
+      if (useApp.getState().nexusJobs.length > 0) useApp.getState().setPage("nexus");
+    });
     const poll = setInterval(refreshStatus, STATUS_POLL_MS);
     const unlisten = api.onUpdate(onUpdateEvent, (f) => onUpdateFinished(f.ok, f.error));
     const unlistenVerify = api.onVerifyProgress(onVerifyEvent);
     const unlistenAuthor = api.onAuthorEvent(onAuthorEvent);
+    const unlistenNexus = api.onNexus({
+      job: onNexusJob,
+      check: (p) => useApp.setState({ nexusChecking: p }),
+      changed: () => {
+        void refreshNexus();
+        void refreshStatus();
+      },
+      link: () => useApp.getState().setPage("nexus"),
+    });
     return () => {
       clearInterval(poll);
       void unlisten.then((f) => f());
       void unlistenVerify.then((f) => f());
       void unlistenAuthor.then((f) => f());
+      void unlistenNexus.then((f) => f());
     };
   }, []);
 

@@ -865,3 +865,130 @@ fn publishes_through_github_api() {
     assert!(!st.log.iter().any(|l| l.starts_with("POST /repos/o/r/releases/")), "nothing uploaded again: {:?}", st.log);
     assert_eq!(Manifest::from_json(std::str::from_utf8(&st.manifest.as_ref().unwrap().1).unwrap()).unwrap().build_version, "1.1.0");
 }
+
+/// A fake Nexus: the API answers and the CDN file are static files of `dir`,
+/// named by request path (query string included).
+fn fake_nexus(dir: &Path, base: &str, now: u64, zip: &[u8]) {
+    let api = "v1/games/cyberpunk2077/mods";
+    let file = |id: u64, cat: &str, version: &str, size: usize, at: u64| {
+        format!(
+            r#"{{"file_id":{id},"name":"Main File","version":"{version}","category_name":"{cat}","file_name":"mod-{id}.zip","size_in_bytes":{size},"uploaded_timestamp":{at},"description":"ignored"}}"#
+        )
+    };
+    let files_42 = format!(
+        r#"{{"files":[{},{}],"file_updates":[{{"old_file_id":10,"new_file_id":11,"old_file_name":"a","new_file_name":"b"}}]}}"#,
+        file(10, "OLD_VERSION", "1.0", 1, 1),
+        file(11, "MAIN", "1.1", zip.len(), 2)
+    );
+    write(dir, &format!("{api}/42/files.json"), files_42.as_bytes());
+    write(dir, &format!("{api}/42.json"), br#"{"name":"Old Mod","version":"1.1","author":"someone","available":true}"#);
+    let files_107 = format!(
+        r#"{{"files":[{},{}],"file_updates":[{{"old_file_id":1,"new_file_id":2}}]}}"#,
+        file(1, "OLD_VERSION", "1.35", 1, 1),
+        file(2, "MAIN", "1.36", zip.len(), 2)
+    );
+    write(dir, &format!("{api}/107/files.json"), files_107.as_bytes());
+    write(dir, &format!("{api}/107.json"), br#"{"name":"Cyber Engine Tweaks","version":"1.36"}"#);
+    // A free account's link carries a key; without one the API refuses (no file: 404).
+    let link = format!(r#"[{{"name":"Nexus CDN","short_name":"Nexus CDN","URI":"{base}/cdn/mod.zip"}}]"#);
+    write(dir, &format!("{api}/42/files/11/download_link.json?key=abc&expires=99"), link.as_bytes());
+    write(dir, &format!("{api}/107/files/2/download_link.json?key=abc&expires=99"), link.as_bytes());
+    // 107 changed after its check below; 42 was recorded by the download.
+    let updated = format!(r#"[{{"mod_id":107,"latest_file_update":{now},"latest_mod_activity":{now}}}]"#);
+    write(dir, &format!("{api}/updated.json?period=1d"), updated.as_bytes());
+    write(dir, "cdn/mod.zip", zip);
+}
+
+fn mod_zip() -> Vec<u8> {
+    let mut buf = std::io::Cursor::new(Vec::new());
+    let mut w = zip::ZipWriter::new(&mut buf);
+    w.start_file("Old Mod 1.1/archive/pc/mod/new.archive", zip::write::SimpleFileOptions::default()).unwrap();
+    w.write_all(b"new version").unwrap();
+    w.start_file("Old Mod 1.1/readme.txt", zip::write::SimpleFileOptions::default()).unwrap();
+    w.write_all(b"dropped").unwrap();
+    w.finish().unwrap();
+    buf.into_inner()
+}
+
+#[test]
+fn nexus_updates_are_tracked_and_installed_from_nxm_links() {
+    use lyno_core::mod_install::{fetch_and_install, Context, Outcome};
+    use lyno_core::nexus::NexusApi;
+    use lyno_core::nxm::NxmLink;
+    use lyno_core::tracking::{check, status, tracked_mods, Cache, Status};
+
+    let tmp = tempfile::tempdir().unwrap();
+    let user = Instance::new(tmp.path().join("user"));
+    let root = user.root();
+    write(root, "profiles/LYNO/modlist.txt", b"+Old Mod\r\n-LYNO USER MODS_separator\r\n+CET\r\n");
+    write(root, "mods/CET/meta.ini", b"[General]\nmodid=107\nversion=1.35\ngameName=cyberpunk2077\n[installedFiles]\n1\\modid=107\n1\\fileid=1\n[LYNO]\nid=cet\n");
+    write(root, "mods/CET/bin/x64/plugins/cyber_engine_tweaks.asi", b"cet");
+    write(root, "mods/Old Mod/meta.ini", b"[General]\nmodid=42\nversion=1.0\ngameName=cyberpunk2077\n[installedFiles]\n1\\modid=42\n1\\fileid=10\n");
+    write(root, "mods/Old Mod/archive/pc/mod/old.archive", b"old version");
+    write(root, ".lyno/state.json", br#"{"buildVersion":"1.0.0","baseHash":"x","mods":{"cet":{"folder":"CET","hash":"h"}}}"#);
+
+    let nexus_dir = tmp.path().join("nexus");
+    std::fs::create_dir_all(&nexus_dir).unwrap();
+    let (base, log) = serve(nexus_dir.clone());
+    let now = 1_800_000_000;
+    fake_nexus(&nexus_dir, &base, now, &mod_zip());
+    let api = NexusApi::with_base(&base, "key");
+    let downloader = Downloader::new();
+    let never = || false;
+    let player = Context { inst: &user, profile: "LYNO", author: false, mo2_running: false, now };
+
+    // The player's own mod: the new file replaces the folder in place.
+    let link = NxmLink::parse("nxm://cyberpunk2077/mods/42/files/11?key=abc&expires=99&user_id=1").unwrap();
+    let mut progress = Vec::new();
+    let (dl, outcome) = fetch_and_install(&api, &downloader, &player, &link, &never, &mut |p| progress.push(p)).unwrap().unwrap();
+    assert_eq!(outcome, Outcome::Installed { folder: "Old Mod".into() });
+    assert_eq!(dl.version.as_deref(), Some("1.1"));
+    let folder = root.join("mods/Old Mod");
+    assert!(!folder.join("archive/pc/mod/old.archive").exists());
+    assert_eq!(std::fs::read(folder.join("archive/pc/mod/new.archive")).unwrap(), b"new version");
+    assert!(!folder.join("readme.txt").exists());
+    let meta = ModMeta::load(&folder.join("meta.ini")).unwrap();
+    assert_eq!((meta.file_id, meta.version.as_deref()), (Some(11), Some("1.1")));
+    assert!(root.join("downloads/mod-11.zip").is_file() && root.join("downloads/mod-11.zip.meta").is_file());
+    let list = ModList::load(&user.modlist_path("LYNO")).unwrap();
+    assert_eq!(list.entries.len(), 3, "updated in place, no new entry");
+
+    // The build's mod is updated with the build, not from Nexus.
+    let cet = NxmLink::parse("nxm://cyberpunk2077/mods/107/files/2?key=abc&expires=99").unwrap();
+    let refused = fetch_and_install(&api, &downloader, &player, &cet, &never, &mut |_| {}).unwrap();
+    assert_eq!(refused.unwrap_err().0, "CET");
+    assert!(!log.lock().unwrap().iter().any(|r| r.contains("107/files/2/download_link")), "nothing downloaded");
+
+    // Tracking: 42 was just recorded; 107 is asked for, and `updated.json` is
+    // only needed for mods checked before.
+    let (tracked, untracked) = tracked_mods(&user, "LYNO").unwrap();
+    assert_eq!(tracked.iter().map(|t| (t.folder.as_str(), t.personal, t.managed)).collect::<Vec<_>>(), [("CET", false, true), ("Old Mod", true, false)]);
+    assert!(untracked.is_empty());
+    let mut cache = Cache::load(&Cache::path(&user));
+    log.lock().unwrap().clear();
+    check(&api, &mut cache, &tracked, now + 60, false, &never, &mut |_, _| {}).unwrap();
+    let asked = log.lock().unwrap().clone();
+    assert!(asked.iter().any(|r| r.ends_with("107/files.json")), "{asked:?}");
+    assert!(!asked.iter().any(|r| r.ends_with("42/files.json")), "{asked:?}");
+    let by_folder = |f: &str| status(tracked.iter().find(|t| t.folder == f).unwrap(), cache.get("cyberpunk2077", tracked.iter().find(|t| t.folder == f).unwrap().mod_id));
+    assert!(matches!(by_folder("CET"), Status::Update { file: Some(ref f), .. } if f.file_id == 2));
+    assert_eq!(by_folder("Old Mod"), Status::UpToDate);
+
+    // A second check within the day asks only `updated.json`, which lists 107
+    // as changed at `now`, before its check: nothing to fetch again.
+    log.lock().unwrap().clear();
+    check(&api, &mut cache, &tracked, now + 120, false, &never, &mut |_, _| {}).unwrap();
+    assert_eq!(log.lock().unwrap().clone(), ["v1/games/cyberpunk2077/mods/updated.json?period=1d"]);
+
+    // The author updates build mods; the [LYNO] id stays, so it is the same build mod.
+    let author = Context { author: true, ..player };
+    let (_, outcome) = fetch_and_install(&api, &downloader, &author, &cet, &never, &mut |_| {}).unwrap().unwrap();
+    assert_eq!(outcome, Outcome::Installed { folder: "CET".into() });
+    let meta = ModMeta::load(&root.join("mods/CET/meta.ini")).unwrap();
+    assert_eq!((meta.file_id, meta.lyno_id.as_deref()), (Some(2), Some("cet")));
+
+    // With MO2 open the archive only goes to its downloads.
+    let open = Context { mo2_running: true, ..player };
+    let (_, outcome) = fetch_and_install(&api, &downloader, &open, &link, &never, &mut |_| {}).unwrap().unwrap();
+    assert_eq!(outcome, Outcome::Mo2Open);
+}

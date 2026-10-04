@@ -33,7 +33,7 @@ export function Credentials({ onChange }: { onChange?: (s: SecretsStatus) => voi
         secret="nexusKey"
         saved={status.nexus}
         label="Ключ Nexus API"
-        hint="Необязательно. С ним у новых модов в лаунчере появятся авторы и названия с Nexus; без него у старых модов они сохраняются из прошлой версии. Ключ — на nexusmods.com в настройках профиля, API Keys."
+        hint="Необязательно. С ним у новых модов в лаунчере появятся авторы и названия с Nexus; без него у старых модов они сохраняются из прошлой версии. Ключ — на nexusmods.com в настройках профиля, API Keys. Это тот же ключ, что на вкладке «Nexus»."
         onSaved={refresh}
       />
       <p className="px-5 py-3 text-[13px] text-faint">Хранятся в диспетчере учётных данных Windows, не в файле настроек.</p>
