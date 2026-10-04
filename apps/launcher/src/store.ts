@@ -1,5 +1,16 @@
 import { create } from "zustand";
-import { api, type BuildInfo, type LauncherUpdate, type Settings, type Status, type UpdateEvent, type VerifyReport } from "./api";
+import {
+  api,
+  type AuthorEvent,
+  type AuthorJob,
+  type BuildInfo,
+  type BuiltRelease,
+  type LauncherUpdate,
+  type Settings,
+  type Status,
+  type UpdateEvent,
+  type VerifyReport,
+} from "./api";
 
 export type Page = "home" | "mods" | "updates" | "release" | "settings";
 
@@ -11,6 +22,16 @@ export interface Progress {
 }
 
 const noProgress: Progress = { step: null, bytes: null, retry: null };
+
+/** A running author build or publish; kept here so it survives switching pages. */
+export interface AuthorRun {
+  job: AuthorJob;
+  progress: Progress;
+  /** Latest log lines, oldest first. */
+  log: string[];
+}
+
+const AUTHOR_LOG_LINES = 6;
 
 interface AppStore {
   page: Page;
@@ -24,6 +45,10 @@ interface AppStore {
   verifyReport: VerifyReport | null;
   error: string | null;
   launcherUpdate: LauncherUpdate | null;
+  authorRun: AuthorRun | null;
+  built: BuiltRelease | null;
+  /** Version published in this session, for the success note. */
+  published: string | null;
   setPage: (page: Page) => void;
   refreshStatus: () => Promise<void>;
   refreshBuild: () => Promise<void>;
@@ -37,6 +62,9 @@ interface AppStore {
   onUpdateFinished: (ok: boolean, error: string | null) => void;
   run: (action: () => Promise<void>) => Promise<void>;
   checkLauncherUpdate: () => Promise<void>;
+  refreshBuilt: () => Promise<void>;
+  startAuthorJob: (job: AuthorJob, start: () => Promise<void>) => Promise<void>;
+  onAuthorEvent: (e: AuthorEvent) => void;
   clearError: () => void;
 }
 
@@ -51,6 +79,9 @@ export const useApp = create<AppStore>((set, get) => ({
   verifyReport: null,
   error: null,
   launcherUpdate: null,
+  authorRun: null,
+  built: null,
+  published: null,
   setPage: (page) => set({ page }),
   refreshStatus: async () => {
     try {
@@ -151,6 +182,38 @@ export const useApp = create<AppStore>((set, get) => ({
     } catch {
       set({ launcherUpdate: null });
     }
+  },
+  refreshBuilt: async () => {
+    try {
+      set({ built: await api.authorBuilt() });
+    } catch (e) {
+      set({ error: String(e) });
+    }
+  },
+  startAuthorJob: async (job, start) => {
+    set({ authorRun: { job, progress: noProgress, log: [] }, published: null });
+    try {
+      await start();
+    } catch (e) {
+      set({ authorRun: null, error: String(e) });
+    }
+  },
+  onAuthorEvent: (e) => {
+    const run = get().authorRun;
+    if (e.kind === "finished") {
+      set({ authorRun: null, error: e.error });
+      if (e.job === "build") void get().refreshBuilt();
+      if (e.job === "publish" && e.ok) {
+        set({ built: null, published: get().built?.version ?? "", verifyReport: null });
+        void get().refreshBuild();
+        void get().refreshStatus();
+      }
+      return;
+    }
+    if (!run) return;
+    if (e.kind === "step") set({ authorRun: { ...run, progress: { ...run.progress, step: e, bytes: e.label === run.progress.step?.label ? run.progress.bytes : null } } });
+    if (e.kind === "bytes") set({ authorRun: { ...run, progress: { ...run.progress, bytes: e } } });
+    if (e.kind === "log") set({ authorRun: { ...run, log: [...run.log, e.line].slice(-AUTHOR_LOG_LINES) } });
   },
   clearError: () => set({ error: null }),
 }));

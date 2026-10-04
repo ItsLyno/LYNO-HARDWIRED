@@ -10,6 +10,10 @@ export interface Settings {
   manifestUrl: string;
   /** The author releases from this instance: updates and repairs are off. */
   authorMode: boolean;
+  /** GitHub repository the author publishes to, owner/name. */
+  authorRepo: string;
+  /** Where builds are packed; null: release-out in the launcher's data folder. */
+  authorOutDir: string | null;
 }
 
 export interface Status {
@@ -142,6 +146,34 @@ export interface Pending {
   personal: string[];
 }
 
+export type Secret = "githubToken" | "nexusKey";
+
+export interface SecretsStatus {
+  github: boolean;
+  nexus: boolean;
+}
+
+export interface BuiltRelease {
+  version: string;
+  gameVersion: string;
+  notes: string[];
+  /** New or changed packages. Empty when `restored`. */
+  repacked: { name: string; changed: boolean; size: number }[];
+  uploadSize: number;
+  mods: number;
+  warnings: string[];
+  /** Read back after a restart: only the version and notes are known. */
+  restored: boolean;
+}
+
+export type AuthorJob = "build" | "publish";
+
+export type AuthorEvent =
+  | { kind: "step"; index: number; total: number; label: string }
+  | { kind: "bytes"; done: number; total: number }
+  | { kind: "log"; line: string }
+  | { kind: "finished"; job: AuthorJob; ok: boolean; error: string | null };
+
 export interface LauncherUpdate {
   version: string;
   currentVersion: string;
@@ -166,6 +198,16 @@ export const api = isTauri()
       authorChanges: () => invoke<Pending>("author_changes"),
       /** Records the published build as installed: the author has just released it from this instance. */
       authorAdopt: () => invoke<void>("author_adopt"),
+      authorSecrets: () => invoke<SecretsStatus>("author_secrets"),
+      /** null forgets the secret. A GitHub token is checked before it is saved. */
+      authorSetSecret: (secret: Secret, value: string | null) => invoke<void>("author_set_secret", { secret, value }),
+      authorBuilt: () => invoke<BuiltRelease | null>("author_built"),
+      authorBuild: (version: string, gameVersion: string, notes: string[]) =>
+        invoke<void>("author_build", { version, gameVersion, notes }),
+      authorPublish: () => invoke<void>("author_publish"),
+      authorCancel: () => invoke<void>("author_cancel"),
+      onAuthorEvent: (handler: (e: AuthorEvent) => void): Promise<UnlistenFn> =>
+        listen<AuthorEvent>("author-event", (e) => handler(e.payload)),
       openModFolder: (id: string) => invoke<void>("open_mod_folder", { id }),
       openFolder: (folder: Folder) => invoke<void>("open_folder", { folder }),
       launchGame: () => invoke<void>("launch_game"),

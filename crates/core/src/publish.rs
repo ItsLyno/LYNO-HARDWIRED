@@ -2,8 +2,8 @@
 
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::{Arc, Mutex};
 
 use serde::{Deserialize, Serialize};
 
@@ -38,6 +38,9 @@ pub struct BuildOptions {
     pub pack: PackOptions,
     /// Remember file hashes in `<instance>/.lyno/pack-cache.json` between runs.
     pub hash_cache: bool,
+    /// Checked before each package: a package being packed is finished first.
+    /// A cancelled build resumes like an interrupted one.
+    pub cancel: Option<Arc<AtomicBool>>,
 }
 
 /// Extra info for a mod, e.g. from the Nexus API.
@@ -54,6 +57,20 @@ pub struct BuildOutput {
     /// Packages that had to be repacked, with the reason.
     pub repacked: Vec<Repacked>,
     pub warnings: Vec<String>,
+}
+
+impl BuildOutput {
+    /// Bytes to upload for a repacked package (`Repacked::name`).
+    pub fn upload_size(&self, name: &str) -> u64 {
+        let (id, pkg) = self
+            .manifest
+            .mod_specs()
+            .find(|m| m.name == name)
+            .map_or(("base", &self.manifest.base), |m| (m.id.as_str(), &m.package));
+        // Part names: `package_name` + `.tar.zst.NNN`.
+        let prefix = format!("{id}-{}.", &pkg.hash[..16]);
+        self.assets.iter().filter(|a| a.file_name.starts_with(&prefix)).map(|a| a.size).sum()
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -126,7 +143,12 @@ pub fn build(
         }
         redmod |= entry.state == EntryState::Enabled && has_redmod(&folder);
 
-        let previous = opts.previous.as_ref().and_then(|m| m.mod_specs().find(|s| s.id == id)).map(|s| &s.package);
+        if opts.cancel.as_ref().is_some_and(|c| c.load(Ordering::Relaxed)) {
+            packer.cache.save()?;
+            return Err(Error::Cancelled);
+        }
+        let previous_spec = opts.previous.as_ref().and_then(|m| m.mod_specs().find(|s| s.id == id));
+        let previous = previous_spec.map(|s| &s.package);
         let prefix = format!("mods/{}/", entry.name);
         let step_label = format!("[{step}/{steps}] {}", entry.name);
         let package = packer.package(&folder, &prefix, &files, &id, &entry.name, &step_label, previous, log)?;
@@ -138,7 +160,13 @@ pub fn build(
                 None
             }
         };
-        let extra = if nexus.is_some() { info(&meta) } else { ModInfo::default() };
+        let mut extra = if nexus.is_some() { info(&meta) } else { ModInfo::default() };
+        // Without a Nexus key (or with Nexus down) the same Nexus page keeps
+        // the author and title it had, instead of losing them for players.
+        if let Some(prev) = previous_spec.filter(|p| p.nexus.is_some() && p.nexus == nexus) {
+            extra.author = extra.author.or_else(|| prev.author.clone());
+            extra.title = extra.title.or_else(|| prev.title.clone());
+        }
         mods.push(ModEntry::Mod(ModSpec {
             id,
             name: entry.name.clone(),

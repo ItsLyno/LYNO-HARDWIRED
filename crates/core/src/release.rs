@@ -38,8 +38,8 @@ pub trait Host {
     fn release_assets(&mut self, tag: &str) -> Result<Option<HashMap<String, u64>>>;
     fn create_release(&mut self, tag: &str, title: &str, notes: &str) -> Result<()>;
     /// Must replace an asset of the same name: an interrupted run may have left
-    /// it half-uploaded.
-    fn upload_asset(&mut self, tag: &str, path: &Path) -> Result<()>;
+    /// it half-uploaded. `progress` gets the bytes of this file sent so far.
+    fn upload_asset(&mut self, tag: &str, path: &Path, progress: &dyn Fn(u64)) -> Result<()>;
     /// Makes the manifest at `path` the published one.
     fn push_manifest(&mut self, version: &str, path: &Path) -> Result<()>;
 }
@@ -60,6 +60,8 @@ pub enum Event {
     /// release (an earlier, interrupted run), `bytes` remain.
     Uploads { uploaded: usize, total: usize, bytes: u64 },
     Uploading { index: usize, count: usize, name: String, size: u64 },
+    /// Bytes of all uploads of this run; hosts that can't tell send none.
+    UploadBytes { done: u64, total: u64 },
     /// HTTP check of every part; `done: 0` when it starts.
     Checking { done: usize, total: usize },
     Live { version: String },
@@ -171,13 +173,16 @@ fn upload(
         }
     };
     let todo: Vec<&Asset> = assets.iter().filter(|a| existing.get(&a.name) != Some(&a.size)).collect();
-    log(Event::Uploads { uploaded: assets.len() - todo.len(), total: assets.len(), bytes: todo.iter().map(|a| a.size).sum() });
+    let total = todo.iter().map(|a| a.size).sum();
+    log(Event::Uploads { uploaded: assets.len() - todo.len(), total: assets.len(), bytes: total });
+    let mut done = 0;
     for (i, asset) in todo.iter().enumerate() {
         if cancel.load(Ordering::Relaxed) {
             return Err(Error::Cancelled);
         }
         log(Event::Uploading { index: i + 1, count: todo.len(), name: asset.name.clone(), size: asset.size });
-        host.upload_asset(tag, &asset.path)?;
+        host.upload_asset(tag, &asset.path, &|n| log(Event::UploadBytes { done: done + n, total }))?;
+        done += asset.size;
     }
     Ok(())
 }

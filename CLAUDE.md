@@ -11,12 +11,13 @@ installs and updates the build, sets the game path, starts the game through MO2.
 |---|---|
 | `crates/core` (`lyno-core`) | Everything that matters: manifest, packages, download, install, update plan, MO2 files, game detection |
 | `crates/pack` (`lyno-pack`) | Author CLI: `build` (MO2 instance → `out/manifest.json` + `tar.zst` parts), `publish` (upload, HTTP-check every part, push the manifest) |
-| `apps/launcher` | Tauri 2 + React + TypeScript + Tailwind. `src-tauri/src/commands.rs` is the IPC layer over `lyno-core` |
+| `apps/launcher` | Tauri 2 + React + TypeScript + Tailwind. `src-tauri/src/commands.rs` is the IPC layer over `lyno-core`; `author.rs` the author-mode commands (build, publish, adopt), `secrets.rs` the GitHub token and Nexus key in Windows Credential Manager |
 | `docs/` | Reference: [Cyberpunk under MO2](docs/cyberpunk-mo2.md), [MO2 instance format](docs/mo2-instance.md), [release process](docs/release-process.md), vendored MO2 Cyberpunk plugin in `docs/reference/` |
 
 Core modules: `publish.rs` (author side: build manifest, reuse unchanged packages),
 `release.rs` (publish a build in the safe order over a `Host`: releases + manifest; `lyno-pack` implements it with `gh`/`git`),
 `author.rs` (author mode: the author releases from their launcher instance; `pending` mod-list changes since the installed build, `adopt` a just-published build as installed),
+`github.rs` (`release::Host` over the GitHub REST API with a token: what the launcher publishes with), `nexus.rs` (mod authors for `build`),
 `plan.rs` (manifest + state → actions + new `modlist.txt`), `install.rs` (apply plan),
 `prefetch.rs` (parallel part downloads running ahead of `install`), `download.rs` (one part: resume, retries),
 `verify.rs` (integrity check; repair = flags in `state.json` that `plan` turns into `Repair` actions),

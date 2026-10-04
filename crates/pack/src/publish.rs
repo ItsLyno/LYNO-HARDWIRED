@@ -54,7 +54,7 @@ fn print(event: Event) {
         Event::Uploading { index, count, name, size } => eprintln!("  [{index}/{count}] {name} ({:.1} MB)", size as f64 / 1e6),
         Event::Checking { done: 0, .. } => eprintln!("checking every part over HTTP..."),
         Event::Checking { done, total } if done == total || done % 20 == 0 => eprintln!("  {done}/{total}"),
-        Event::Checking { .. } => {}
+        Event::Checking { .. } | Event::UploadBytes { .. } => {}
         Event::Live { version } => {
             eprintln!();
             eprintln!("build {version} is live; raw.githubusercontent.com may serve the old manifest for a few minutes");
@@ -137,7 +137,7 @@ impl Host for GitHost {
             .map_err(Error::Release)
     }
 
-    fn upload_asset(&mut self, tag: &str, path: &Path) -> lyno_core::Result<()> {
+    fn upload_asset(&mut self, tag: &str, path: &Path, _progress: &dyn Fn(u64)) -> lyno_core::Result<()> {
         // --clobber replaces an asset left half-uploaded by an earlier run.
         let path = path.to_string_lossy();
         gh(&["release", "upload", tag, &path, "--repo", &self.repo, "--clobber"]).map(drop).map_err(Error::Release)

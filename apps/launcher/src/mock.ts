@@ -1,7 +1,22 @@
 // Browser-only stand-in for the Tauri backend (`pnpm dev` without Tauri),
 // so screens can be built and screenshotted without Windows or MO2.
 // The data is illustrative, not the real build.
-import type { BuildInfo, Folder, GameInstall, LauncherUpdate, ModRow, Pending, Settings, Status, UpdateEvent, UpdateFinished, VerifyReport } from "./api";
+import type {
+  AuthorEvent,
+  BuildInfo,
+  BuiltRelease,
+  Folder,
+  GameInstall,
+  LauncherUpdate,
+  ModRow,
+  Pending,
+  Secret,
+  Settings,
+  Status,
+  UpdateEvent,
+  UpdateFinished,
+  VerifyReport,
+} from "./api";
 
 const GB = 1024 ** 3;
 const MB = 1024 ** 2;
@@ -51,6 +66,8 @@ let settings: Settings = {
   gameDir: "D:\\SteamLibrary\\steamapps\\common\\Cyberpunk 2077",
   manifestUrl: "https://raw.githubusercontent.com/ItsLyno/LYNO-HARDWIRED/main/build/manifest.json",
   authorMode: false,
+  authorRepo: "ItsLyno/LYNO-HARDWIRED",
+  authorOutDir: null,
 };
 
 const AUTHOR_MODE_NO_UPDATE =
@@ -111,6 +128,67 @@ let finished: ((f: UpdateFinished) => void) | null = null;
 let cancelled = false;
 let verifyProgress: ((e: UpdateEvent) => void) | null = null;
 let verifyCancelled = false;
+
+const secrets = { github: false, nexus: false };
+let built: BuiltRelease | null = null;
+let author: ((e: AuthorEvent) => void) | null = null;
+let authorCancelled = false;
+
+async function simulateBuild(version: string, gameVersion: string, notes: string[]) {
+  authorCancelled = false;
+  const names = mods.flatMap((m) => (m.kind === "mod" ? [m.name] : []));
+  const total = names.length + 1;
+  for (const [i, name] of ["base (MO2, профиль)", ...names].entries()) {
+    if (authorCancelled) return author?.({ kind: "finished", job: "build", ok: false, error: null });
+    const changed = i === 3 || i === 9;
+    author?.({ kind: "step", index: i + 1, total, label: `${name}: ${changed ? "packing 180 MB" : "hashing 24 MB"}` });
+    await delay(changed ? 700 : 150);
+  }
+  built = {
+    version,
+    gameVersion,
+    notes,
+    repacked: [
+      { name: "ArchiveXL", changed: true, size: 2 * MB },
+      { name: "Nova LUT", changed: true, size: 180 * MB },
+      { name: "Kiroshi Night Vision", changed: false, size: 14 * MB },
+    ],
+    uploadSize: 196 * MB,
+    mods: names.length,
+    warnings: ['"Glitch Effects Tweaks": no Nexus mod id in meta.ini, no link in the launcher'],
+    restored: false,
+  };
+  author?.({ kind: "finished", job: "build", ok: true, error: null });
+}
+
+async function simulatePublish() {
+  authorCancelled = false;
+  if (!built) return;
+  const version = built.version;
+  author?.({ kind: "log", line: `Сейчас опубликована версия ${build.latestVersion}` });
+  author?.({ kind: "log", line: `Создан релиз build-${version}` });
+  const parts = [2 * MB, 180 * MB, 14 * MB];
+  const total = parts.reduce((a, b) => a + b, 0);
+  let done = 0;
+  for (const [i, size] of parts.entries()) {
+    author?.({ kind: "step", index: i + 1, total: parts.length, label: `Загрузка part-${i + 1}.tar.zst.001` });
+    for (let t = 1; t <= 8; t++) {
+      if (authorCancelled) return author?.({ kind: "finished", job: "publish", ok: false, error: null });
+      await delay(120);
+      author?.({ kind: "bytes", done: done + (size * t) / 8, total });
+    }
+    done += size;
+  }
+  for (let i = 1; i <= 40; i += 3) {
+    author?.({ kind: "step", index: i, total: 40, label: "Проверка частей по HTTP" });
+    await delay(40);
+  }
+  author?.({ kind: "log", line: `Версия ${version} опубликована` });
+  status = { ...status, installedVersion: version };
+  build = { ...build, latestVersion: version, installedVersion: version, upToDate: true, changes: 0, downloadSize: 0 };
+  built = null;
+  author?.({ kind: "finished", job: "publish", ok: true, error: null });
+}
 
 async function simulateVerify(): Promise<VerifyReport | null> {
   verifyCancelled = false;
@@ -227,6 +305,39 @@ export const mock = {
     status = { ...status, installedVersion: build.latestVersion };
     build = { ...build, installedVersion: build.latestVersion, upToDate: true, changes: 0, downloadSize: 0 };
   },
+  authorSecrets: async () => ({ ...secrets }),
+  authorSetSecret: async (secret: Secret, value: string | null) => {
+    await delay(400);
+    if (secret === "githubToken" && value && !value.startsWith("github_pat_")) {
+      throw new Error("Токен не подходит: repository ItsLyno/LYNO-HARDWIRED: GitHub answered 401: Bad credentials (the token is wrong or expired)");
+    }
+    secrets[secret === "githubToken" ? "github" : "nexus"] = !!value;
+  },
+  authorBuilt: async () => built,
+  authorBuild: async (version: string, gameVersion: string, notes: string[]) => {
+    if (status.gameRunning || status.mo2Running) throw new Error("Закройте игру и Mod Organizer 2: MO2 переписывает список модов при выходе");
+    if (build.latestVersion !== status.installedVersion) {
+      throw new Error(`Опубликована версия ${build.latestVersion}, а установлена ${status.installedVersion}. Сначала примите опубликованную версию.`);
+    }
+    built = null;
+    void simulateBuild(version, gameVersion, notes);
+  },
+  authorPublish: async () => {
+    if (!secrets.github) throw new Error("Добавьте токен GitHub");
+    void simulatePublish();
+  },
+  authorCancel: async () => {
+    authorCancelled = true;
+  },
+  onAuthorEvent: async (h: (e: AuthorEvent) => void) => {
+    // StrictMode subscribes the same handler twice: a wrapper per subscription
+    // keeps the first unsubscribe from dropping the second one.
+    const mine = (e: AuthorEvent) => h(e);
+    author = mine;
+    return () => {
+      if (author === mine) author = null;
+    };
+  },
   openModFolder: async (_id: string) => {},
   openFolder: async (_folder: Folder) => {},
   launchGame: async () => {},
@@ -248,17 +359,19 @@ export const mock = {
     window.open(url, "_blank");
   },
   onVerifyProgress: async (p: (e: UpdateEvent) => void) => {
-    verifyProgress = p;
+    const mine = (e: UpdateEvent) => p(e);
+    verifyProgress = mine;
     return () => {
-      verifyProgress = null;
+      if (verifyProgress === mine) verifyProgress = null;
     };
   },
   onUpdate: async (p: (e: UpdateEvent) => void, f: (r: UpdateFinished) => void) => {
-    progress = p;
-    finished = f;
+    const [mineP, mineF] = [(e: UpdateEvent) => p(e), (r: UpdateFinished) => f(r)];
+    progress = mineP;
+    finished = mineF;
     return () => {
-      progress = null;
-      finished = null;
+      if (progress === mineP) progress = null;
+      if (finished === mineF) finished = null;
     };
   },
 };

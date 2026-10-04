@@ -3,7 +3,6 @@ use std::process::Command;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
-use lyno_core::author;
 use lyno_core::download::Downloader;
 use lyno_core::game::{self, GameInstall};
 use lyno_core::install::{self, Installer};
@@ -27,18 +26,18 @@ const MO2_PROCESS: &str = "ModOrganizer.exe";
 const DEFAULT_PROFILE: &str = "LYNO";
 
 /// Errors cross the IPC boundary as plain strings for the UI to show.
-type CmdResult<T> = Result<T, String>;
+pub(crate) type CmdResult<T> = Result<T, String>;
 
-fn err(e: impl std::fmt::Display) -> String {
+pub(crate) fn err(e: impl std::fmt::Display) -> String {
     e.to_string()
 }
 
 /// Manifest of the installed build, saved after every successful update.
-fn installed_manifest_path(inst: &Instance) -> PathBuf {
+pub(crate) fn installed_manifest_path(inst: &Instance) -> PathBuf {
     inst.root().join(".lyno").join("manifest.json")
 }
 
-fn installed_manifest(inst: &Instance) -> Option<Manifest> {
+pub(crate) fn installed_manifest(inst: &Instance) -> Option<Manifest> {
     let text = std::fs::read_to_string(installed_manifest_path(inst)).ok()?;
     Manifest::from_json(&text).ok()
 }
@@ -399,6 +398,9 @@ pub async fn verify_build(app: AppHandle) -> CmdResult<Option<verify::Report>> {
         if state.update.lock().unwrap().is_some() {
             return Err("Дождитесь окончания обновления сборки".into());
         }
+        if state.author_job.lock().unwrap().is_some() {
+            return Err(AUTHOR_JOB_RUNNING.into());
+        }
         let mut slot = state.verify.lock().unwrap();
         if slot.is_some() {
             return Err("Проверка уже идёт".into());
@@ -476,48 +478,14 @@ pub fn start_repair(app: AppHandle, ids: Vec<String>, base: bool, reset_settings
     start_update(app)
 }
 
+/// The game and MO2 write into the instance being packed.
+const AUTHOR_JOB_RUNNING: &str = "Идёт сборка или публикация выпуска: дождитесь окончания";
+
 /// Both would undo the author's work: an update puts mods it doesn't know
 /// under `LYNO USER MODS`, a repair downloads edited mods again.
 const AUTHOR_MODE_NO_UPDATE: &str =
     "В режиме автора обновление и починка выключены: они откатили бы ваши правки модов. \
      Выключите режим автора в настройках, если нужно поставить опубликованную версию.";
-
-/// The mod list against the installed build: what the next release changes
-/// besides edited files (those come from `verify_build`).
-#[tauri::command]
-pub fn author_changes(state: TauriState<'_, AppState>) -> CmdResult<author::Pending> {
-    let settings = state.settings.lock().unwrap().clone();
-    let inst = Instance::new(&settings.instance_dir);
-    let installed = installed_manifest(&inst).ok_or("Сборка не установлена")?;
-    author::pending(&inst, &installed).map_err(|e| {
-        log::error!("author changes: {e}");
-        format!("Не удалось прочитать список модов: {e}")
-    })
-}
-
-/// Records the published build as installed without downloading it: the
-/// author has just released it from this instance. Fails if the build has mods
-/// this instance doesn't (it was released from somewhere else).
-#[tauri::command]
-pub fn author_adopt(state: TauriState<'_, AppState>) -> CmdResult<()> {
-    let settings = state.settings.lock().unwrap().clone();
-    if !settings.author_mode {
-        return Err("Доступно только в режиме автора".into());
-    }
-    if state.update.lock().unwrap().is_some() || state.verify.lock().unwrap().is_some() {
-        return Err("Дождитесь окончания обновления или проверки файлов".into());
-    }
-    let manifest = state.manifest.lock().unwrap().clone().ok_or("Нет связи с GitHub: опубликованная версия не загружена")?;
-    let inst = Instance::new(&settings.instance_dir);
-    author::adopt(&inst, &manifest, None).map_err(|e| {
-        log::error!("adopt build {}: {e}", manifest.build_version);
-        format!("Не удалось принять версию {}: {e}", manifest.build_version)
-    })?;
-    let json = serde_json::to_string_pretty(&manifest).map_err(err)?;
-    std::fs::write(installed_manifest_path(&inst), json).map_err(err)?;
-    log::info!("build {} adopted as installed", manifest.build_version);
-    Ok(())
-}
 
 /// Switches a non-core build mod on or off in the player's `modlist.txt`.
 /// MO2 keeps the list in memory and writes it back on exit, so it must be closed.
@@ -596,6 +564,9 @@ fn open_dir(path: &std::path::Path) -> CmdResult<()> {
 #[tauri::command]
 pub fn launch_game(state: TauriState<'_, AppState>) -> CmdResult<()> {
     let settings = state.settings.lock().unwrap().clone();
+    if state.author_job.lock().unwrap().is_some() {
+        return Err(AUTHOR_JOB_RUNNING.into());
+    }
     if running_processes().0 {
         return Err("Cyberpunk 2077 уже запущен".into());
     }
@@ -618,6 +589,9 @@ pub fn launch_game(state: TauriState<'_, AppState>) -> CmdResult<()> {
 #[tauri::command]
 pub fn open_mo2(state: TauriState<'_, AppState>) -> CmdResult<()> {
     let settings = state.settings.lock().unwrap().clone();
+    if state.author_job.lock().unwrap().is_some() {
+        return Err(AUTHOR_JOB_RUNNING.into());
+    }
     let inst = Instance::new(&settings.instance_dir);
     spawn_mo2(&inst, &mo2::open_args(&profile(&inst)))
 }
@@ -637,7 +611,7 @@ fn spawn_mo2(inst: &Instance, args: &[String]) -> CmdResult<()> {
         })
 }
 
-fn running_processes() -> (bool, bool) {
+pub(crate) fn running_processes() -> (bool, bool) {
     let mut sys = System::new();
     sys.refresh_processes_specifics(ProcessesToUpdate::All, true, ProcessRefreshKind::nothing());
     let is_running = |name: &str| {

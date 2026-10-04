@@ -2,8 +2,10 @@ import { Check, FileSearch, ListTree, PackageCheck, RotateCw } from "lucide-reac
 import { useEffect, useState } from "react";
 import { api, type Damaged, type Pending } from "../api";
 import { Button } from "../components/Button";
+import { Credentials } from "../components/Credentials";
 import { list } from "../components/Integrity";
 import { PageTitle } from "../components/PageTitle";
+import { ReleaseBuilder } from "../components/ReleaseBuilder";
 import { Section } from "../components/Section";
 import { UpdateProgress } from "../components/UpdateProgress";
 import { plural } from "../format";
@@ -16,6 +18,7 @@ import { useApp } from "../store";
 export function Release() {
   const { status, build, verifyProgress, verifyReport, verify, run, refreshStatus, refreshBuild } = useApp();
   const [pending, setPending] = useState<Pending | null>(null);
+  const [canPublish, setCanPublish] = useState(false);
   const installed = status?.installedVersion ?? null;
 
   const refresh = () => run(async () => setPending(await api.authorChanges()));
@@ -157,11 +160,16 @@ export function Release() {
         </div>
       </Section>
 
-      <p className="text-[13px] leading-relaxed text-muted">
-        Собрать и опубликовать выпуск пока можно только командами <span className="font-mono">lyno-pack build</span> и{" "}
-        <span className="font-mono">lyno-pack publish</span>, указав эту папку как инстанс. После публикации примите новую
-        версию здесь.
-      </p>
+      <Section title="Новая версия">
+        <div className="px-5 pb-5">
+          {/* A new installed version (accepted or just published) starts a fresh form: next version, no notes. */}
+          <ReleaseBuilder key={installed} canPublish={canPublish} />
+        </div>
+      </Section>
+
+      <Section title="Доступ">
+        <Credentials onChange={(s) => setCanPublish(s.github)} />
+      </Section>
     </div>
   );
 }

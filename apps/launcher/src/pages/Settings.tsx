@@ -84,6 +84,19 @@ export function Settings() {
             Я выпускаю сборку из этой папки
           </label>
         </Field>
+        {draft.authorMode && (
+          <>
+            <Field label="Репозиторий сборки" hint="Куда публикуются выпуски: владелец/репозиторий на GitHub.">
+              <Input value={draft.authorRepo} onChange={(v) => update({ authorRepo: v })} />
+            </Field>
+            <Field
+              label="Папка для упаковки"
+              hint="Сюда складываются части новой версии перед загрузкой. Пусто — папка release-out рядом с папкой сборки. Не указывайте папку внутри сборки; быстрее всего на другом диске."
+            >
+              <Input value={draft.authorOutDir ?? ""} onChange={(v) => update({ authorOutDir: v || null })} />
+            </Field>
+          </>
+        )}
       </div>
       <div className="flex items-center gap-3">
         <Button

@@ -2,6 +2,7 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
+pub const DEFAULT_REPO: &str = "ItsLyno/LYNO-HARDWIRED";
 pub const DEFAULT_MANIFEST_URL: &str =
     "https://raw.githubusercontent.com/ItsLyno/LYNO-HARDWIRED/main/build/manifest.json";
 
@@ -21,6 +22,17 @@ pub struct Settings {
     /// and repairs, which would undo them, are off.
     #[serde(default)]
     pub author_mode: bool,
+    /// GitHub repository the author publishes to.
+    #[serde(default = "default_repo")]
+    pub author_repo: String,
+    /// Where builds are packed; `None`: `release-out` in the launcher's data
+    /// folder, next to the default instance rather than inside it.
+    #[serde(default)]
+    pub author_out_dir: Option<PathBuf>,
+}
+
+fn default_repo() -> String {
+    DEFAULT_REPO.into()
 }
 
 fn default_manifest_url() -> String {
@@ -29,7 +41,14 @@ fn default_manifest_url() -> String {
 
 impl Settings {
     fn defaults(data_dir: &Path) -> Self {
-        Self { instance_dir: data_dir.join("instance"), game_dir: None, manifest_url: default_manifest_url(), author_mode: false }
+        Self {
+            instance_dir: data_dir.join("instance"),
+            game_dir: None,
+            manifest_url: default_manifest_url(),
+            author_mode: false,
+            author_repo: default_repo(),
+            author_out_dir: None,
+        }
     }
 
     pub fn load_or_default(path: &Path, data_dir: &Path) -> Self {
