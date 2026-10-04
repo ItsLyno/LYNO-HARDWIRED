@@ -302,9 +302,10 @@ pub fn ancestors(files: &ModFiles, file_id: u64) -> HashSet<u64> {
     out
 }
 
-/// Versions as authors write them: `v1.2` and `1.2` are the same.
+/// Versions as authors write them: `v1.2` and `1.2` are the same, and so are
+/// `1.2.0` on the page and `1.2` from `meta.ini` (MO2 pads versions, see `meta::display_version`).
 fn same_version(a: &str, b: &str) -> bool {
-    let norm = |s: &str| s.trim().trim_start_matches(['v', 'V']).to_owned();
+    let norm = |s: &str| crate::meta::display_version(s.trim().trim_start_matches(['v', 'V']));
     norm(a) == norm(b)
 }
 
@@ -426,6 +427,9 @@ mod tests {
         let mut c = checked(vec![], &[]);
         c.page = Some(ModPage { version: Some("v1.3".into()), ..Default::default() });
         assert_eq!(status(&tracked(None, "1.3"), Some(&c)), Status::UpToDate);
+        c.page = Some(ModPage { version: Some("1.3.0".into()), ..Default::default() });
+        assert_eq!(status(&tracked(None, "1.3"), Some(&c)), Status::UpToDate);
+        c.page = Some(ModPage { version: Some("v1.3".into()), ..Default::default() });
         assert_eq!(
             status(&tracked(None, "1.2"), Some(&c)),
             Status::Update { file: None, version: Some("v1.3".into()) }

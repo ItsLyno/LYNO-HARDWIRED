@@ -102,10 +102,16 @@ pub fn build(
     let steps = 1 + entries.iter().filter(is_mod).count();
 
     warnings.extend(profile_warnings(&inst.profile_dir(&opts.profile)));
-    let files = base_files(root, &opts.profile, Some(&opts.out_dir))?;
+    let mut files = base_files(root, &opts.profile, Some(&opts.out_dir))?;
+    warnings.extend(base_warnings(&files));
+    let staged_ini = stage_mo2_ini(root, &mut files)?;
+    let base_source = |p: &str| match &staged_ini {
+        Some(staged) if p == MO2_INI => staged.clone(),
+        _ => tree::from_slash(root, p),
+    };
     let previous_base = opts.previous.as_ref().map(|m| &m.base);
     let base_label = format!("[1/{steps}] base ({})", base_breakdown(&files));
-    let base = packer.package(root, "", &files, "base", "base", &base_label, previous_base, log)?;
+    let base = packer.package(&base_source, "", &files, "base", "base", &base_label, previous_base, log)?;
 
     let mut mods = Vec::new();
     let mut redmod = false;
@@ -151,7 +157,8 @@ pub fn build(
         let previous = previous_spec.map(|s| &s.package);
         let prefix = format!("mods/{}/", entry.name);
         let step_label = format!("[{step}/{steps}] {}", entry.name);
-        let package = packer.package(&folder, &prefix, &files, &id, &entry.name, &step_label, previous, log)?;
+        let source = |p: &str| tree::from_slash(&folder, p);
+        let package = packer.package(&source, &prefix, &files, &id, &entry.name, &step_label, previous, log)?;
 
         let nexus = match (meta.mod_id, meta.game_name.as_deref()) {
             (Some(mod_id), game) => Some(NexusRef { game: game.unwrap_or("cyberpunk2077").to_lowercase(), mod_id }),
@@ -240,12 +247,67 @@ pub fn base_files(root: &Path, profile: &str, out_dir: Option<&Path>) -> Result<
         if BASE_EXCLUDED.iter().any(|x| x.eq_ignore_ascii_case(first)) {
             return false;
         }
+        // Dot folders at the root are tools' (`.git`, `.pnpm-store`, `.vs`), never MO2's.
+        if first.starts_with('.') && !rest.is_empty() {
+            return false;
+        }
+        // Python writes bytecode next to MO2's Python plugins on every machine.
+        if p.split('/').any(|c| c.eq_ignore_ascii_case("__pycache__")) {
+            return false;
+        }
         if first != "profiles" {
             return true;
         }
         rest.split_once('/').is_some_and(|(name, file)| name == profile && !rules::is_private_profile_file(file))
     };
     tree::list_files_with(root, &keep)
+}
+
+const MO2_INI: &str = "ModOrganizer.ini";
+
+/// Ships `ModOrganizer.ini` without the state of the author's MO2 window
+/// ([`crate::mo2::strip_ui_state`]): a copy in `.lyno/pack/` replaces it in
+/// `files`. The copy is rewritten only when its content changes, so its
+/// size and mtime keep the hash cache valid between builds.
+fn stage_mo2_ini(root: &Path, files: &mut [FileEntry]) -> Result<Option<PathBuf>> {
+    let Some(entry) = files.iter_mut().find(|f| f.path == MO2_INI) else { return Ok(None) };
+    let src = root.join(MO2_INI);
+    let text = std::fs::read(&src).map_err(|e| Error::io(&src, e))?;
+    // Qt writes UTF-8; anything else ships untouched.
+    let Ok(text) = String::from_utf8(text) else { return Ok(None) };
+    let stripped = crate::mo2::strip_ui_state(&text);
+    let dir = root.join(".lyno").join("pack");
+    let staged = dir.join(MO2_INI);
+    if std::fs::read_to_string(&staged).ok().as_deref() != Some(stripped.as_str()) {
+        std::fs::create_dir_all(&dir).map_err(|e| Error::io(&dir, e))?;
+        std::fs::write(&staged, &stripped).map_err(|e| Error::io(&staged, e))?;
+    }
+    let fresh = tree::list_files_with(&dir, &|p| p == MO2_INI)?;
+    let Some(fresh) = fresh.into_iter().next() else { return Ok(None) };
+    entry.size = fresh.size;
+    entry.mtime = fresh.mtime;
+    Ok(Some(staged))
+}
+
+/// Top-level folders of the base this large are not MO2 (all of MO2 is a few
+/// hundred MB): a game copy, a dev toolchain, backups. Every player would
+/// download them.
+const BASE_FOLDER_WARN_SIZE: u64 = 500_000_000;
+
+fn base_warnings(files: &[FileEntry]) -> Vec<String> {
+    let mut sizes: std::collections::BTreeMap<&str, u64> = std::collections::BTreeMap::new();
+    for f in files {
+        if let Some((first, _)) = f.path.split_once('/') {
+            *sizes.entry(first).or_default() += f.size;
+        }
+    }
+    sizes
+        .into_iter()
+        .filter(|&(_, size)| size >= BASE_FOLDER_WARN_SIZE)
+        .map(|(name, size)| {
+            format!("{name}/ in the instance root is {} MB and goes into the base package: move it out unless MO2 needs it", size / 1_000_000)
+        })
+        .collect()
 }
 
 /// Checks every part of `manifest` over HTTP, including parts reused from
@@ -376,12 +438,12 @@ struct PartRecord {
 }
 
 impl Packer<'_> {
-    /// `files` are the shipped files under `root`, sorted; `prefix` is `root`
-    /// relative to the instance (hash cache key).
+    /// `files` are the shipped files, sorted, read from `source(path)`;
+    /// `prefix` is their folder relative to the instance (hash cache key).
     #[allow(clippy::too_many_arguments)]
     fn package(
         &mut self,
-        root: &Path,
+        source: &dyn Fn(&str) -> PathBuf,
         prefix: &str,
         files: &[FileEntry],
         id: &str,
@@ -394,7 +456,7 @@ impl Packer<'_> {
         let mut known = self.cached_hash(prefix, &hashed);
         if known.is_none() && previous.is_some() {
             log(&format!("{step}: hashing {} MB", mb(&hashed)));
-            known = Some(self.read_hash(root, prefix, &hashed)?);
+            known = Some(self.read_hash(source, prefix, &hashed)?);
         }
         if let Some(hash) = &known {
             if let Some(p) = previous.filter(|p| p.hash == hash.hash) {
@@ -410,7 +472,7 @@ impl Packer<'_> {
         log(&format!("{step}: packing {} MB", mb(&hashed)));
         let out = &self.opts.out_dir;
         // The final name needs the hash, which is only known once every file is read.
-        let packed = package::pack(root, files, out, &format!("{id}.packing"), &self.opts.pack)?;
+        let packed = package::pack_from(source, files, out, &format!("{id}.packing"), &self.opts.pack)?;
         for (f, h) in files.iter().zip(&packed.file_hashes) {
             self.cache.insert(format!("{prefix}{}", f.path), f, h.clone());
         }
@@ -435,14 +497,14 @@ impl Packer<'_> {
         Some(tree::combine(files.iter().copied().zip(hashes?)))
     }
 
-    fn read_hash(&mut self, root: &Path, prefix: &str, files: &[&FileEntry]) -> Result<tree::TreeHash> {
+    fn read_hash(&mut self, source: &dyn Fn(&str) -> PathBuf, prefix: &str, files: &[&FileEntry]) -> Result<tree::TreeHash> {
         let mut hashes = Vec::with_capacity(files.len());
         for f in files {
             let key = format!("{prefix}{}", f.path);
             let h = match self.cache.get(&key, f) {
                 Some(h) => h.to_owned(),
                 None => {
-                    let h = crate::hash::blake3_file(&tree::from_slash(root, &f.path))?;
+                    let h = crate::hash::blake3_file(&source(&f.path))?;
                     self.cache.insert(key, f, h.clone());
                     h
                 }

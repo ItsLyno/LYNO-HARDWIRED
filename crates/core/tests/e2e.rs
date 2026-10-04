@@ -43,8 +43,14 @@ fn noise(len: usize, seed: u32) -> Vec<u8> {
 fn author_instance(root: &Path) {
     write(root, "ModOrganizer.exe", b"MZ fake");
     write(root, "portable.txt", b"");
-    write(root, "ModOrganizer.ini", b"[General]\r\ngamePath=@ByteArray(D:/Author/Cyberpunk 2077)\r\n");
+    write(
+        root,
+        "ModOrganizer.ini",
+        b"[General]\r\ngamePath=@ByteArray(D:/Author/Cyberpunk 2077)\r\n\r\n[Geometry]\r\nMainWindow_geometry=@ByteArray(\\x1)\r\n",
+    );
     write(root, "plugins/old_plugin.py", b"# dropped in v2");
+    write(root, "plugins/__pycache__/old_plugin.cpython-312.pyc", b"bytecode");
+    write(root, ".pnpm-store/v11/index.db", b"not MO2");
     write(root, "profiles/LYNO/settings.ini", b"[General]\r\nLocalSettings=false\r\n");
     write(root, "profiles/LYNO/UserSettings.json", b"author's graphics");
     write(root, "profiles/LYNO/saves/ManualSave-1/sav.dat", b"author's save");
@@ -267,6 +273,9 @@ fn build_install_update() {
     assert!(!user_root.join("profiles/LYNO/UserSettings.json").exists());
     assert!(!user_root.join("profiles/LYNO/saves").exists());
     assert!(user_root.join("plugins/old_plugin.py").exists());
+    assert!(!user_root.join("plugins/__pycache__").exists() && !user_root.join(".pnpm-store").exists());
+    let ini = std::fs::read_to_string(user.ini_path()).unwrap();
+    assert!(ini.contains("gamePath=") && !ini.contains("[Geometry]"), "the author's MO2 window state is not shipped: {ini}");
     for name in ["CET", "Archive Mod"] {
         assert_eq!(tree_hash(&user.mods_dir().join(name)).unwrap(), tree_hash(&author.join("mods").join(name)).unwrap());
     }
@@ -607,6 +616,11 @@ fn author_releases_from_launcher_instance() {
     );
     let report = check();
     assert_eq!(report.damaged.iter().map(|d| d.id.as_deref()).collect::<Vec<_>>(), [Some("archive-mod")], "{report:?}");
+
+    // Running MO2 rewrites its window state and Python its bytecode: not a base change.
+    let ini = std::fs::read_to_string(inst.ini_path()).unwrap();
+    write(inst.root(), "ModOrganizer.ini", format!("{ini}\r\n[Widgets]\r\nMainWindow_modList_index=Core\r\n[Servers]\r\n1\\lastSeen=2026-10-05\r\n").as_bytes());
+    write(inst.root(), "plugins/__pycache__/x.cpython-312.pyc", b"bytecode");
 
     // No Nexus key in the launcher: authors stay as published.
     let mut no_info = |_: &ModMeta| ModInfo::default();

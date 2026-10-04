@@ -74,10 +74,13 @@ mod) is changed in place in that mod's folder.
 | `red4ext/plugins/TweakXL/TweakXL.log`, `.../ArchiveXL/ArchiveXL.log` | TweakXL, ArchiveXL | Never (log) |
 | `bin/x64/plugins/cyber_engine_tweaks/{cyber_engine_tweaks,scripting,gamelog}.log` | CET | Never (log) |
 | `bin/x64/plugins/cyber_engine_tweaks/mods/<mod>/<mod>.log` | CET mods | Never (log) |
+| `tools/redmod/bin/REDmodLog.txt` | REDmod deploy | Never (log) |
+| `bin/x64/plugins/AdvancedCrashReporter/{reports/**,*.cache,mod-inventory.txt}` | Advanced Crash Reporter: crash reports, `watch-NN.txt` snapshots, engine symbol caches, list of installed mods | Never — rewritten on every launch |
 | `bin/x64/plugins/cyber_engine_tweaks/{config,persistent,bindings}.json`, `layout.ini` | CET: settings, overlay hotkey, window layout | Yes — build settings |
 | `bin/x64/plugins/cyber_engine_tweaks/mods/<mod>/db.sqlite3`, `*.json` | CET mods (AMM favorites, mod settings) | Yes |
 | `red4ext/plugins/mod_settings/user.ini` | Mod Settings | Yes |
 | `red4ext/config.ini` | RED4ext config (when present) | Yes |
+| `red4ext/plugins/Codeware/Persistent/ScriptableServiceContainer.dat` | Codeware: persistent fields of mods' scriptable services, rewritten on every launch | Yes — settings (`is_settings`) |
 
 `crates/core/src/rules.rs` encodes the "never" rows (`is_generated`). When a new
 framework or a new generated file shows up, add it there with a test.

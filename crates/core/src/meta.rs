@@ -66,7 +66,7 @@ impl ModMeta {
             game_name: general("gameName"),
             mod_id,
             file_id,
-            version: general("version"),
+            version: general("version").map(|v| display_version(&v)),
             installation_file: general("installationFile"),
             repository: general("repository"),
             lyno_id: lyno("id"),
@@ -235,6 +235,35 @@ fn parse_opt() -> ParseOption {
     ParseOption { enabled_quote: false, enabled_escape: false, ..Default::default() }
 }
 
+/// A version the way MO2 shows it. MO2 rewrites `version` in `meta.ini` in its
+/// canonical form: at least three segments (`1.35` → `1.35.0`), a `d` prefix for
+/// the decimal-mark scheme (`d1.35`), `f` for literal ones; its own UI strips that
+/// back to two segments. Shown or compared raw, every version gets an extra `.0`.
+pub fn display_version(v: &str) -> String {
+    let v = v.trim();
+    let v = match v.strip_prefix(['d', 'f']) {
+        Some(rest) if rest.starts_with(|c: char| c.is_ascii_digit()) => rest,
+        _ => v,
+    };
+    // The leading `N.N.N` run; whatever follows (`b`, `-hotfix`) stays as is.
+    let mut end = 0;
+    let bytes = v.as_bytes();
+    while end < bytes.len() {
+        let c = bytes[end];
+        if c.is_ascii_digit() || (c == b'.' && end > 0 && bytes.get(end + 1).is_some_and(u8::is_ascii_digit)) {
+            end += 1;
+        } else {
+            break;
+        }
+    }
+    let (numbers, rest) = v.split_at(end);
+    let mut segments: Vec<&str> = numbers.split('.').collect();
+    while segments.len() > 2 && segments.last().is_some_and(|s| s.bytes().all(|b| b == b'0')) {
+        segments.pop();
+    }
+    format!("{}{rest}", segments.join("."))
+}
+
 fn unquote(v: &str) -> String {
     v.trim().trim_matches('"').to_owned()
 }
@@ -264,9 +293,30 @@ size=1
         assert_eq!(m.game_name.as_deref(), Some("cyberpunk2077"));
         assert_eq!(m.mod_id, Some(107));
         assert_eq!(m.file_id, Some(91234));
-        assert_eq!(m.version.as_deref(), Some("1.35.0"));
+        assert_eq!(m.version.as_deref(), Some("1.35"));
         assert_eq!(m.repository.as_deref(), Some("Nexus"));
         assert!(!m.is_managed());
+    }
+
+    #[test]
+    fn versions_as_mo2_shows_them() {
+        for (raw, shown) in [
+            ("1.35.0", "1.35"),
+            ("1.0.0", "1.0"),
+            ("2.1.0.0", "2.1"),
+            ("2.5.2", "2.5.2"),
+            ("1.2.0.3", "1.2.0.3"),
+            ("1.35", "1.35"),
+            ("2", "2"),
+            ("d1.35", "1.35"),
+            ("f1.0.0", "1.0"),
+            ("1.10.0b", "1.10b"),
+            ("v1.2", "v1.2"),
+            ("final", "final"),
+            ("1.0.", "1.0."),
+        ] {
+            assert_eq!(display_version(raw), shown, "{raw}");
+        }
     }
 
     #[test]

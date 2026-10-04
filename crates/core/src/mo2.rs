@@ -112,6 +112,37 @@ impl Instance {
     }
 }
 
+/// Sections of `ModOrganizer.ini` that are the state of the author's MO2
+/// window, not the build: window and column layout (`Geometry`), expanded
+/// separators and selected tabs (`Widgets`), last folders of file dialogs
+/// (`recentDirectories`), Nexus CDN servers with the day last seen
+/// (`Servers`). MO2 rewrites them on every run, so shipped as is they changed
+/// the base package, and its upload, with every build.
+const UI_STATE_SECTIONS: &[&str] = &["Geometry", "Widgets", "recentDirectories", "Servers"];
+
+/// `ModOrganizer.ini` without [`UI_STATE_SECTIONS`]; MO2 starts with
+/// defaults for them. Line based, so every other line stays byte for byte
+/// (Qt escapes and `@ByteArray` values survive no ini rewriter unchanged).
+pub fn strip_ui_state(ini: &str) -> String {
+    let mut skip = false;
+    let mut out = String::with_capacity(ini.len());
+    // Blank lines are laid out anew, one before each section as Qt writes
+    // them: where a dropped section sat must leave no trace in the file.
+    for line in ini.split_inclusive('\n') {
+        let t = line.trim();
+        if let Some(section) = t.strip_prefix('[').and_then(|r| r.strip_suffix(']')) {
+            skip = UI_STATE_SECTIONS.iter().any(|s| s.eq_ignore_ascii_case(section));
+            if !skip && !out.is_empty() {
+                out.push_str(if line.ends_with("\r\n") { "\r\n" } else { "\n" });
+            }
+        }
+        if !skip && !t.is_empty() {
+            out.push_str(line);
+        }
+    }
+    out
+}
+
 fn rewrite_game_path(ini: &str, new: &str) -> String {
     let old = ini.lines().find_map(|l| {
         l.trim()
@@ -201,5 +232,20 @@ mod tests {
         assert_eq!(mods.len(), 2);
         assert_eq!(mods["CET"].lyno_id.as_deref(), Some("cet"));
         assert_eq!(mods["Core_separator"], ModMeta::default());
+    }
+
+    #[test]
+    fn strips_ui_state_of_mo2_ini() {
+        let ini = "[General]\r\ngameName=Cyberpunk 2077\r\n\r\n[Geometry]\r\nMainWindow_geometry=@ByteArray(\\x1)\r\n\r\n\
+                   [customExecutables]\r\nsize=1\r\n1\\title=Cyberpunk 2077\r\n\r\n[Widgets]\r\nMainWindow_modList_index=a, b\r\n\r\n\
+                   [Servers]\r\n1\\lastSeen=2026-10-04\r\n\r\n[Plugins]\r\nx\\y=true\r\n";
+        assert_eq!(
+            strip_ui_state(ini),
+            "[General]\r\ngameName=Cyberpunk 2077\r\n\r\n[customExecutables]\r\nsize=1\r\n1\\title=Cyberpunk 2077\r\n\r\n\
+             [Plugins]\r\nx\\y=true\r\n"
+        );
+        // A dropped section at the end leaves no blank line behind either.
+        assert_eq!(strip_ui_state("[General]\r\na=1\r\n\r\n[Widgets]\r\nb=2\r\n"), "[General]\r\na=1\r\n");
+        assert_eq!(strip_ui_state("[General]\nversion=2.5.2"), "[General]\nversion=2.5.2");
     }
 }
