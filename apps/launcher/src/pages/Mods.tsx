@@ -1,18 +1,25 @@
-import { ExternalLink, FolderOpen, Search } from "lucide-react";
-import { useState } from "react";
+import { ChevronRight, ExternalLink, FolderOpen, Search } from "lucide-react";
+import { useState, type CSSProperties } from "react";
 import { api, type ModRow } from "../api";
 import { PageTitle } from "../components/PageTitle";
 import { formatBytes, plural } from "../format";
 import { useApp } from "../store";
 
 type Mod = Extract<ModRow, { kind: "mod" }>;
-type Group = { title: string | null; mods: Mod[] };
+type Group = { title: string | null; color: string | null; mods: Mod[] };
 type Filter = "all" | "optional" | "changes";
 
 export function Mods() {
   const { build, buildError, status, progress, run, setModEnabled } = useApp();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
+  const [collapsed, setCollapsed] = useState<Set<string>>(loadCollapsed);
+  const toggleGroup = (title: string) => {
+    const next = new Set(collapsed);
+    if (!next.delete(title)) next.add(title);
+    setCollapsed(next);
+    saveCollapsed(next);
+  };
 
   const isChange = (m: Mod) => !!m.recent || m.outdated || m.damaged || (!m.installed && !!build?.installedVersion);
   const keep = (m: Mod) => filter === "all" || (filter === "optional" ? m.optional : isChange(m));
@@ -103,14 +110,16 @@ export function Mods() {
           {groups.map((g, i) => (
             <tbody key={g.title ?? `group-${i}`}>
               {g.title && (
-                <tr className="h-10 border-b border-line/60">
-                  <td colSpan={5} className="pl-5">
-                    <span className="label text-fg">{g.title}</span>
-                    <span className="ml-2 font-mono text-[11px] text-faint tabular-nums">{g.mods.length}</span>
-                  </td>
-                </tr>
+                <SeparatorRow
+                  title={g.title}
+                  color={g.color}
+                  count={g.mods.length}
+                  // A search shows every match, folded or not.
+                  open={!!query.trim() || !collapsed.has(g.title)}
+                  onToggle={() => toggleGroup(g.title!)}
+                />
               )}
-              {g.mods.map((m) => (
+              {(!g.title || query.trim() || !collapsed.has(g.title)) && g.mods.map((m) => (
                 <tr key={m.id} className="h-12 border-b border-line/60 last:border-b-0 hover:bg-raised/50">
                   <td className="truncate pl-5">
                     <span className={m.enabled ? "" : "text-faint"}>{m.title ?? m.name}</span>
@@ -226,13 +235,58 @@ function Switch(props: { checked: boolean; disabled?: boolean; title: string; on
   );
 }
 
+// Separators come from the author's MO2 (title, order and color); like in MO2, a click folds the group.
+function SeparatorRow(props: { title: string; color: string | null; count: number; open: boolean; onToggle: () => void }) {
+  // Opaque background: the row sticks under the table header while its group scrolls by.
+  const style: CSSProperties = props.color
+    ? {
+        background: `linear-gradient(color-mix(in srgb, ${props.color} 14%, transparent), color-mix(in srgb, ${props.color} 14%, transparent)), var(--color-surface)`,
+        color: `color-mix(in srgb, ${props.color} 55%, var(--color-fg))`,
+      }
+    : { background: "var(--color-raised)" };
+  return (
+    <tr>
+      <td colSpan={5} className="sticky top-10 z-[5] p-0">
+        <button
+          onClick={props.onToggle}
+          aria-expanded={props.open}
+          style={style}
+          className="flex h-10 w-full items-center gap-2 pr-5 pl-4 text-left text-[13px] font-semibold transition-[filter] hover:brightness-125"
+        >
+          <ChevronRight size={14} className={`shrink-0 opacity-70 transition-transform ${props.open ? "rotate-90" : ""}`} />
+          <span className="truncate">{props.title}</span>
+          <span className="font-mono text-[11px] font-normal opacity-60 tabular-nums">{props.count}</span>
+        </button>
+      </td>
+    </tr>
+  );
+}
+
+const COLLAPSED_KEY = "mods.collapsed";
+
+function loadCollapsed(): Set<string> {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(COLLAPSED_KEY) ?? "[]") as string[]);
+  } catch {
+    return new Set();
+  }
+}
+
+function saveCollapsed(titles: Set<string>) {
+  try {
+    localStorage.setItem(COLLAPSED_KEY, JSON.stringify([...titles]));
+  } catch {
+    // Folding is a convenience; losing it is fine.
+  }
+}
+
 function groupMods(rows: ModRow[], query: string, keep: (m: Mod) => boolean): Group[] {
   const q = query.trim().toLowerCase();
   const matches = (m: Mod) =>
     keep(m) && (!q || [m.name, m.title, m.author].some((s) => s?.toLowerCase().includes(q)));
-  const groups: Group[] = [{ title: null, mods: [] }];
+  const groups: Group[] = [{ title: null, color: null, mods: [] }];
   for (const r of rows) {
-    if (r.kind === "separator") groups.push({ title: r.title, mods: [] });
+    if (r.kind === "separator") groups.push({ title: r.title, color: r.color, mods: [] });
     else if (matches(r)) groups[groups.length - 1].mods.push(r);
   }
   return groups.filter((g) => g.mods.length > 0);

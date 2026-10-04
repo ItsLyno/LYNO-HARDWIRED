@@ -116,7 +116,8 @@ pub fn build(
             continue;
         }
         if let Some(title) = entry.separator_title() {
-            mods.push(ModEntry::Separator { title: title.to_owned() });
+            let color = metas.get(&entry.name).and_then(|m| m.color.clone());
+            mods.push(ModEntry::Separator { title: title.to_owned(), color });
             continue;
         }
         let folder = inst.mods_dir().join(&entry.name);

@@ -127,7 +127,7 @@ fn target_modlist(manifest: &Manifest, state: &State, current: &ModList) -> ModL
         .mods
         .iter()
         .filter_map(|e| match e {
-            ModEntry::Separator { title } => Some(Entry::separator(title).name),
+            ModEntry::Separator { title, .. } => Some(Entry::separator(title).name),
             ModEntry::Mod(_) => None,
         })
         .collect();
@@ -142,7 +142,7 @@ fn target_modlist(manifest: &Manifest, state: &State, current: &ModList) -> ModL
         .collect();
 
     entries.extend(manifest.mods.iter().map(|e| match e {
-        ModEntry::Separator { title } => Entry::separator(title),
+        ModEntry::Separator { title, .. } => Entry::separator(title),
         ModEntry::Mod(m) if is_enabled(m, state, current) => Entry::enabled(&m.name),
         ModEntry::Mod(m) => Entry::disabled(&m.name),
     }));
@@ -190,7 +190,7 @@ mod tests {
     #[test]
     fn fresh_install_installs_everything() {
         let m = manifest(vec![
-            ModEntry::Separator { title: "Core".into() },
+            ModEntry::Separator { title: "Core".into(), color: None },
             ModEntry::Mod(spec("cet", "h1")),
             ModEntry::Mod(spec("r4x", "h2")),
         ]);
