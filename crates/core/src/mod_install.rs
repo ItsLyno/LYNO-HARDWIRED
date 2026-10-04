@@ -4,18 +4,26 @@
 //! `downloads/` with a `.meta` next to it, so MO2 shows it in its Downloads
 //! tab and can reinstall it. Archives the launcher can't install
 //! ([`archive::Layout::Mo2`]) only get the last step: the player installs
-//! them in MO2, which runs FOMOD installers and reads RAR.
+//! them in MO2, which reads RAR.
+//!
+//! A FOMOD installer stops halfway: the archive goes to `downloads/` and
+//! [`Outcome::Fomod`] asks the player to choose ([`open_fomod`]), then
+//! [`install_fomod`] installs the choice like any other archive.
 //!
 //! MO2 keeps `modlist.txt` in memory and writes it back on exit, so the
 //! caller makes sure MO2 is closed before [`install`].
 
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-use crate::archive::{self, Layout};
+use base64::Engine;
+
+use crate::archive::{self, Kind, Layout};
 use crate::download::{Downloader, PartEvent};
+use crate::fomod::{self, FileItem, FileState, Installer, Selection};
 use crate::meta::ModMeta;
 use crate::mo2::Instance;
-use crate::modlist::{Entry, ModList};
+use crate::modlist::{Entry, EntryState, ModList};
 use crate::nexus::NexusApi;
 use crate::nxm::NxmLink;
 use crate::package;
@@ -57,6 +65,14 @@ pub enum Outcome {
     /// MO2 is open and would overwrite `modlist.txt` on exit: the archive is
     /// in its downloads instead, for the player to install there.
     Mo2Open,
+    /// A FOMOD installer: the archive is in MO2's downloads and waits for the
+    /// player's choice.
+    Fomod {
+        #[serde(skip)]
+        archive: PathBuf,
+        #[serde(skip)]
+        target: Target,
+    },
 }
 
 /// Where [`fetch_and_install`] is in its work.
@@ -189,17 +205,41 @@ fn free_folder(mods: &Path, name: &str) -> String {
 pub fn install(inst: &Instance, profile: &str, archive_path: &Path, dl: &Download, target: &Target) -> Result<Outcome> {
     let kind = archive::kind(archive_path)?;
     let layout = match kind {
-        archive::Kind::Zip | archive::Kind::SevenZip => archive::layout(&archive::entries(archive_path, kind)?),
-        archive::Kind::Rar | archive::Kind::Unknown => Layout::Mo2(archive::Mo2Reason::Format),
+        Kind::Zip | Kind::SevenZip => archive::layout(&archive::entries(archive_path, kind)?),
+        Kind::Rar | Kind::Unknown => Layout::Mo2(archive::Mo2Reason::Format),
     };
     let files = match layout {
         Layout::Files(files) => files,
+        Layout::Fomod { .. } => {
+            let archive = to_downloads(inst, archive_path, dl, false)?;
+            // An installer the launcher can't read is still one MO2 may.
+            return Ok(match open_fomod(inst, &archive, target) {
+                Ok(_) => Outcome::Fomod { archive, target: target.clone() },
+                Err(_) => Outcome::Mo2 { reason: archive::Mo2Reason::Fomod },
+            });
+        }
         Layout::Mo2(reason) => {
             to_downloads(inst, archive_path, dl, false)?;
             return Ok(Outcome::Mo2 { reason });
         }
     };
+    place(inst, profile, archive_path, kind, &files, dl, target, None)
+}
 
+/// Unpacks `files` of the archive into the target folder, records the mod in
+/// `meta.ini` and `modlist.txt`, and moves the archive into `downloads/`.
+/// `fomod`: the remembered FOMOD choice, `None` drops an old one.
+#[allow(clippy::too_many_arguments)]
+fn place(
+    inst: &Instance,
+    profile: &str,
+    archive_path: &Path,
+    kind: Kind,
+    files: &[(String, String)],
+    dl: &Download,
+    target: &Target,
+    fomod: Option<&str>,
+) -> Result<Outcome> {
     let mods = inst.mods_dir();
     std::fs::create_dir_all(&mods).map_err(|e| Error::io(&mods, e))?;
     let folder = match target {
@@ -210,7 +250,7 @@ pub fn install(inst: &Instance, profile: &str, archive_path: &Path, dl: &Downloa
     if staging.exists() {
         std::fs::remove_dir_all(&staging).map_err(|e| Error::io(&staging, e))?;
     }
-    archive::extract(archive_path, kind, &files, &staging)?;
+    archive::extract(archive_path, kind, files, &staging)?;
 
     let old_meta = mods.join(&folder).join("meta.ini");
     let meta_path = staging.join("meta.ini");
@@ -227,6 +267,7 @@ pub fn install(inst: &Instance, profile: &str, archive_path: &Path, dl: &Downloa
         ..Default::default()
     };
     meta.save(&meta_path)?;
+    crate::meta::save_fomod(&meta_path, fomod)?;
     package::swap_folder(&staging, &mods.join(&folder))?;
 
     let list_path = inst.modlist_path(profile);
@@ -241,6 +282,169 @@ pub fn install(inst: &Instance, profile: &str, archive_path: &Path, dl: &Downloa
     }
     to_downloads(inst, archive_path, dl, true)?;
     Ok(Outcome::Installed { folder })
+}
+
+/// A FOMOD installer read from an archive in `downloads/`.
+pub struct Fomod {
+    pub installer: Installer,
+    pub archive: PathBuf,
+    kind: Kind,
+    /// The folder that holds `fomod/`, as in the archive (`""` or `Wrapper/`).
+    root: String,
+    entries: Vec<String>,
+    /// The choice remembered in the `meta.ini` of the mod it replaces.
+    pub previous: Option<Selection>,
+}
+
+/// The config is a few KB; a bigger one is not an installer.
+const MAX_CONFIG: u64 = 4 << 20;
+/// Images are previews: a huge one is skipped rather than sent to the UI.
+const MAX_IMAGE: u64 = 3 << 20;
+
+pub fn open_fomod(inst: &Instance, archive_path: &Path, target: &Target) -> Result<Fomod> {
+    let kind = archive::kind(archive_path)?;
+    let entries = archive::entries(archive_path, kind)?;
+    let Layout::Fomod { root } = archive::layout(&entries) else {
+        return Err(Error::Fomod(format!("{} has no fomod/ModuleConfig.xml", archive_path.display())));
+    };
+    let config = entries
+        .iter()
+        .find(|e| archive::fomod_root(e) == Some(root.as_str()))
+        .cloned()
+        .ok_or_else(|| Error::Fomod("ModuleConfig.xml not found".into()))?;
+    let bytes = archive::read(archive_path, kind, std::slice::from_ref(&config), MAX_CONFIG)?
+        .remove(&config)
+        .ok_or_else(|| Error::Fomod("ModuleConfig.xml is too big".into()))?;
+    let installer = Installer::parse(&bytes)?;
+    let previous = match target {
+        Target::Replace(folder) => {
+            let meta = inst.mods_dir().join(folder).join("meta.ini");
+            let saved = meta.is_file().then(|| ModMeta::load(&meta)).transpose()?.and_then(|m| m.lyno_fomod);
+            saved.and_then(|v| fomod::decode_saved(&v)).map(|s| installer.restore(&s))
+        }
+        Target::New { .. } => None,
+    };
+    Ok(Fomod { installer, archive: archive_path.to_owned(), kind, root, entries, previous })
+}
+
+impl Fomod {
+    /// Archive entry of an installer path: authors on Windows mix the case.
+    fn entry(&self, rel: &str) -> Option<&String> {
+        let full = format!("{}{rel}", self.root);
+        self.entries.iter().find(|e| e.eq_ignore_ascii_case(&full))
+    }
+
+    /// The installer's images as `data:` URLs, by installer path. Formats a
+    /// browser can't show (`.dds`) and oversized files are left out.
+    pub fn images(&self) -> Result<HashMap<String, String>> {
+        let wanted: Vec<(String, String, &str)> = self
+            .installer
+            .images()
+            .into_iter()
+            .filter_map(|rel| {
+                let mime = match rel.rsplit_once('.')?.1.to_ascii_lowercase().as_str() {
+                    "png" => "image/png",
+                    "jpg" | "jpeg" => "image/jpeg",
+                    "gif" => "image/gif",
+                    "webp" => "image/webp",
+                    "bmp" => "image/bmp",
+                    _ => return None,
+                };
+                Some((self.entry(&rel)?.clone(), rel, mime))
+            })
+            .collect();
+        let names: Vec<String> = wanted.iter().map(|(e, _, _)| e.clone()).collect();
+        let mut data = archive::read(&self.archive, self.kind, &names, MAX_IMAGE)?;
+        let engine = base64::engine::general_purpose::STANDARD;
+        Ok(wanted
+            .into_iter()
+            .filter_map(|(entry, rel, mime)| Some((rel, format!("data:{mime};base64,{}", engine.encode(data.remove(&entry)?)))))
+            .collect())
+    }
+
+    /// `(archive path, path in the mod folder)` of the installer's items.
+    /// A later item wins a destination over an earlier one.
+    fn map(&self, items: &[FileItem]) -> Result<Vec<(String, String)>> {
+        let mut out: Vec<(String, String)> = Vec::new();
+        let mut at: HashMap<String, usize> = HashMap::new();
+        let mut add = |entry: &str, dest: String| -> Result<()> {
+            let Some(dest) = archive::place(&dest) else { return Ok(()) };
+            if !archive::is_safe(&dest) || !archive::is_safe(entry) {
+                return Err(Error::Fomod(format!("unsafe path {entry:?} -> {dest:?}")));
+            }
+            match at.get(&dest.to_ascii_lowercase()) {
+                Some(&i) => out[i] = (entry.to_owned(), dest),
+                None => {
+                    at.insert(dest.to_ascii_lowercase(), out.len());
+                    out.push((entry.to_owned(), dest));
+                }
+            }
+            Ok(())
+        };
+        let join = |base: &str, rel: &str| if base.is_empty() { rel.to_owned() } else { format!("{base}/{rel}") };
+        for item in items {
+            if item.folder {
+                let prefix = if item.source.is_empty() { self.root.clone() } else { format!("{}{}/", self.root, item.source) };
+                let base = item.destination.clone().unwrap_or_else(|| item.source.clone());
+                for e in &self.entries {
+                    let Some(rel) = e.get(prefix.len()..).filter(|_| e.is_char_boundary(prefix.len()) && e[..prefix.len()].eq_ignore_ascii_case(&prefix)) else {
+                        continue;
+                    };
+                    // The whole archive as a folder would install the installer too.
+                    if item.source.is_empty() && rel.to_ascii_lowercase().starts_with("fomod/") {
+                        continue;
+                    }
+                    add(e, join(&base, rel))?;
+                }
+            } else {
+                let entry = self.entry(&item.source).ok_or_else(|| Error::Fomod(format!("{} is not in the archive", item.source)))?;
+                let dest = match item.destination.as_deref() {
+                    None => item.source.clone(),
+                    Some("") => item.source.rsplit('/').next().unwrap_or_default().to_owned(),
+                    Some(d) => d.to_owned(),
+                };
+                add(entry, dest)?;
+            }
+        }
+        Ok(out)
+    }
+}
+
+/// `fileDependency`: a file is active when an enabled mod of the profile has
+/// it, inactive when only a disabled one does.
+pub fn file_states(inst: &Instance, profile: &str) -> impl Fn(&str) -> FileState {
+    let list = ModList::load(&inst.modlist_path(profile)).unwrap_or_default();
+    let mods = inst.mods_dir();
+    let folders: Vec<(PathBuf, bool)> =
+        list.mods().map(|e| (mods.join(&e.name), e.state == EntryState::Enabled)).collect();
+    move |path: &str| {
+        let mut state = FileState::Missing;
+        for (dir, enabled) in &folders {
+            if crate::tree::from_slash(dir, path).is_file() {
+                if *enabled {
+                    return FileState::Active;
+                }
+                state = FileState::Inactive;
+            }
+        }
+        state
+    }
+}
+
+/// Installs the archive of `fomod` with the player's `selection` and
+/// remembers the choice in the mod's `meta.ini`.
+pub fn install_fomod(inst: &Instance, profile: &str, fomod: &Fomod, dl: &Download, target: &Target, selection: &Selection) -> Result<Outcome> {
+    let states = file_states(inst, profile);
+    let ev = fomod.installer.evaluate(selection, &states);
+    if let Some(step) = ev.valid.iter().position(|v| !v) {
+        return Err(Error::Fomod(format!("step {:?}: a group has a wrong number of options picked", fomod.installer.steps[step].name)));
+    }
+    let files = fomod.map(&fomod.installer.files(&ev, &states))?;
+    if files.is_empty() {
+        return Err(Error::Fomod("the chosen options install no files".into()));
+    }
+    let saved = fomod::encode_saved(&fomod.installer.save(&ev));
+    place(inst, profile, &fomod.archive, fomod.kind, &files, dl, target, Some(&saved))
 }
 
 /// A new mod of the player goes to the very bottom (highest priority, like
@@ -386,16 +590,101 @@ mod tests {
     }
 
     #[test]
-    fn fomod_goes_to_mo2_downloads() {
+    fn unreadable_fomod_goes_to_mo2_downloads() {
         let (dir, inst) = instance("+Build Mod\r\n");
         let archive = dir.path().join("dl.zip");
-        zip_with(&archive, &[("fomod/ModuleConfig.xml", b"<config/>"), ("A/archive/pc/mod/a.archive", b"a")]);
+        zip_with(&archive, &[("fomod/ModuleConfig.xml", b"<nope/>"), ("A/archive/pc/mod/a.archive", b"a")]);
         let out = install(&inst, "LYNO", &archive, &download(1, "1"), &Target::New { personal: true }).unwrap();
         assert_eq!(out, Outcome::Mo2 { reason: archive::Mo2Reason::Fomod });
         assert_eq!(names(&inst), ["Build Mod"]);
         let meta = std::fs::read_to_string(inst.downloads_dir().join("Cool Mod-42-1.zip.meta")).unwrap();
         assert!(meta.contains("installed=false\r\n") && meta.contains("modName=Cool: Mod\r\n"), "{meta}");
         assert!(!archive.exists());
+    }
+
+    const CONFIG: &str = r#"<config><moduleName>Cool</moduleName>
+      <requiredInstallFiles><folder source="Core" destination="" /></requiredInstallFiles>
+      <installSteps order="Explicit"><installStep name="Look"><optionalFileGroups>
+        <group name="Color" type="SelectExactlyOne"><plugins order="Explicit">
+          <plugin name="Red"><description>red</description><image path="fomod\red.png" />
+            <files><file source="Options\Red\color.archive" destination="archive/pc/mod/color.archive" /></files>
+            <typeDescriptor><type name="Optional" /></typeDescriptor></plugin>
+          <plugin name="Blue"><description>blue</description>
+            <files><folder source="options/blue" destination="" /></files>
+            <typeDescriptor><type name="Optional" /></typeDescriptor></plugin>
+        </plugins></group>
+      </optionalFileGroups></installStep></installSteps></config>"#;
+
+    fn fomod_zip(path: &Path) {
+        zip_with(
+            path,
+            &[
+                ("Cool/fomod/ModuleConfig.xml", CONFIG.as_bytes()),
+                ("Cool/fomod/red.png", b"PNG"),
+                ("Cool/Core/r6/scripts/core.reds", b"core"),
+                ("Cool/Core/readme.txt", b"dropped like MO2 does"),
+                ("Cool/Options/Red/color.archive", b"red"),
+                ("Cool/Options/Blue/blue.archive", b"blue"),
+            ],
+        );
+    }
+
+    #[test]
+    fn fomod_waits_for_a_choice_and_remembers_it() {
+        let (dir, inst) = instance("+Build Mod\r\n");
+        let archive = dir.path().join("dl.zip");
+        fomod_zip(&archive);
+        let target = Target::New { personal: true };
+        let out = install(&inst, "LYNO", &archive, &download(1, "1"), &target).unwrap();
+        let Outcome::Fomod { archive: kept, target: t } = out else { panic!("{out:?}") };
+        assert_eq!(t, target);
+        assert_eq!(kept, inst.downloads_dir().join("Cool Mod-42-1.zip"));
+        assert_eq!(names(&inst), ["Build Mod"], "nothing installed before the choice");
+
+        let f = open_fomod(&inst, &kept, &target).unwrap();
+        assert_eq!(f.previous, None);
+        assert_eq!(f.images().unwrap()["fomod/red.png"], "data:image/png;base64,UE5H");
+        // Blue: a folder in another case than the archive.
+        let out = install_fomod(&inst, "LYNO", &f, &download(1, "1"), &target, &vec![Some(vec![vec![1]])]).unwrap();
+        assert_eq!(out, Outcome::Installed { folder: "Cool_ Mod".into() });
+        let folder = inst.mods_dir().join("Cool_ Mod");
+        assert_eq!(std::fs::read(folder.join("r6/scripts/core.reds")).unwrap(), b"core");
+        assert_eq!(std::fs::read(folder.join("archive/pc/mod/blue.archive")).unwrap(), b"blue");
+        assert!(!folder.join("archive/pc/mod/color.archive").exists());
+        assert!(!folder.join("readme.txt").exists());
+        assert!(!folder.join("fomod").exists());
+        let meta = ModMeta::load(&folder.join("meta.ini")).unwrap();
+        assert!(meta.lyno_fomod.is_some());
+        let dl_meta = std::fs::read_to_string(inst.downloads_dir().join("Cool Mod-42-1.zip.meta")).unwrap();
+        assert!(dl_meta.contains("installed=true"), "{dl_meta}");
+        assert_eq!(names(&inst), ["Build Mod", "LYNO USER MODS_separator", "Cool_ Mod"]);
+
+        // The next version starts from the old choice.
+        let archive = dir.path().join("dl2.zip");
+        fomod_zip(&archive);
+        let replace = Target::Replace("Cool_ Mod".into());
+        let Outcome::Fomod { archive: kept, .. } = install(&inst, "LYNO", &archive, &download(2, "2"), &replace).unwrap() else { panic!() };
+        let f = open_fomod(&inst, &kept, &replace).unwrap();
+        assert_eq!(f.previous, Some(vec![Some(vec![vec![1]])]));
+        install_fomod(&inst, "LYNO", &f, &download(2, "2"), &replace, &vec![Some(vec![vec![0]])]).unwrap();
+        assert_eq!(std::fs::read(folder.join("archive/pc/mod/color.archive")).unwrap(), b"red");
+        assert!(!folder.join("archive/pc/mod/blue.archive").exists(), "the old option is gone");
+        // A choice the group doesn't allow is refused.
+        let err = install_fomod(&inst, "LYNO", &f, &download(2, "2"), &replace, &vec![Some(vec![vec![]])]);
+        assert!(matches!(err, Err(Error::Fomod(_))), "{err:?}");
+    }
+
+    #[test]
+    fn file_dependencies_look_at_enabled_mods() {
+        let (_dir, inst) = instance("+On\r\n-Off\r\n");
+        for (m, f) in [("On", "a.archive"), ("Off", "b.archive")] {
+            std::fs::create_dir_all(inst.mods_dir().join(m).join("archive/pc/mod")).unwrap();
+            std::fs::write(inst.mods_dir().join(m).join("archive/pc/mod").join(f), b"").unwrap();
+        }
+        let states = file_states(&inst, "LYNO");
+        assert_eq!(states("archive/pc/mod/a.archive"), FileState::Active);
+        assert_eq!(states("archive/pc/mod/b.archive"), FileState::Inactive);
+        assert_eq!(states("archive/pc/mod/c.archive"), FileState::Missing);
     }
 
     #[test]

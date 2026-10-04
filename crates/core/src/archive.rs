@@ -8,9 +8,9 @@
 //! the top are dropped. MO2's quick installer also unwraps an archive that
 //! wraps everything in one folder (`ModName-1.2/archive/...`).
 //!
-//! Everything else goes to MO2: FOMOD installers ask the player questions,
-//! RAR has no pure-Rust decoder, and an unrecognized layout needs a person to
-//! look at it.
+//! FOMOD installers ask the player questions: [`Layout::Fomod`], see
+//! [`crate::fomod`]. Everything else goes to MO2: RAR has no pure-Rust
+//! decoder, and an unrecognized layout needs a person to look at it.
 
 use std::collections::{BTreeSet, HashMap};
 use std::fs::File;
@@ -26,6 +26,8 @@ const MOVED_TO_ARCHIVE: &[&str] = &[".archive", ".xl"];
 const ARCHIVE_MOD_DIR: &str = "archive/pc/mod/";
 /// Top-level files MO2's checker deletes: screenshots and readmes.
 const DROPPED: &[&str] = &[".gif", ".jpg", ".jpeg", ".jxl", ".md", ".png", ".txt", ".webp"];
+/// Lowercase; the archive's own case is kept for reading.
+pub const FOMOD_CONFIG: &str = "fomod/moduleconfig.xml";
 /// Wrapper folders to look through before giving up.
 const MAX_DEPTH: usize = 4;
 
@@ -90,6 +92,9 @@ fn normalize(name: &str) -> String {
 pub enum Layout {
     /// `(path in the archive, path in the mod folder)`.
     Files(Vec<(String, String)>),
+    /// A FOMOD installer; `root` is the folder that holds `fomod/` (`""` or
+    /// `Wrapper/`), its paths are relative to it.
+    Fomod { root: String },
     /// MO2 installs it.
     Mo2(Mo2Reason),
 }
@@ -97,7 +102,7 @@ pub enum Layout {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Mo2Reason {
-    /// A FOMOD installer (`fomod/ModuleConfig.xml`): options to choose.
+    /// A FOMOD installer the launcher can't read.
     Fomod,
     /// RAR or not an archive.
     Format,
@@ -111,14 +116,15 @@ fn ext_in(name: &str, exts: &[&str]) -> bool {
 }
 
 /// A path the archive must not write outside the mod folder with.
-fn is_safe(rel: &str) -> bool {
+pub fn is_safe(rel: &str) -> bool {
     !rel.is_empty() && !rel.contains(':') && rel.split('/').all(|c| !c.is_empty() && c != "." && c != "..")
 }
 
 /// Where the files of an archive go, following MO2's Cyberpunk checker.
 pub fn layout(entries: &[String]) -> Layout {
-    if entries.iter().any(|e| e.to_lowercase().ends_with("fomod/moduleconfig.xml")) {
-        return Layout::Mo2(Mo2Reason::Fomod);
+    // The shallowest one: an installer may ship examples of others.
+    if let Some(root) = entries.iter().filter_map(|e| fomod_root(e)).min_by_key(|r| r.matches('/').count()) {
+        return Layout::Fomod { root: root.to_owned() };
     }
     let mut prefix = String::new();
     for _ in 0..=MAX_DEPTH {
@@ -149,19 +155,32 @@ pub fn layout(entries: &[String]) -> Layout {
     Layout::Mo2(Mo2Reason::Layout)
 }
 
+/// `Wrapper/` of `Wrapper/fomod/ModuleConfig.xml`, any case.
+pub fn fomod_root(entry: &str) -> Option<&str> {
+    let at = entry.len().checked_sub(FOMOD_CONFIG.len())?;
+    let matches = entry.is_char_boundary(at) && entry[at..].eq_ignore_ascii_case(FOMOD_CONFIG);
+    (matches && (at == 0 || entry[..at].ends_with('/'))).then(|| &entry[..at])
+}
+
+/// Where a file goes in the mod folder, `rel` being its path from the mod
+/// root: MO2's checker moves loose archives and drops loose images and text.
+pub fn place(rel: &str) -> Option<String> {
+    if rel.contains('/') {
+        Some(rel.to_owned())
+    } else if ext_in(rel, DROPPED) {
+        None
+    } else if ext_in(rel, MOVED_TO_ARCHIVE) {
+        Some(format!("{ARCHIVE_MOD_DIR}{rel}"))
+    } else {
+        Some(rel.to_owned())
+    }
+}
+
 fn map_files(entries: &[String], prefix: &str) -> Layout {
     let mut out = Vec::new();
     for e in entries {
         let Some(rel) = e.strip_prefix(prefix) else { continue };
-        let target = if rel.contains('/') {
-            rel.to_owned()
-        } else if ext_in(rel, DROPPED) {
-            continue;
-        } else if ext_in(rel, MOVED_TO_ARCHIVE) {
-            format!("{ARCHIVE_MOD_DIR}{rel}")
-        } else {
-            rel.to_owned()
-        };
+        let Some(target) = place(rel) else { continue };
         if !is_safe(e) || !is_safe(&target) {
             return Layout::Mo2(Mo2Reason::Layout);
         }
@@ -173,20 +192,29 @@ fn map_files(entries: &[String], prefix: &str) -> Layout {
     Layout::Files(out)
 }
 
-/// Writes the mapped files of the archive into `dest`.
+/// Writes the mapped files of the archive into `dest`. A file may be mapped
+/// to several places (FOMOD options that share a file).
 pub fn extract(path: &Path, kind: Kind, files: &[(String, String)], dest: &Path) -> Result<()> {
-    let map: HashMap<&str, &str> = files.iter().map(|(a, b)| (a.as_str(), b.as_str())).collect();
+    let mut map: HashMap<&str, Vec<&str>> = HashMap::new();
+    for (a, b) in files {
+        map.entry(a.as_str()).or_default().push(b.as_str());
+    }
     let mut written = 0;
     let mut write = |name: &str, reader: &mut dyn Read| -> Result<()> {
-        let Some(rel) = map.get(name) else { return Ok(()) };
-        let out = crate::tree::from_slash(dest, rel);
-        if let Some(dir) = out.parent() {
-            std::fs::create_dir_all(dir).map_err(|e| Error::io(dir, e))?;
+        let Some(targets) = map.get(name) else { return Ok(()) };
+        let outs: Vec<_> = targets.iter().map(|rel| crate::tree::from_slash(dest, rel)).collect();
+        for out in &outs {
+            if let Some(dir) = out.parent() {
+                std::fs::create_dir_all(dir).map_err(|e| Error::io(dir, e))?;
+            }
         }
-        let mut f = File::create(&out).map_err(|e| Error::io(&out, e))?;
-        std::io::copy(reader, &mut f).map_err(|e| Error::io(&out, e))?;
-        f.flush().map_err(|e| Error::io(&out, e))?;
-        written += 1;
+        let mut f = File::create(&outs[0]).map_err(|e| Error::io(&outs[0], e))?;
+        std::io::copy(reader, &mut f).map_err(|e| Error::io(&outs[0], e))?;
+        f.flush().map_err(|e| Error::io(&outs[0], e))?;
+        for out in &outs[1..] {
+            std::fs::copy(&outs[0], out).map_err(|e| Error::io(out, e))?;
+        }
+        written += outs.len();
         Ok(())
     };
     match kind {
@@ -234,6 +262,48 @@ pub fn extract(path: &Path, kind: Kind, files: &[(String, String)], dest: &Path)
     Ok(())
 }
 
+/// Reads the named files (archive paths) into memory, skipping any larger
+/// than `max_size`. For the FOMOD config and its images.
+pub fn read(path: &Path, kind: Kind, names: &[String], max_size: u64) -> Result<HashMap<String, Vec<u8>>> {
+    let wanted: std::collections::HashSet<&str> = names.iter().map(String::as_str).collect();
+    let mut out = HashMap::new();
+    match kind {
+        Kind::Zip => {
+            let mut zip = open_zip(path)?;
+            for i in 0..zip.len() {
+                let mut f = zip.by_index(i).map_err(|e| bad(path, e))?;
+                let name = normalize(f.name());
+                if f.is_dir() || !wanted.contains(name.as_str()) || f.size() > max_size {
+                    continue;
+                }
+                let mut buf = Vec::with_capacity(f.size() as usize);
+                f.read_to_end(&mut buf).map_err(|e| bad(path, e))?;
+                out.insert(name, buf);
+            }
+        }
+        Kind::SevenZip => {
+            let mut reader =
+                sevenz_rust2::ArchiveReader::open(path, sevenz_rust2::Password::empty()).map_err(|e| bad(path, e))?;
+            reader
+                .for_each_entries(|entry, r| {
+                    let name = normalize(entry.name());
+                    if entry.is_directory() || !wanted.contains(name.as_str()) || entry.size() > max_size {
+                        // A solid block is one stream: a skipped file still has to be read past.
+                        return std::io::copy(r, &mut std::io::sink()).map(|_| true).map_err(Into::into);
+                    }
+                    let mut buf = Vec::new();
+                    r.read_to_end(&mut buf)?;
+                    out.insert(name, buf);
+                    // Stop once everything is read: the rest of a big archive is just decompression time.
+                    Ok(out.len() < wanted.len())
+                })
+                .map_err(|e| bad(path, e))?;
+        }
+        Kind::Rar | Kind::Unknown => return Err(bad(path, "not a zip or 7z archive")),
+    }
+    Ok(out)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -245,7 +315,7 @@ mod tests {
     fn targets(l: &Layout) -> Vec<&str> {
         match l {
             Layout::Files(f) => f.iter().map(|(_, t)| t.as_str()).collect(),
-            Layout::Mo2(r) => panic!("{r:?}"),
+            other => panic!("{other:?}"),
         }
     }
 
@@ -277,8 +347,11 @@ mod tests {
     #[test]
     fn hands_fomod_and_unknown_layouts_to_mo2() {
         let fomod = layout(&names(&["fomod/ModuleConfig.xml", "Option A/archive/pc/mod/a.archive"]));
-        assert_eq!(fomod, Layout::Mo2(Mo2Reason::Fomod));
-        assert_eq!(layout(&names(&["Wrapper/FOMOD/moduleconfig.xml"])), Layout::Mo2(Mo2Reason::Fomod));
+        assert_eq!(fomod, Layout::Fomod { root: String::new() });
+        assert_eq!(layout(&names(&["Wrapper/FOMOD/moduleconfig.xml"])), Layout::Fomod { root: "Wrapper/".into() });
+        let nested = layout(&names(&["W/docs/example/fomod/ModuleConfig.xml", "W/fomod/ModuleConfig.xml"]));
+        assert_eq!(nested, Layout::Fomod { root: "W/".into() });
+        assert!(matches!(layout(&names(&["notfomod/ModuleConfig.xml", "archive/a.archive"])), Layout::Files(_)));
         assert_eq!(layout(&names(&["Option A/archive/x.archive", "Option B/archive/x.archive"])), Layout::Mo2(Mo2Reason::Layout));
         assert_eq!(layout(&names(&["readme.txt"])), Layout::Mo2(Mo2Reason::Layout));
         assert_eq!(layout(&[]), Layout::Mo2(Mo2Reason::Layout));
@@ -311,6 +384,14 @@ mod tests {
         extract(&path, Kind::Zip, &files, &dest).unwrap();
         assert_eq!(std::fs::read(dest.join("archive/pc/mod/a.archive")).unwrap(), b"A");
         assert!(!dest.join("readme.txt").exists());
+
+        let read = read(&path, Kind::Zip, &names(&["Mod/readme.txt", "Mod/nope"]), 1024).unwrap();
+        assert_eq!(read.len(), 1);
+        assert_eq!(read["Mod/readme.txt"], b"R");
+        let twice = vec![("Mod/readme.txt".to_owned(), "a.txt".to_owned()), ("Mod/readme.txt".to_owned(), "b/b.txt".to_owned())];
+        let dest = dir.path().join("twice");
+        extract(&path, Kind::Zip, &twice, &dest).unwrap();
+        assert_eq!(std::fs::read(dest.join("b/b.txt")).unwrap(), b"R");
     }
 
     #[test]
@@ -331,6 +412,8 @@ mod tests {
         extract(&path, Kind::SevenZip, &files, &dest).unwrap();
         assert_eq!(std::fs::read(dest.join("r6/scripts/x.reds")).unwrap(), b"X");
         assert_eq!(std::fs::read(dest.join("archive/pc/mod/loose.archive")).unwrap(), b"L");
+        let read = read(&path, Kind::SevenZip, &names(&["r6/scripts/x.reds"]), 1024).unwrap();
+        assert_eq!(read["r6/scripts/x.reds"], b"X");
     }
 
     #[test]

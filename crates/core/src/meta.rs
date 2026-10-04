@@ -28,6 +28,9 @@ pub struct ModMeta {
     /// `[LYNO] core=true`: players can't switch the mod off. On a separator,
     /// covers every mod below it up to the next separator.
     pub lyno_core: bool,
+    /// `[LYNO] fomod`: the options picked in the mod's FOMOD installer
+    /// ([`crate::fomod::encode_saved`]).
+    pub lyno_fomod: Option<String>,
     /// `[General] color`: the color the author gave a separator in MO2, as `#rrggbb`.
     pub color: Option<String>,
 }
@@ -69,6 +72,7 @@ impl ModMeta {
             lyno_id: lyno("id"),
             lyno_optional: flag("optional"),
             lyno_core: flag("core"),
+            lyno_fomod: lyno("fomod"),
             color: general("color").and_then(|v| qt_color(&v)),
         })
     }
@@ -111,6 +115,28 @@ impl ModMeta {
         let opt = WriteOption { escape_policy: EscapePolicy::Nothing, ..Default::default() };
         ini.write_to_file_opt(path, opt).map_err(|e| Error::io(path, e))
     }
+}
+
+/// Sets (`Some`) or removes `[LYNO] fomod`, keeping every other key.
+pub fn save_fomod(path: &Path, value: Option<&str>) -> Result<()> {
+    let mut ini = if path.exists() {
+        let text = std::fs::read_to_string(path).map_err(|e| Error::io(path, e))?;
+        Ini::load_from_str_opt(&text, parse_opt()).map_err(|e| Error::Parse { path: path.to_owned(), message: e.to_string() })?
+    } else {
+        Ini::new()
+    };
+    match value {
+        Some(v) => {
+            ini.with_section(Some(LYNO)).set("fomod", v);
+        }
+        None => {
+            if let Some(section) = ini.section_mut(Some(LYNO)) {
+                section.remove("fomod");
+            }
+        }
+    }
+    let opt = WriteOption { escape_policy: EscapePolicy::Nothing, ..Default::default() };
+    ini.write_to_file_opt(path, opt).map_err(|e| Error::io(path, e))
 }
 
 /// Sets `[General] color` (MO2 shows it on the separator), keeping every other key.
@@ -291,6 +317,19 @@ size=1
         assert!(text.contains("modid=0"), "other keys kept: {text}");
         assert_eq!(ModMeta::load(&p).unwrap().color.as_deref(), Some("#3cf2a0"));
         assert!(save_color(&p, "red").is_err());
+    }
+
+    #[test]
+    fn fomod_choice_is_set_and_removed() {
+        let dir = tempfile::tempdir().unwrap();
+        let p = dir.path().join("meta.ini");
+        std::fs::write(&p, SAMPLE).unwrap();
+        save_fomod(&p, Some("eyJhIjoxfQ")).unwrap();
+        assert_eq!(ModMeta::load(&p).unwrap().lyno_fomod.as_deref(), Some("eyJhIjoxfQ"));
+        save_fomod(&p, None).unwrap();
+        let back = ModMeta::load(&p).unwrap();
+        assert_eq!(back.lyno_fomod, None);
+        assert_eq!(back.file_id, Some(91234));
     }
 
     #[test]
