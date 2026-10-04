@@ -231,12 +231,17 @@ pub async fn fetch_build(app: AppHandle) -> CmdResult<BuildInfo> {
             ModEntry::Separator { title, color } => ModRow::Separator { title: title.clone(), color: color.clone() },
             ModEntry::Mod(m) => {
                 let have = installed.mods.get(&m.id);
+                // What is installed: the author updates build mods from Nexus or the
+                // downloads list between releases, ahead of the published manifest.
+                let installed_version = have
+                    .and_then(|h| lyno_core::meta::ModMeta::load(&inst.mods_dir().join(&h.folder).join("meta.ini")).ok())
+                    .and_then(|meta| meta.version);
                 ModRow::Mod {
                     id: m.id.clone(),
                     name: m.name.clone(),
                     title: m.title.clone(),
                     // Builds published before `meta::display_version` carry MO2's padded `1.35.0`.
-                    version: m.version.as_deref().map(lyno_core::meta::display_version),
+                    version: installed_version.or_else(|| m.version.as_deref().map(lyno_core::meta::display_version)),
                     author: m.author.clone(),
                     nexus_url: m.nexus.as_ref().map(|n| n.url()),
                     enabled: plan::is_enabled(m, &installed, &current),

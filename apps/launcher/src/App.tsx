@@ -4,6 +4,7 @@ import { api } from "./api";
 import { DragGhost } from "./components/DragGhost";
 import { FomodWizard } from "./components/FomodWizard";
 import { Footer } from "./components/Footer";
+import { ReplaceConfirm } from "./components/ReplaceConfirm";
 import { RootPicker } from "./components/RootPicker";
 import { Header } from "./components/Header";
 import { LauncherUpdateBar } from "./components/LauncherUpdateBar";
@@ -65,6 +66,8 @@ export default function App() {
         void refreshNexus();
         void refreshStatus();
         void refreshUserMods();
+        // The author may have updated a build mod: the mods table shows installed versions.
+        void refreshBuild();
       },
       link: () => useApp.getState().setPage("nexus"),
       limits: (l) => useApp.setState({ nexusLimits: l }),
@@ -98,6 +101,7 @@ export default function App() {
         <PageView />
         {fomodJob !== null && <FomodWizard key={fomodJob} jobId={fomodJob} onClose={() => setFomodJob(null)} />}
         {rootJob !== null && <RootPicker key={rootJob} jobId={rootJob} onClose={() => setRootJob(null)} />}
+        <ReplaceConfirm />
         {error && (
           <div
             role="alert"

@@ -2,6 +2,7 @@
 // so screens can be built and screenshotted without Windows or MO2.
 // The data is illustrative, not the real build.
 import type {
+  ArchiveTarget,
   AuthorEvent,
   BuildInfo,
   BuiltRelease,
@@ -358,7 +359,8 @@ async function simulateInstall(id: number, file: string, after: string | null) {
   }
   emitJob(id, { state: { kind: "installing" } });
   await delay(600);
-  const row: UserRow = { kind: "mod", name, enabled: true, version: null, nexusUrl: null };
+  const version = downloads.find((d) => d.fileName === file)?.version ?? null;
+  const row: UserRow = { kind: "mod", name, enabled: true, version, nexusUrl: null };
   const at = after === null ? -1 : userMods.findIndex((r) => (r.kind === "mod" ? r.name : `${r.title}_separator`) === after);
   userMods = userMods.filter((r) => r.kind !== "mod" || r.name !== name);
   if (after === "LYNO USER MODS_separator") userMods = [row, ...userMods];
@@ -645,6 +647,12 @@ export const mock = {
     nexusHandlers?.job(job);
     void simulateInstall(job.id, file, after);
     return job.id;
+  },
+  archiveTarget: async (file: string): Promise<ArchiveTarget> => {
+    const d = downloads.find((x) => x.fileName === file);
+    const modName = d?.modName ?? file.split(/[\\/]/).pop() ?? file;
+    const have = userMods.find((r): r is Extract<UserRow, { kind: "mod" }> => r.kind === "mod" && r.name === modName);
+    return { modName, version: d?.version ?? null, replaces: have?.name ?? null, installedVersion: have?.version ?? null };
   },
   installRoots: async (_id: number) => {
     await delay(200);
