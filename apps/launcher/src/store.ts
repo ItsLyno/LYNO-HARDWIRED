@@ -6,7 +6,11 @@ export type Page = "home" | "mods" | "updates" | "settings";
 export interface Progress {
   step: { index: number; total: number; label: string } | null;
   bytes: { done: number; total: number } | null;
+  /** Connection lost, reconnecting (attempt number). */
+  retry: { attempt: number } | null;
 }
+
+const noProgress: Progress = { step: null, bytes: null, retry: null };
 
 interface AppStore {
   page: Page;
@@ -74,7 +78,7 @@ export const useApp = create<AppStore>((set, get) => ({
     }
   },
   startUpdate: async () => {
-    set({ progress: { step: null, bytes: null } });
+    set({ progress: noProgress });
     try {
       await api.startUpdate();
       await get().refreshStatus();
@@ -96,7 +100,7 @@ export const useApp = create<AppStore>((set, get) => ({
     }
   },
   verify: async () => {
-    set({ verifyProgress: { step: null, bytes: null }, verifyReport: null });
+    set({ verifyProgress: noProgress, verifyReport: null });
     try {
       const report = await api.verifyBuild();
       set({ verifyProgress: null, verifyReport: report });
@@ -106,7 +110,7 @@ export const useApp = create<AppStore>((set, get) => ({
   },
   // Repair is an update of the marked mods; its progress shows where update progress does.
   startRepair: async (ids, base, resetSettings) => {
-    set({ progress: { step: null, bytes: null } });
+    set({ progress: noProgress });
     try {
       await api.startRepair(ids, base, resetSettings);
       set({ verifyReport: null, page: "updates" });
@@ -116,9 +120,11 @@ export const useApp = create<AppStore>((set, get) => ({
     }
   },
   onUpdateEvent: (e) => {
-    const p = get().progress ?? { step: null, bytes: null };
+    const p = get().progress ?? noProgress;
     if (e.kind === "step") set({ progress: { ...p, step: e } });
-    if (e.kind === "bytes") set({ progress: { ...p, bytes: e } });
+    // Another worker's resume reports unchanged bytes; only real progress means the connection is back.
+    if (e.kind === "bytes") set({ progress: { ...p, bytes: e, retry: e.done !== p.bytes?.done ? null : p.retry } });
+    if (e.kind === "retry") set({ progress: { ...p, retry: { attempt: e.attempt } } });
   },
   onVerifyEvent: (e) => {
     const p = get().verifyProgress;

@@ -72,6 +72,8 @@ export interface BuildInfo {
   /** Of `changes`: damaged mods and MO2 itself to download again. */
   repairs: number;
   downloadSize: number;
+  /** Of downloadSize: already downloaded by an interrupted update. */
+  downloaded: number;
   online: boolean;
   lastUpdate: LastUpdate | null;
 }
@@ -84,6 +86,8 @@ export interface GameInstall {
 export type UpdateEvent =
   | { kind: "step"; index: number; total: number; label: string }
   | { kind: "bytes"; done: number; total: number }
+  /** Connection lost; downloads retry on their own. Cleared by the next progress. */
+  | { kind: "retry"; attempt: number; delaySecs: number; error: string }
   | { kind: "done" };
 
 export interface UpdateFinished {

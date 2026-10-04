@@ -1,5 +1,11 @@
 const units = ["Б", "КБ", "МБ", "ГБ", "ТБ"];
 
+/** "1.2 ГБ к загрузке", with what an interrupted update already downloaded. */
+export function downloadLabel(b: { downloadSize: number; downloaded: number }): string {
+  const left = `${formatBytes(Math.max(0, b.downloadSize - b.downloaded))} к загрузке`;
+  return b.downloaded > 0 ? `${left} (${formatBytes(b.downloaded)} уже скачано)` : left;
+}
+
 export function formatBytes(n: number): string {
   let i = 0;
   while (n >= 1024 && i < units.length - 1) {

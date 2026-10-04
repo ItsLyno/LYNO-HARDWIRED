@@ -4,7 +4,7 @@ import type { Progress } from "../store";
 import { Button } from "./Button";
 
 export function UpdateProgress({ progress, onCancel = api.cancelUpdate }: { progress: Progress; onCancel?: () => unknown }) {
-  const { step, bytes } = progress;
+  const { step, bytes, retry } = progress;
   const pct = bytes && bytes.total > 0 ? Math.min(100, (bytes.done / bytes.total) * 100) : null;
 
   return (
@@ -24,7 +24,10 @@ export function UpdateProgress({ progress, onCancel = api.cancelUpdate }: { prog
         />
       </div>
       <div className="mt-3 flex items-center justify-between font-mono text-xs text-muted tabular-nums">
-        <span>{bytes ? `${formatBytes(bytes.done)} / ${formatBytes(bytes.total)}` : " "}</span>
+        <span>
+          {bytes ? `${formatBytes(bytes.done)} / ${formatBytes(bytes.total)}` : " "}
+          {retry && <span className="font-sans text-warn"> · Нет соединения, переподключение (попытка {retry.attempt})…</span>}
+        </span>
         <Button variant="ghost" className="-mr-2 h-7 px-3 font-sans text-[13px]" onClick={() => void onCancel()}>
           Отменить
         </Button>

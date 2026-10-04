@@ -4,7 +4,7 @@ import { Changelog } from "../components/Changelog";
 import { PageTitle } from "../components/PageTitle";
 import { Section } from "../components/Section";
 import { UpdateProgress } from "../components/UpdateProgress";
-import { formatBytes, plural } from "../format";
+import { downloadLabel, plural } from "../format";
 import { isRepairOnly, useApp } from "../store";
 
 export function Updates() {
@@ -45,7 +45,7 @@ export function Updates() {
                 {repair ? "Нужно восстановить повреждённые файлы" : installed ? "Доступно обновление" : "Сборка ещё не установлена"}
                 <div className="mt-1 font-mono text-xs text-muted tabular-nums">
                   {build.changes} {plural(build.changes, "изменение", "изменения", "изменений")} ·{" "}
-                  {formatBytes(build.downloadSize)} к загрузке
+                  {downloadLabel(build)}
                 </div>
               </>
             )}

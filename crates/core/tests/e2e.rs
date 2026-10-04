@@ -63,7 +63,8 @@ color=@Variant(\0\0\0\x43\x1\xff\xff\x3\x3\x93\x93\xe1\xe1\0\0)
     write(root, "mods/REDmod Thing/mods/Thing/info.json", b"{\"name\":\"Thing\"}");
 }
 
-/// Static file server with Range support. Returns base URL and a request log.
+/// Static file server with Range support. Returns base URL and a request log
+/// (`name`, or `name@start` for a Range request).
 fn serve(dir: PathBuf) -> (String, std::sync::Arc<std::sync::Mutex<Vec<String>>>) {
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let addr = listener.local_addr().unwrap();
@@ -87,7 +88,7 @@ fn serve(dir: PathBuf) -> (String, std::sync::Arc<std::sync::Mutex<Vec<String>>>
                 }
             }
             let name = request.split_whitespace().nth(1).unwrap().trim_start_matches('/').to_owned();
-            log2.lock().unwrap().push(name.clone());
+            log2.lock().unwrap().push(if start > 0 { format!("{name}@{start}") } else { name.clone() });
             match std::fs::read(dir.join(&name)) {
                 Ok(data) => {
                     let body = &data[start..];
@@ -131,17 +132,93 @@ fn upload(out: &lyno_core::publish::BuildOutput, release: &Path) {
     }
 }
 
-fn install(user: &Instance, manifest: &Manifest) -> Vec<Action> {
+fn try_install(user: &Instance, manifest: &Manifest) -> (Vec<Action>, lyno_core::Result<()>) {
     let state = State::load(&state_path(user)).unwrap();
     let current = ModList::load(&user.modlist_path("LYNO")).unwrap_or_default();
     let p = plan(manifest, &state, &current);
     let actions = p.actions.clone();
     let mut events = Vec::new();
-    Installer { inst: user, manifest, downloader: &Downloader::new(), cancel: &AtomicBool::new(false) }
-        .apply(&p, &mut |e| events.push(e))
-        .unwrap();
-    assert!(matches!(events.last(), Some(Event::Done)));
+    let result = Installer { inst: user, manifest, downloader: &Downloader::new(), cancel: &AtomicBool::new(false) }
+        .apply(&p, &mut |e| events.push(e));
+    if result.is_ok() {
+        assert!(matches!(events.last(), Some(Event::Done)));
+        let Some(Event::Bytes { done, total }) = events.iter().rev().find(|e| matches!(e, Event::Bytes { .. })) else {
+            panic!("{events:?}")
+        };
+        assert_eq!(done, total, "progress ends at 100%");
+    }
+    (actions, result)
+}
+
+fn install(user: &Instance, manifest: &Manifest) -> Vec<Action> {
+    let (actions, result) = try_install(user, manifest);
+    result.unwrap();
     actions
+}
+
+/// A download fails halfway through a first install (here: an asset is
+/// missing; a lost connection that outlasts the retries ends the same way).
+/// What was complete is installed, what was downloaded stays, and the next
+/// run continues instead of starting over.
+#[test]
+fn interrupted_install_resumes() {
+    let tmp = tempfile::tempdir().unwrap();
+    let author = tmp.path().join("author");
+    let release = tmp.path().join("release");
+    author_instance(&author);
+    let (base_url, requests) = serve(release.clone());
+    let mut no_info = |_: &lyno_core::meta::ModMeta| ModInfo { author: None, title: None };
+    let out = build(&author, &options("1.0.0", &base_url, &tmp.path().join("out"), None), &mut no_info, &mut |_| {}).unwrap();
+    upload(&out, &release);
+    let m = out.manifest;
+
+    let archive = m.mod_specs().find(|s| s.id == "archive-mod").unwrap();
+    let asset = archive.package.parts[0].url.rsplit('/').next().unwrap().to_owned();
+    let hidden = tmp.path().join("hidden");
+    std::fs::rename(release.join(&asset), &hidden).unwrap();
+
+    let user = Instance::new(tmp.path().join("user"));
+    let (actions, result) = try_install(&user, &m);
+    assert_eq!(
+        actions,
+        [
+            Action::Base,
+            Action::Install { id: "cet".into() },
+            Action::Install { id: "archive-mod".into() },
+            Action::Install { id: "redmod-thing".into() },
+        ]
+    );
+    let err = result.unwrap_err();
+    assert!(err.to_string().contains("HTTP 404"), "{err}");
+    let st = State::load(&state_path(&user)).unwrap();
+    assert!(st.base_hash.is_some());
+    assert_eq!(st.mods.keys().collect::<Vec<_>>(), ["cet"], "everything before the failure is installed");
+    assert_eq!(st.build_version, None);
+
+    // Half of the missing part arrived in an earlier session.
+    let data = std::fs::read(&hidden).unwrap();
+    let partial = user
+        .root()
+        .join(".lyno/cache")
+        .join(format!("archive-mod-{}.001.partial", &archive.package.hash[..16]));
+    std::fs::write(&partial, &data[..data.len() / 2]).unwrap();
+    std::fs::rename(&hidden, release.join(&asset)).unwrap();
+    let state = State::load(&state_path(&user)).unwrap();
+    let p = plan(&m, &state, &ModList::load(&user.modlist_path("LYNO")).unwrap_or_default());
+    assert!(lyno_core::install::cached_bytes(&user, &m, &p) >= (data.len() / 2) as u64);
+
+    requests.lock().unwrap().clear();
+    assert_eq!(install(&user, &m), [Action::Install { id: "archive-mod".into() }, Action::Install { id: "redmod-thing".into() }]);
+    let log = requests.lock().unwrap().clone();
+    assert!(log.iter().all(|r| !r.starts_with("cet-") && !r.starts_with("base-")), "{log:?}");
+    assert!(log.contains(&format!("{asset}@{}", data.len() / 2)), "resumed, not restarted: {log:?}");
+    assert!(!log.contains(&asset), "{log:?}");
+    let st = State::load(&state_path(&user)).unwrap();
+    assert_eq!(st.build_version.as_deref(), Some("1.0.0"));
+    assert_eq!(
+        tree_hash(&user.mods_dir().join("Archive Mod")).unwrap(),
+        tree_hash(&author.join("mods/Archive Mod")).unwrap()
+    );
 }
 
 #[test]
