@@ -16,6 +16,11 @@ pub struct Settings {
     /// URL of the published `manifest.json`.
     #[serde(default = "default_manifest_url")]
     pub manifest_url: String,
+    /// The build author releases from this instance (see `lyno_core::author`):
+    /// differences from the published build are their next release, so updates
+    /// and repairs, which would undo them, are off.
+    #[serde(default)]
+    pub author_mode: bool,
 }
 
 fn default_manifest_url() -> String {
@@ -24,7 +29,7 @@ fn default_manifest_url() -> String {
 
 impl Settings {
     fn defaults(data_dir: &Path) -> Self {
-        Self { instance_dir: data_dir.join("instance"), game_dir: None, manifest_url: default_manifest_url() }
+        Self { instance_dir: data_dir.join("instance"), game_dir: None, manifest_url: default_manifest_url(), author_mode: false }
     }
 
     pub fn load_or_default(path: &Path, data_dir: &Path) -> Self {

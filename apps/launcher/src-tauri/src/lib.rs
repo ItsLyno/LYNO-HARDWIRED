@@ -67,6 +67,8 @@ pub fn run() {
             commands::cancel_verify,
             commands::start_repair,
             commands::set_mod_enabled,
+            commands::author_changes,
+            commands::author_adopt,
             commands::open_mod_folder,
             commands::open_folder,
             commands::launch_game,

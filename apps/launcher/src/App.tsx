@@ -5,6 +5,7 @@ import { Header } from "./components/Header";
 import { LauncherUpdateBar } from "./components/LauncherUpdateBar";
 import { Home } from "./pages/Home";
 import { Mods } from "./pages/Mods";
+import { Release } from "./pages/Release";
 import { Settings } from "./pages/Settings";
 import { Updates } from "./pages/Updates";
 import { useApp, type Page } from "./store";
@@ -15,6 +16,7 @@ const pages: Record<Page, () => React.JSX.Element | null> = {
   home: Home,
   mods: Mods,
   updates: Updates,
+  release: Release,
   settings: Settings,
 };
 

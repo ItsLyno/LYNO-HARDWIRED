@@ -7,7 +7,7 @@ import { PageTitle } from "../components/PageTitle";
 import { useApp } from "../store";
 
 export function Settings() {
-  const { settings, saveSettings, run } = useApp();
+  const { settings, saveSettings, run, setPage } = useApp();
   const [draft, setDraft] = useState<SettingsT | null>(settings);
   const [saved, setSaved] = useState(false);
   const [detectNote, setDetectNote] = useState<string | null>(null);
@@ -70,6 +70,20 @@ export function Settings() {
         <Field label="Манифест сборки" hint="Адрес файла с описанием актуальной версии сборки на GitHub.">
           <Input value={draft.manifestUrl} onChange={(v) => update({ manifestUrl: v })} />
         </Field>
+        <Field
+          label="Режим автора"
+          hint="Для автора сборки, который выпускает версии из этой папки. Ваши правки модов считаются следующим выпуском, а не повреждением: обновление и починка выключаются, чтобы их не откатить. Появляется вкладка «Выпуск»."
+        >
+          <label className="flex cursor-pointer items-center gap-2.5 text-sm">
+            <input
+              type="checkbox"
+              checked={draft.authorMode}
+              onChange={(e) => update({ authorMode: e.target.checked })}
+              className="accent-[var(--color-accent)]"
+            />
+            Я выпускаю сборку из этой папки
+          </label>
+        </Field>
       </div>
       <div className="flex items-center gap-3">
         <Button
@@ -106,12 +120,21 @@ export function Settings() {
       </div>
       <h2 className="pt-4 text-base font-semibold">Диагностика</h2>
       <div className="panel divide-y divide-line/60">
-        <Field
-          label="Проверка целостности"
-          hint="Лаунчер перечитает все файлы модов сборки и сравнит их с установленными. Это займёт столько же времени, сколько чтение всей сборки с диска. Повреждённый мод скачается заново целиком, а настройки, которые вы меняли в игре, сохранятся."
-        >
-          <Integrity />
-        </Field>
+        {settings?.authorMode ? (
+          <Field
+            label="Проверка целостности"
+            hint="В режиме автора починка выключена: изменённые файлы — это ваши правки. Посмотреть их можно на вкладке «Выпуск»."
+          >
+            <Button onClick={() => setPage("release")}>Открыть «Выпуск»</Button>
+          </Field>
+        ) : (
+          <Field
+            label="Проверка целостности"
+            hint="Лаунчер перечитает все файлы модов сборки и сравнит их с установленными. Это займёт столько же времени, сколько чтение всей сборки с диска. Повреждённый мод скачается заново целиком, а настройки, которые вы меняли в игре, сохранятся."
+          >
+            <Integrity />
+          </Field>
+        )}
         <Field
           label="Отчёт для автора сборки"
           hint="Если игра вылетает или сборка не обновляется, соберите отчёт и отправьте файл автору. В архив попадут логи лаунчера, MO2, RED4ext, CET и redscript, список модов и состояние установки. Сохранений и настроек графики в нём нет."

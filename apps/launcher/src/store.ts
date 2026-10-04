@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { api, type BuildInfo, type LauncherUpdate, type Settings, type Status, type UpdateEvent, type VerifyReport } from "./api";
 
-export type Page = "home" | "mods" | "updates" | "settings";
+export type Page = "home" | "mods" | "updates" | "release" | "settings";
 
 export interface Progress {
   step: { index: number; total: number; label: string } | null;
@@ -163,12 +163,13 @@ export function isRepairOnly(build: BuildInfo | null): boolean {
 /** What the main button should do right now. */
 export type PrimaryAction = "loading" | "game" | "install" | "update" | "updating" | "play" | "running";
 
-export function primaryAction(status: Status | null, build: BuildInfo | null, updating: boolean): PrimaryAction {
+/** In author mode the instance is ahead of the published build on purpose: no update is offered. */
+export function primaryAction(status: Status | null, build: BuildInfo | null, updating: boolean, authorMode = false): PrimaryAction {
   if (!status) return "loading";
   if (updating || status.updating) return "updating";
   if (status.gameRunning) return "running";
   if (!status.installedVersion || !status.mo2Installed) return build ? "install" : "loading";
-  if (build && !build.upToDate && build.online) return "update";
+  if (build && !build.upToDate && build.online && !authorMode) return "update";
   if (!status.gameFound) return "game";
   return "play";
 }

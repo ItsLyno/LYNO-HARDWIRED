@@ -10,9 +10,9 @@ import { downloadLabel } from "../format";
 import { isRepairOnly, primaryAction, useApp, type PrimaryAction } from "../store";
 
 export function Home() {
-  const { status, build, buildError, progress, run, setPage, startUpdate } = useApp();
+  const { status, build, buildError, progress, settings, run, setPage, startUpdate } = useApp();
   const [launching, setLaunching] = useState(false);
-  const action = primaryAction(status, build, !!progress);
+  const action = primaryAction(status, build, !!progress, settings?.authorMode);
 
   const onPrimary = async () => {
     switch (action) {

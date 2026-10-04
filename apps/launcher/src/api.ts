@@ -8,6 +8,8 @@ export interface Settings {
   instanceDir: string;
   gameDir: string | null;
   manifestUrl: string;
+  /** The author releases from this instance: updates and repairs are off. */
+  authorMode: boolean;
 }
 
 export interface Status {
@@ -127,6 +129,19 @@ export interface VerifyReport {
   customized: Customized[];
 }
 
+/** The author's mod list against the installed build. Folder names. */
+export interface Pending {
+  added: string[];
+  removed: string[];
+  /** [old, new] folder names of the same mod. */
+  renamed: [string, string][];
+  /** Switched on or off: the build ships the author's state as the default. */
+  toggled: string[];
+  reordered: boolean;
+  /** Under LYNO USER MODS: not shipped. */
+  personal: string[];
+}
+
 export interface LauncherUpdate {
   version: string;
   currentVersion: string;
@@ -148,6 +163,9 @@ export const api = isTauri()
       startRepair: (ids: string[], base: boolean, resetSettings: boolean) =>
         invoke<void>("start_repair", { ids, base, resetSettings }),
       setModEnabled: (id: string, enabled: boolean) => invoke<void>("set_mod_enabled", { id, enabled }),
+      authorChanges: () => invoke<Pending>("author_changes"),
+      /** Records the published build as installed: the author has just released it from this instance. */
+      authorAdopt: () => invoke<void>("author_adopt"),
       openModFolder: (id: string) => invoke<void>("open_mod_folder", { id }),
       openFolder: (folder: Folder) => invoke<void>("open_folder", { folder }),
       launchGame: () => invoke<void>("launch_game"),

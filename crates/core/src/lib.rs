@@ -4,6 +4,7 @@
 //! from packages published on GitHub Releases, keeps it updated, and
 //! drives `ModOrganizer.exe` through its command line.
 
+pub mod author;
 pub mod download;
 pub mod error;
 pub mod files;

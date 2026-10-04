@@ -1,7 +1,7 @@
 // Browser-only stand-in for the Tauri backend (`pnpm dev` without Tauri),
 // so screens can be built and screenshotted without Windows or MO2.
 // The data is illustrative, not the real build.
-import type { BuildInfo, Folder, GameInstall, LauncherUpdate, ModRow, Settings, Status, UpdateEvent, UpdateFinished, VerifyReport } from "./api";
+import type { BuildInfo, Folder, GameInstall, LauncherUpdate, ModRow, Pending, Settings, Status, UpdateEvent, UpdateFinished, VerifyReport } from "./api";
 
 const GB = 1024 ** 3;
 const MB = 1024 ** 2;
@@ -50,6 +50,19 @@ let settings: Settings = {
   instanceDir: "C:\\Users\\V\\AppData\\Local\\dev.lyno.hardwired\\instance",
   gameDir: "D:\\SteamLibrary\\steamapps\\common\\Cyberpunk 2077",
   manifestUrl: "https://raw.githubusercontent.com/ItsLyno/LYNO-HARDWIRED/main/build/manifest.json",
+  authorMode: false,
+};
+
+const AUTHOR_MODE_NO_UPDATE =
+  "В режиме автора обновление и починка выключены: они откатили бы ваши правки модов. Выключите режим автора в настройках, если нужно поставить опубликованную версию.";
+
+const pending: Pending = {
+  added: ["Kiroshi Night Vision", "Glitch Effects Tweaks"],
+  removed: ["Never Lose Your Car"],
+  renamed: [["Nova LUT", "Nova LUT 2"]],
+  toggled: ["HD Reworked Project"],
+  reordered: true,
+  personal: ["My Test Weapon"],
 };
 
 let status: Status = {
@@ -182,6 +195,7 @@ export const mock = {
     return build;
   },
   startUpdate: async () => {
+    if (settings.authorMode) throw new Error(AUTHOR_MODE_NO_UPDATE);
     cancelled = false;
     status = { ...status, updating: true };
     void simulateUpdate();
@@ -195,6 +209,7 @@ export const mock = {
     verifyCancelled = true;
   },
   startRepair: async (_ids: string[], _base: boolean, _resetSettings: boolean) => {
+    if (settings.authorMode) throw new Error(AUTHOR_MODE_NO_UPDATE);
     cancelled = false;
     status = { ...status, updating: true };
     void simulateUpdate();
@@ -202,6 +217,15 @@ export const mock = {
   setModEnabled: async (id: string, enabled: boolean) => {
     if (status.gameRunning || status.mo2Running) throw new Error("Закройте игру и Mod Organizer 2, чтобы включать и выключать моды");
     build = { ...build, mods: build.mods.map((m) => (m.kind === "mod" && m.id === id ? { ...m, enabled } : m)) };
+  },
+  authorChanges: async (): Promise<Pending> => {
+    await delay(150);
+    return pending;
+  },
+  authorAdopt: async () => {
+    await delay(300);
+    status = { ...status, installedVersion: build.latestVersion };
+    build = { ...build, installedVersion: build.latestVersion, upToDate: true, changes: 0, downloadSize: 0 };
   },
   openModFolder: async (_id: string) => {},
   openFolder: async (_folder: Folder) => {},

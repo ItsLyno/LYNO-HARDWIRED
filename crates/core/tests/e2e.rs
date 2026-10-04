@@ -6,6 +6,7 @@ use std::net::TcpListener;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicBool;
 
+use lyno_core::author::{adopt, pending, Pending};
 use lyno_core::download::Downloader;
 use lyno_core::install::{state_path, Event, Installer};
 use lyno_core::manifest::Manifest;
@@ -559,4 +560,87 @@ fn personal_mods_stay_out_and_publish_goes_live_last() {
 
     let err = run(&mut host, true).unwrap_err().to_string();
     assert_eq!(err, "build 1.0.0 is already published");
+}
+
+/// The author installs the build with the launcher like a player, keeps
+/// playing and editing mods there, and releases from that instance. Their
+/// changes show up as pending, not as damage; the release reuses every package
+/// they didn't touch; afterwards the instance is the installed build again,
+/// with nothing to download.
+#[test]
+fn author_releases_from_launcher_instance() {
+    let tmp = tempfile::tempdir().unwrap();
+    let author = tmp.path().join("author");
+    let release = tmp.path().join("release");
+    let out = tmp.path().join("out");
+    author_instance(&author);
+    let (base_url, _) = serve(release.clone());
+    let mut no_info = |_: &ModMeta| ModInfo::default();
+    let out1 = build(&author, &options("1.0.0", &base_url, &out, None), &mut no_info, &mut |_| {}).unwrap();
+    upload(&out1, &release);
+    let m1 = out1.manifest;
+
+    let inst = Instance::new(tmp.path().join("launcher"));
+    install(&inst, &m1);
+    let check = || verify(&inst, &State::load(&state_path(&inst)).unwrap(), &AtomicBool::new(false), &mut |_| {}).unwrap();
+    assert_eq!(pending(&inst, &m1).unwrap(), Pending::default());
+    assert_eq!(check().damaged, []);
+
+    // Edit a mod, add one to the build, switch one off, try one privately.
+    write(inst.root(), "mods/Archive Mod/archive/pc/mod/a.archive", &noise(200_000, 9));
+    write(inst.root(), "mods/New Mod/archive/pc/mod/new.archive", b"new");
+    write(inst.root(), "mods/My Test/archive/pc/mod/test.archive", b"experiment");
+    std::fs::create_dir_all(inst.mods_dir().join("LYNO USER MODS_separator")).unwrap();
+    let path = inst.modlist_path("LYNO");
+    let mut list = ModList::load(&path).unwrap();
+    list.entries.iter_mut().find(|e| e.name == "REDmod Thing").unwrap().state = EntryState::Disabled;
+    list.entries.push(lyno_core::modlist::Entry::enabled("New Mod"));
+    list.entries.push(lyno_core::modlist::Entry::separator("LYNO USER MODS"));
+    list.entries.push(lyno_core::modlist::Entry::enabled("My Test"));
+    list.save(&path).unwrap();
+
+    let names = |v: &[&str]| v.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+    assert_eq!(
+        pending(&inst, &m1).unwrap(),
+        Pending { added: names(&["New Mod"]), toggled: names(&["REDmod Thing"]), personal: names(&["My Test"]), ..Default::default() }
+    );
+    let report = check();
+    assert_eq!(report.damaged.iter().map(|d| d.id.as_deref()).collect::<Vec<_>>(), [Some("archive-mod")], "{report:?}");
+
+    let out2 = build(inst.root(), &options("1.1.0", &base_url, &out, Some(m1.clone())), &mut no_info, &mut |_| {}).unwrap();
+    let repacked: Vec<_> = out2.repacked.iter().map(|r| r.name.as_str()).collect();
+    assert_eq!(repacked, ["Archive Mod", "New Mod"], "base, CET and the switched mod are reused");
+    upload(&out2, &release);
+    let m2 = out2.manifest;
+    assert!(!m2.mod_specs().any(|m| m.name == "My Test"));
+    assert!(!m2.mod_specs().find(|m| m.name == "REDmod Thing").unwrap().enabled);
+
+    let st = adopt(&inst, &m2, Some(&out)).unwrap();
+    assert_eq!(st.build_version.as_deref(), Some("1.1.0"));
+    let record = st.last_update.as_ref().unwrap();
+    assert_eq!((record.added.as_slice(), record.updated.as_slice()), (&["new-mod".to_string()][..], &["archive-mod".to_string()][..]));
+    let p = plan(&m2, &st, &ModList::load(&path).unwrap());
+    assert!(p.is_up_to_date(), "{:?}", p.actions);
+    assert_eq!(pending(&inst, &m2).unwrap(), Pending { personal: vec!["My Test".into()], ..Default::default() });
+    assert_eq!(check().damaged, []);
+    assert!(inst.root().join("mods/My Test/archive/pc/mod/test.archive").exists());
+
+    // Rename (kept by `[LYNO] id=`), reorder and drop a mod.
+    write(inst.root(), "mods/New Mod/meta.ini", b"[LYNO]\nid=new-mod\n");
+    std::fs::rename(inst.mods_dir().join("New Mod"), inst.mods_dir().join("Newer Mod")).unwrap();
+    let mut list = ModList::load(&path).unwrap();
+    list.entries.iter_mut().find(|e| e.name == "New Mod").unwrap().name = "Newer Mod".into();
+    list.entries.retain(|e| e.name != "REDmod Thing");
+    let cet = list.entries.iter().position(|e| e.name == "CET").unwrap();
+    list.entries.swap(cet, cet + 1);
+    list.save(&path).unwrap();
+    let p = pending(&inst, &m2).unwrap();
+    assert_eq!(p.renamed, [("New Mod".to_string(), "Newer Mod".to_string())]);
+    assert_eq!(p.removed, ["REDmod Thing"]);
+    assert!(p.reordered && p.added.is_empty() && p.toggled.is_empty(), "{p:?}");
+
+    // A build from another instance is not adopted.
+    let other = Instance::new(tmp.path().join("other"));
+    install(&other, &m1);
+    assert!(adopt(&other, &m2, None).unwrap_err().to_string().contains("\"New Mod\""));
 }

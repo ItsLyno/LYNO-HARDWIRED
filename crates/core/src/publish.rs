@@ -76,11 +76,7 @@ pub fn build(
     let mut warnings = Vec::new();
     let cache = if opts.hash_cache { HashCache::load(root.join(".lyno").join("pack-cache.json")) } else { HashCache::disabled() };
     let mut packer = Packer { opts, cache, assets: Vec::new(), repacked: Vec::new() };
-    // The author plays in a launcher instance like any player: what sits under
-    // `LYNO USER MODS` is theirs (tests, personal tweaks), not the build's. A mod
-    // goes into the build once it is moved above the separator.
-    let user_section = list.entries.iter().position(|e| e.separator_title() == Some(USER_SEPARATOR));
-    let (entries, personal) = list.entries.split_at(user_section.unwrap_or(list.entries.len()));
+    let (entries, personal) = split_user_section(&list);
     let is_mod = |e: &&Entry| e.state != EntryState::Unmanaged && e.separator_title().is_none();
     let personal: Vec<&str> = personal.iter().filter(is_mod).map(|e| e.name.as_str()).collect();
     if !personal.is_empty() {
@@ -88,34 +84,8 @@ pub fn build(
     }
     let steps = 1 + entries.iter().filter(is_mod).count();
 
-    let profile = opts.profile.clone();
-    // Never pack our own output if it sits inside the instance.
-    let out_rel = std::path::absolute(&opts.out_dir)
-        .ok()
-        .zip(std::path::absolute(root).ok())
-        .and_then(|(out, root)| out.strip_prefix(root).ok().map(tree::to_slash))
-        .filter(|r| !r.is_empty());
-    let keep_base = move |p: &str| {
-        if out_rel.as_deref().is_some_and(|o| p == o || p.starts_with(&format!("{o}/"))) {
-            return false;
-        }
-        if rules::is_generated(p) {
-            return false;
-        }
-        let (first, rest) = p.split_once('/').unwrap_or((p, ""));
-        if BASE_EXCLUDED.iter().any(|x| x.eq_ignore_ascii_case(first)) {
-            return false;
-        }
-        if first != "profiles" {
-            return true;
-        }
-        // Only the build's profile (other profiles are the author's own),
-        // without the author's private files.
-        rest.split_once('/')
-            .is_some_and(|(name, file)| name == profile && !rules::is_private_profile_file(file))
-    };
     warnings.extend(profile_warnings(&inst.profile_dir(&opts.profile)));
-    let files = tree::list_files_with(root, &keep_base)?;
+    let files = base_files(root, &opts.profile, Some(&opts.out_dir))?;
     let previous_base = opts.previous.as_ref().map(|m| &m.base);
     let base_label = format!("[1/{steps}] base ({})", base_breakdown(&files));
     let base = packer.package(root, "", &files, "base", "base", &base_label, previous_base, log)?;
@@ -142,7 +112,7 @@ pub fn build(
         }
         step += 1;
         let meta = metas.get(&entry.name).cloned().unwrap_or_default();
-        let id = meta.lyno_id.clone().unwrap_or_else(|| slug(&entry.name));
+        let id = mod_id(&entry.name, &meta);
 
         let (generated, files): (Vec<_>, Vec<_>) =
             tree::list_files(&folder)?.into_iter().partition(|f| rules::is_generated(&f.path));
@@ -206,6 +176,48 @@ pub fn build(
     };
     manifest.validate()?;
     Ok(BuildOutput { manifest, assets, repacked, warnings })
+}
+
+/// Build entries and the author's own ones. The author plays in a launcher
+/// instance like any player: what sits under `LYNO USER MODS` is theirs
+/// (tests, personal tweaks), not the build's. A mod goes into the build once it
+/// is moved above the separator.
+pub fn split_user_section(list: &ModList) -> (&[Entry], &[Entry]) {
+    let user_section = list.entries.iter().position(|e| e.separator_title() == Some(USER_SEPARATOR));
+    list.entries.split_at(user_section.unwrap_or(list.entries.len()))
+}
+
+/// Manifest id of a mod folder: `[LYNO] id=` survives renaming the folder.
+pub fn mod_id(folder: &str, meta: &ModMeta) -> String {
+    meta.lyno_id.clone().unwrap_or_else(|| slug(folder))
+}
+
+/// Files of the base package: MO2 and the build's profile, without what the
+/// game and MO2 generate, the author's other profiles and private files, and
+/// `out_dir` when it sits inside the instance.
+pub fn base_files(root: &Path, profile: &str, out_dir: Option<&Path>) -> Result<Vec<FileEntry>> {
+    let out_rel = out_dir
+        .and_then(|o| std::path::absolute(o).ok())
+        .zip(std::path::absolute(root).ok())
+        .and_then(|(out, root)| out.strip_prefix(root).ok().map(tree::to_slash))
+        .filter(|r| !r.is_empty());
+    let keep = |p: &str| {
+        if out_rel.as_deref().is_some_and(|o| p == o || p.starts_with(&format!("{o}/"))) {
+            return false;
+        }
+        if rules::is_generated(p) {
+            return false;
+        }
+        let (first, rest) = p.split_once('/').unwrap_or((p, ""));
+        if BASE_EXCLUDED.iter().any(|x| x.eq_ignore_ascii_case(first)) {
+            return false;
+        }
+        if first != "profiles" {
+            return true;
+        }
+        rest.split_once('/').is_some_and(|(name, file)| name == profile && !rules::is_private_profile_file(file))
+    };
+    tree::list_files_with(root, &keep)
 }
 
 /// Checks every part of `manifest` over HTTP, including parts reused from

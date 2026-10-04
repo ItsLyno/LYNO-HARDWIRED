@@ -16,6 +16,7 @@ installs and updates the build, sets the game path, starts the game through MO2.
 
 Core modules: `publish.rs` (author side: build manifest, reuse unchanged packages),
 `release.rs` (publish a build in the safe order over a `Host`: releases + manifest; `lyno-pack` implements it with `gh`/`git`),
+`author.rs` (author mode: the author releases from their launcher instance; `pending` mod-list changes since the installed build, `adopt` a just-published build as installed),
 `plan.rs` (manifest + state → actions + new `modlist.txt`), `install.rs` (apply plan),
 `prefetch.rs` (parallel part downloads running ahead of `install`), `download.rs` (one part: resume, retries),
 `verify.rs` (integrity check; repair = flags in `state.json` that `plan` turns into `Repair` actions),
