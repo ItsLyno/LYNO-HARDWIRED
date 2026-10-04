@@ -1,11 +1,18 @@
 {
   "schema": 3,
   "name": "LYNO//HARDWIRED",
-  "buildVersion": "1.0.1",
+  "buildVersion": "1.0.2",
   "gameVersion": "2.31",
   "mo2Version": "2.5.2",
   "profile": "LYNO",
   "changelog": [
+    {
+      "version": "1.0.2",
+      "date": "2026-10-04",
+      "notes": [
+        "Обновлен мод для теста"
+      ]
+    },
     {
       "version": "1.0.1",
       "date": "2026-10-04",
@@ -15,13 +22,13 @@
     }
   ],
   "base": {
-    "hash": "ad5d96e1c81c77b7593e9d9fe0d14b923404ddc0b741c3b6aaa174cbc6183115",
+    "hash": "ec62327cdfdb2a981072dd8cbfa1195fd3886ae807074475a0a7da15481b10b3",
     "size": 4020371144,
     "parts": [
       {
-        "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/base-ad5d96e1c81c77b7.tar.zst.001",
-        "size": 1111963701,
-        "blake3": "88a3f9d7dc5663a8c69688cba8bc72463c20c5da1336fa3888758fdc889d4bc6"
+        "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.2/base-ec62327cdfdb2a98.tar.zst.001",
+        "size": 1111963704,
+        "blake3": "f3c551e219ea5f319d7717e23947f0f64bafce6a6613afef80d5a6f3dcc0b66f"
       }
     ]
   },
@@ -49,8 +56,8 @@
     },
     {
       "kind": "mod",
-      "id": "cyber-engine-tweaks",
-      "name": "Cyber Engine Tweaks",
+      "id": "lyno-cyber-engine-tweaks",
+      "name": "[LYNO] Cyber Engine Tweaks",
       "enabled": true,
       "version": "1.37.1.0",
       "nexus": {
@@ -62,17 +69,17 @@
         "size": 45362882,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/cyber-engine-tweaks-adb18211aa3109d4.tar.zst.001",
-            "size": 34468647,
-            "blake3": "c183688bf2c75a7475656b0609fb1ac882f4a36fdd223b812fee4f63a2af7265"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.2/lyno-cyber-engine-tweaks-adb18211aa3109d4.tar.zst.001",
+            "size": 34468656,
+            "blake3": "2fdbd1d90f16e67200fc52288b9b2793c191ba4bcefde79531e7c0346cd2943a"
           }
         ]
       }
     },
     {
       "kind": "mod",
-      "id": "codeware",
-      "name": "Codeware",
+      "id": "lyno-codeware",
+      "name": "[LYNO] Codeware",
       "enabled": true,
       "version": "1.20.5.0",
       "nexus": {
@@ -84,17 +91,17 @@
         "size": 15965605,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/codeware-7d34a1efd02a7756.tar.zst.001",
-            "size": 1678377,
-            "blake3": "544818fda0994289363f25ba9ee7e7406c27485e544c8ff3c5774be7cf6b0f35"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.2/lyno-codeware-7d34a1efd02a7756.tar.zst.001",
+            "size": 1678385,
+            "blake3": "5e85ad9ecb57ee402f2501e2146b24b8ef3dc664b43f211a99bc1bd85991975f"
           }
         ]
       }
     },
     {
       "kind": "mod",
-      "id": "red4ext",
-      "name": "RED4ext",
+      "id": "lyno-red4ext",
+      "name": "[LYNO] RED4ext",
       "enabled": true,
       "version": "1.30.0.0",
       "nexus": {
@@ -106,17 +113,17 @@
         "size": 1474088,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/red4ext-bd8eaf267e9acc81.tar.zst.001",
-            "size": 494154,
-            "blake3": "69b4f5a32ae8b280d456fb00d73dd114f18832620be2178681a8fc609bb8132a"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.2/lyno-red4ext-bd8eaf267e9acc81.tar.zst.001",
+            "size": 494163,
+            "blake3": "91b73da75de8dd066c340c5f14f3e85a750cad67cb867c00cc2c44cba34555e5"
           }
         ]
       }
     },
     {
       "kind": "mod",
-      "id": "redscript",
-      "name": "redscript",
+      "id": "lyno-redscript",
+      "name": "[LYNO] redscript",
       "enabled": true,
       "version": "0.5.31.0",
       "nexus": {
@@ -128,17 +135,17 @@
         "size": 2437899,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/redscript-abe9b8f60b0afe12.tar.zst.001",
-            "size": 925473,
-            "blake3": "c76cef4cd5df0f2442dbd297b2f4a50b79b5b3ae53ba60ac3e5d1bd7f1f1bdf1"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.2/lyno-redscript-abe9b8f60b0afe12.tar.zst.001",
+            "size": 925481,
+            "blake3": "eab5998fd5599bb5609d1d3cf89b73294d216136875b5e490fbbf5d383fe1237"
           }
         ]
       }
     },
     {
       "kind": "mod",
-      "id": "tweakxl",
-      "name": "TweakXL",
+      "id": "lyno-tweakxl",
+      "name": "[LYNO] TweakXL",
       "enabled": true,
       "version": "1.11.4.0",
       "nexus": {
@@ -150,17 +157,17 @@
         "size": 2129457,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/tweakxl-4392b0b36122b55b.tar.zst.001",
-            "size": 976934,
-            "blake3": "873ae58b0a74c80790865b5eb9f91bd8ea9d7601099d2d898ad647194d9d557f"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.2/lyno-tweakxl-4392b0b36122b55b.tar.zst.001",
+            "size": 976941,
+            "blake3": "98346e8a29e4da5128608b96c2d8eb48d79a75009ccef1476e634ec1fe8db7ac"
           }
         ]
       }
     },
     {
       "kind": "mod",
-      "id": "archivexl",
-      "name": "ArchiveXL",
+      "id": "lyno-archivexl",
+      "name": "[LYNO] ArchiveXL",
       "enabled": true,
       "version": "1.27.3.0",
       "nexus": {
@@ -172,17 +179,17 @@
         "size": 3424300,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/archivexl-7d3a81d92ea54109.tar.zst.001",
-            "size": 881355,
-            "blake3": "55caaca16412b2d4791fc1d783546f3b446dda91dfa8197cf6b87eff987efe9f"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.2/lyno-archivexl-7d3a81d92ea54109.tar.zst.001",
+            "size": 881364,
+            "blake3": "1285a1e1c24caf30f87fdcf1a2b32f4e79bb88e9b88596c9e3087cf0fe4fd909"
           }
         ]
       }
     },
     {
       "kind": "mod",
-      "id": "input-loader",
-      "name": "Input Loader",
+      "id": "lyno-input-loader",
+      "name": "[LYNO] Input Loader",
       "enabled": true,
       "version": "0.2.3.0",
       "nexus": {
@@ -194,17 +201,17 @@
         "size": 1564071,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/input-loader-147b750e39d34b0a.tar.zst.001",
-            "size": 415208,
-            "blake3": "0adfd73857d1fdfa758f24c7ccfed25e64ee475322bede97d0ee1c53940b5b50"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.2/lyno-input-loader-147b750e39d34b0a.tar.zst.001",
+            "size": 415217,
+            "blake3": "7c840841ae7358e7276a6b10944cdd98d782b71f6e7e6f371761a3056fb6b895"
           }
         ]
       }
     },
     {
       "kind": "mod",
-      "id": "native-settings-ui",
-      "name": "Native Settings UI",
+      "id": "lyno-native-settings-ui",
+      "name": "[LYNO] Native Settings UI",
       "enabled": true,
       "version": "1.96.0.0",
       "nexus": {
@@ -216,17 +223,17 @@
         "size": 79978,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/native-settings-ui-e619f9a6a734ca40.tar.zst.001",
-            "size": 14641,
-            "blake3": "b1761cbbd3bf67c65d522c39bea40c5da5f85c480fc41e6fbee26e9623cd0ff5"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.2/lyno-native-settings-ui-e619f9a6a734ca40.tar.zst.001",
+            "size": 14650,
+            "blake3": "159293627352b2729b853ff61f116566edc8bf5242a9673d77482eda6b394335"
           }
         ]
       }
     },
     {
       "kind": "mod",
-      "id": "mod-settings",
-      "name": "Mod Settings",
+      "id": "lyno-mod-settings",
+      "name": "[LYNO] Mod Settings",
       "enabled": true,
       "version": "0.2.21.0",
       "nexus": {
@@ -238,17 +245,17 @@
         "size": 1071802,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/mod-settings-82d5d0430c36c9ec.tar.zst.001",
-            "size": 376279,
-            "blake3": "6c08f13020bb917502d90af8e5812db15a9a246a8d023f3bd6e63d20fc838098"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.2/lyno-mod-settings-82d5d0430c36c9ec.tar.zst.001",
+            "size": 376290,
+            "blake3": "46764f69b34d87a7bc813248c814b98b5904dfce876beb9a6eb23c83729597e6"
           }
         ]
       }
     },
     {
       "kind": "mod",
-      "id": "audioware",
-      "name": "Audioware",
+      "id": "lyno-audioware",
+      "name": "[LYNO] Audioware",
       "enabled": true,
       "version": "1.8.0.0",
       "nexus": {
@@ -260,17 +267,17 @@
         "size": 4082803,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/audioware-07f9d2dbba9c3aec.tar.zst.001",
-            "size": 1306374,
-            "blake3": "cd52a4288a05c2acd9df7c9f4fc161a7c09f7ae4bcb9ca0a7af968dcb05cfb56"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.2/lyno-audioware-07f9d2dbba9c3aec.tar.zst.001",
+            "size": 1306385,
+            "blake3": "d832e87b4c173d50e5d0325bdf170245806f9b50842b077b9d93a4fb4f041e81"
           }
         ]
       }
     },
     {
       "kind": "mod",
-      "id": "equipment-ex",
-      "name": "Equipment-EX",
+      "id": "lyno-equipment-ex",
+      "name": "[LYNO] Equipment-EX",
       "enabled": true,
       "version": "1.2.8.0",
       "nexus": {
@@ -282,17 +289,17 @@
         "size": 275503,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/equipment-ex-aef2785bebc5115a.tar.zst.001",
-            "size": 90901,
-            "blake3": "fce28d9b62e61d02816aa6ae04f9f357a8d237d8db21ef14ce0f563f4cba6666"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.2/lyno-equipment-ex-aef2785bebc5115a.tar.zst.001",
+            "size": 90914,
+            "blake3": "b8811b47b0f74050ddb0c680f811c1feb4e2f2e8983697504eb84b2b6b3a7c8e"
           }
         ]
       }
     },
     {
       "kind": "mod",
-      "id": "virtual-atelier",
-      "name": "Virtual Atelier",
+      "id": "lyno-virtual-atelier",
+      "name": "[LYNO] Virtual Atelier",
       "enabled": true,
       "version": "1.6.3.0",
       "nexus": {
@@ -304,17 +311,17 @@
         "size": 620558,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/virtual-atelier-f2fd65f0c91b01c7.tar.zst.001",
-            "size": 358783,
-            "blake3": "99587811413bbda2d0c6698a775163732340ea1734c4d79160636f3b5d3e8815"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.2/lyno-virtual-atelier-f2fd65f0c91b01c7.tar.zst.001",
+            "size": 358913,
+            "blake3": "592ee6adc5589755fd470b0cb9fb28022f8027ec7a9490054cf66e2be39f8171"
           }
         ]
       }
     },
     {
       "kind": "mod",
-      "id": "cyberware-ex",
-      "name": "Cyberware-EX",
+      "id": "lyno-cyberware-ex",
+      "name": "[LYNO] Cyberware-EX",
       "enabled": true,
       "version": "1.5.6.0",
       "nexus": {
@@ -326,17 +333,17 @@
         "size": 88312,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/cyberware-ex-64bb21c951876fe7.tar.zst.001",
-            "size": 18783,
-            "blake3": "fef016d0501a6002fbfb095668ecc62d150022b78372b558e67e20dd1db9af42"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.2/lyno-cyberware-ex-64bb21c951876fe7.tar.zst.001",
+            "size": 18788,
+            "blake3": "7c87336ff55fc9d47994e3487b8f101b51e51844959a842fdec115c1702be19e"
           }
         ]
       }
     },
     {
       "kind": "mod",
-      "id": "audioxl",
-      "name": "AudioXL",
+      "id": "lyno-audioxl",
+      "name": "[LYNO] AudioXL",
       "enabled": true,
       "version": "0.5.1.0",
       "nexus": {
@@ -348,9 +355,9 @@
         "size": 728816,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/audioxl-8e79b2086c8fb901.tar.zst.001",
-            "size": 310919,
-            "blake3": "7c3e5a9defeff66f3a6e52f533d613bef462e68a53c3fe4d565ff9e84522c978"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.2/lyno-audioxl-8e79b2086c8fb901.tar.zst.001",
+            "size": 311319,
+            "blake3": "5bc29c362ec70fc3052810ca503d81c5324edf7fd21cd81c79111081dac48fea"
           }
         ]
       }
@@ -361,8 +368,8 @@
     },
     {
       "kind": "mod",
-      "id": "v-voice-framework",
-      "name": "V Voice Framework",
+      "id": "lyno-v-voice-framework",
+      "name": "[LYNO] V Voice Framework",
       "enabled": true,
       "version": "1.32.0.0",
       "nexus": {
@@ -374,17 +381,17 @@
         "size": 4075085,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/v-voice-framework-cec2ef8eb394e4a0.tar.zst.001",
-            "size": 1174778,
-            "blake3": "713cdae29192652ed4cd2edc888aa077abff2344115845e2f09f1a2ee553f8bc"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.2/lyno-v-voice-framework-cec2ef8eb394e4a0.tar.zst.001",
+            "size": 1174785,
+            "blake3": "a06159b1fc8a9c54970b2433cd326076592691c5c2e3a7989fcb62bbf4be611a"
           }
         ]
       }
     },
     {
       "kind": "mod",
-      "id": "native-settings-ui-side-menu-add-on",
-      "name": "Native Settings UI Side Menu Add-on",
+      "id": "lyno-native-settings-ui-side-menu-add-on",
+      "name": "[LYNO] Native Settings UI Side Menu Add-on",
       "enabled": false,
       "version": "1.3.11.0",
       "nexus": {
@@ -396,17 +403,17 @@
         "size": 106261,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/native-settings-ui-side-menu-add-on-d2f395616274653f.tar.zst.001",
-            "size": 24146,
-            "blake3": "d5b2ae988198ea9918176024f7234ea1f6f6e506b2e1f405bc0b93a64a6b5ec8"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.2/lyno-native-settings-ui-side-menu-add-on-d2f395616274653f.tar.zst.001",
+            "size": 24152,
+            "blake3": "2f60cbee20e241ca1feac8678cb80ed0cc5e891158f654e99e84f7d44615cb47"
           }
         ]
       }
     },
     {
       "kind": "mod",
-      "id": "browser-extension",
-      "name": "Browser Extension",
+      "id": "lyno-browser-extension",
+      "name": "[LYNO] Browser Extension",
       "enabled": true,
       "version": "0.9.7.0",
       "nexus": {
@@ -418,17 +425,17 @@
         "size": 27988,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/browser-extension-599c5332fd69effb.tar.zst.001",
-            "size": 8360,
-            "blake3": "d0b0cd4842732e7e864be78270a5c0da3fabae54d7a1fff56a178e5955befc21"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.2/lyno-browser-extension-599c5332fd69effb.tar.zst.001",
+            "size": 8365,
+            "blake3": "329c25618f0693b5e89c128c583779993c69dc21f6608ce4ca7c77018a640bdf"
           }
         ]
       }
     },
     {
       "kind": "mod",
-      "id": "virtual-car-dealer",
-      "name": "Virtual Car Dealer",
+      "id": "lyno-virtual-car-dealer",
+      "name": "[LYNO] Virtual Car Dealer",
       "enabled": true,
       "version": "2.2.8.0",
       "nexus": {
@@ -440,17 +447,17 @@
         "size": 136821,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/virtual-car-dealer-ffa8e55a24fb4089.tar.zst.001",
-            "size": 57598,
-            "blake3": "b2afd663bc3ebbf0cc5f19b43a998b24580597b191d03e986e1047199c201e24"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.2/lyno-virtual-car-dealer-ffa8e55a24fb4089.tar.zst.001",
+            "size": 57602,
+            "blake3": "efb32a96096d9d2ebfddfa546e3fea99c859fb88a8e354c252051ff0f6985e5c"
           }
         ]
       }
     },
     {
       "kind": "mod",
-      "id": "cyberware-ex-extended-slots",
-      "name": "Cyberware-EX Extended Slots",
+      "id": "lyno-cyberware-ex-extended-slots",
+      "name": "[LYNO] Cyberware-EX Extended Slots",
       "enabled": true,
       "version": "1.0.0.0",
       "nexus": {
@@ -462,17 +469,17 @@
         "size": 32,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/cyberware-ex-extended-slots-8eb94b362b0a6bc4.tar.zst.001",
-            "size": 3018,
-            "blake3": "95db7d4347f860d2ad9899266f0c30ba338fab56d2c6f208d4b88cfecb66c573"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.2/lyno-cyberware-ex-extended-slots-8eb94b362b0a6bc4.tar.zst.001",
+            "size": 3022,
+            "blake3": "196a9d10acd06efcd91be9af9cb7a8479c0a970b949924bb6cce5ca0a9d279dc"
           }
         ]
       }
     },
     {
       "kind": "mod",
-      "id": "deceptious-quest-core",
-      "name": "Deceptious Quest Core",
+      "id": "lyno-deceptious-quest-core",
+      "name": "[LYNO] Deceptious Quest Core",
       "enabled": true,
       "version": "3.3.0.0",
       "nexus": {
@@ -484,17 +491,17 @@
         "size": 3290294,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/deceptious-quest-core-61dc4b364e9d4861.tar.zst.001",
-            "size": 2789567,
-            "blake3": "dd4d71dffb5fc0ca53e09ae03306199833007f6db486cba94b678b18214f124f"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.2/lyno-deceptious-quest-core-61dc4b364e9d4861.tar.zst.001",
+            "size": 2789573,
+            "blake3": "77a1bd538c0fa5f7049b688055580be372b3270371ab482b62bf164bc0d6314b"
           }
         ]
       }
     },
     {
       "kind": "mod",
-      "id": "deceptious-quest-core-utilities-and-settings",
-      "name": "Deceptious Quest Core Utilities and Settings",
+      "id": "lyno-deceptious-quest-core-utilities-and-settings",
+      "name": "[LYNO] Deceptious Quest Core Utilities and Settings",
       "enabled": true,
       "version": "1.3.2.0",
       "nexus": {
@@ -506,17 +513,17 @@
         "size": 67843,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/deceptious-quest-core-utilities-and-settings-813f53e53d2d83c2.tar.zst.001",
-            "size": 12609,
-            "blake3": "0975e54802c6b65b672becbaa1a9a63a2be1cd1826cceee028600fbd9987e786"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.2/lyno-deceptious-quest-core-utilities-and-settings-813f53e53d2d83c2.tar.zst.001",
+            "size": 12616,
+            "blake3": "353395f06b9bb8e5607c719784d658362a46acf6e0d4ad1040a385fe6d2beeb6"
           }
         ]
       }
     },
     {
       "kind": "mod",
-      "id": "reflex-is-cool",
-      "name": "Reflex is Cool",
+      "id": "lyno-reflex-is-cool",
+      "name": "[LYNO] Reflex is Cool",
       "enabled": true,
       "version": "1.0.2.0",
       "nexus": {
@@ -528,17 +535,17 @@
         "size": 1759,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/reflex-is-cool-1fd13223f1d4bb28.tar.zst.001",
-            "size": 1479,
-            "blake3": "96a4224c317108faea7d53a846a9a78ab3fddd82755d44e59f213be3c2dd89b2"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.2/lyno-reflex-is-cool-1fd13223f1d4bb28.tar.zst.001",
+            "size": 1485,
+            "blake3": "692645d9c1e1a9ed8940b03be680cca96c3c7927155c3d0b28c10ad3a3d7bbdc"
           }
         ]
       }
     },
     {
       "kind": "mod",
-      "id": "cet-mod-manager",
-      "name": "CET Mod Manager",
+      "id": "lyno-cet-mod-manager",
+      "name": "[LYNO] CET Mod Manager",
       "enabled": true,
       "version": "2.0.12.0",
       "nexus": {
@@ -550,17 +557,17 @@
         "size": 1593856,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/cet-mod-manager-f2c3c425097048b7.tar.zst.001",
-            "size": 479720,
-            "blake3": "e5a7b514640bfb03b9db19191c9d2107ea862f595970e936662bd41d8dd3d764"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.2/lyno-cet-mod-manager-f2c3c425097048b7.tar.zst.001",
+            "size": 479730,
+            "blake3": "8b90e308fc1343cc452645f6f21d150d578a57090bd9facd9de6b3ac517c1ef9"
           }
         ]
       }
     },
     {
       "kind": "mod",
-      "id": "find-ex",
-      "name": "Find-EX",
+      "id": "lyno-find-ex",
+      "name": "[LYNO] Find-EX",
       "enabled": true,
       "version": "1.2.0.0",
       "nexus": {
@@ -572,17 +579,17 @@
         "size": 20818,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/find-ex-0fdfad0e499b1f2f.tar.zst.001",
-            "size": 5905,
-            "blake3": "cc95a754edde566037412a876e2d3238c6292dc08a631840e41c93c2d51601e7"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.2/lyno-find-ex-0fdfad0e499b1f2f.tar.zst.001",
+            "size": 5914,
+            "blake3": "b517a06887c91b3d7268a6bab9ba6fac0ccba30ec5d21880cb0b333549cd7160"
           }
         ]
       }
     },
     {
       "kind": "mod",
-      "id": "native-interactions-framework",
-      "name": "Native Interactions Framework",
+      "id": "lyno-native-interactions-framework",
+      "name": "[LYNO] Native Interactions Framework",
       "enabled": true,
       "version": "1.1.3.0",
       "nexus": {
@@ -594,17 +601,17 @@
         "size": 602503,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/native-interactions-framework-5b854ee7d24fc741.tar.zst.001",
-            "size": 331194,
-            "blake3": "acfef07dd1aaab8461bc32108e2b9f9c52f58bab5b2699a62311849418f02a13"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.2/lyno-native-interactions-framework-5b854ee7d24fc741.tar.zst.001",
+            "size": 331203,
+            "blake3": "34b841f28ae8a1c5b179fcc246d1a0766ddfb483dad2ad4f14748bfce348f0c0"
           }
         ]
       }
     },
     {
       "kind": "mod",
-      "id": "utilities-2077",
-      "name": "Utilities 2077",
+      "id": "lyno-utilities-2077",
+      "name": "[LYNO] Utilities 2077",
       "enabled": true,
       "version": "0.7.0.0",
       "nexus": {
@@ -616,17 +623,17 @@
         "size": 120657,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/utilities-2077-56aeb0677aa53f7b.tar.zst.001",
-            "size": 42517,
-            "blake3": "4f3265276ab5da2fa8d87e7600ca438670ecb588c76e4ba408135573874ae444"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.2/lyno-utilities-2077-56aeb0677aa53f7b.tar.zst.001",
+            "size": 42526,
+            "blake3": "447492747928f4489fd4da8f5239df11e53b8332c6290c6ce9a11974470d757a"
           }
         ]
       }
     },
     {
       "kind": "mod",
-      "id": "zenitex-core-dependency",
-      "name": "Zenitex Core Dependency",
+      "id": "lyno-zenitex-core-dependency",
+      "name": "[LYNO] Zenitex Core Dependency",
       "enabled": true,
       "version": "4.2.1.0",
       "nexus": {
@@ -638,17 +645,17 @@
         "size": 16957482,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/zenitex-core-dependency-e78dab1773a7265b.tar.zst.001",
-            "size": 11603434,
-            "blake3": "0e365c5e589c1c960df5b15a2484f1bfc1e3cff0800049d00d6a043959347587"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.2/lyno-zenitex-core-dependency-e78dab1773a7265b.tar.zst.001",
+            "size": 11603439,
+            "blake3": "1db479cec93c840a214fcdaedf27f403a55ff1e6d36ad08a88437c4fe4e9ddc1"
           }
         ]
       }
     },
     {
       "kind": "mod",
-      "id": "custom-perk-framework",
-      "name": "Custom Perk Framework",
+      "id": "lyno-custom-perk-framework",
+      "name": "[LYNO] Custom Perk Framework",
       "enabled": true,
       "version": "2.1.0.0",
       "nexus": {
@@ -660,17 +667,17 @@
         "size": 73223,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/custom-perk-framework-d7ad1367659bdd46.tar.zst.001",
-            "size": 15805,
-            "blake3": "c43287a57cc22f778131e623bf46716ee507dbe84cebc244262663794fa4c14c"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.2/lyno-custom-perk-framework-d7ad1367659bdd46.tar.zst.001",
+            "size": 15811,
+            "blake3": "645e02c0b1b4e64b14763065825307b7864b57386413dff08788054891a8e13d"
           }
         ]
       }
     },
     {
       "kind": "mod",
-      "id": "redwindows",
-      "name": "RedWindows",
+      "id": "lyno-redwindows",
+      "name": "[LYNO] RedWindows",
       "enabled": true,
       "version": "2.2.1.0",
       "nexus": {
@@ -682,17 +689,17 @@
         "size": 487744,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/redwindows-b3e3d8245a0813c2.tar.zst.001",
-            "size": 90093,
-            "blake3": "861004a71321bb8368564a6c2fc609cb68791e39925b50680a2c57e2ac61d1fc"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.2/lyno-redwindows-b3e3d8245a0813c2.tar.zst.001",
+            "size": 90103,
+            "blake3": "bcd43389043af4903eb3612fc7e64572ad97382b5409bd1fa2d5c8a1874b9258"
           }
         ]
       }
     },
     {
       "kind": "mod",
-      "id": "redscript-configuration-framework",
-      "name": "Redscript Configuration Framework",
+      "id": "lyno-redscript-configuration-framework",
+      "name": "[LYNO] Redscript Configuration Framework",
       "enabled": true,
       "version": "3.0.1.0",
       "nexus": {
@@ -704,17 +711,17 @@
         "size": 607674,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/redscript-configuration-framework-61531666a6426a1a.tar.zst.001",
-            "size": 128331,
-            "blake3": "7cbee4f015bad4d355f8fb4907ab5abb288eba262652643d76a2d3973b51d89e"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.2/lyno-redscript-configuration-framework-61531666a6426a1a.tar.zst.001",
+            "size": 128334,
+            "blake3": "546a33d0cb98cfc205314ff8cdd0010166bb4ac717e8d40ca1100b5e6dc1f052"
           }
         ]
       }
     },
     {
       "kind": "mod",
-      "id": "redlogger",
-      "name": "RedLogger",
+      "id": "lyno-redlogger",
+      "name": "[LYNO] RedLogger",
       "enabled": true,
       "version": "1.4.0.0",
       "nexus": {
@@ -726,17 +733,17 @@
         "size": 192698,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/redlogger-71ac4712fe111c3e.tar.zst.001",
-            "size": 82554,
-            "blake3": "ba7c41a62516579f5143965b353302a3de72a99529ae39e040e2accd7284839e"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.2/lyno-redlogger-71ac4712fe111c3e.tar.zst.001",
+            "size": 82564,
+            "blake3": "116c5ee7e288cde2dd8b2f5f38758afee9009ce06ccc968794afdecc6ebdc5c2"
           }
         ]
       }
     },
     {
       "kind": "mod",
-      "id": "redimgretriever",
-      "name": "RedIMGRetriever",
+      "id": "lyno-redimgretriever",
+      "name": "[LYNO] RedIMGRetriever",
       "enabled": true,
       "version": "0.3.0.0",
       "nexus": {
@@ -748,17 +755,17 @@
         "size": 972307,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/redimgretriever-91e5f234ea2b998a.tar.zst.001",
-            "size": 442720,
-            "blake3": "4f532b5cb910b44fa7ad46f4d641782500c9a54a93cc04211ede9805f6afb70b"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.2/lyno-redimgretriever-91e5f234ea2b998a.tar.zst.001",
+            "size": 442729,
+            "blake3": "1878bab37c0aafedccc502b6a7ab48bce1a18d79b1d55df7defac33a3253a6e8"
           }
         ]
       }
     },
     {
       "kind": "mod",
-      "id": "redfunctions",
-      "name": "RedFunctions",
+      "id": "lyno-redfunctions",
+      "name": "[LYNO] RedFunctions",
       "enabled": true,
       "version": "0.13.0.0",
       "nexus": {
@@ -770,17 +777,17 @@
         "size": 5741903,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/redfunctions-d2bd314bdc877495.tar.zst.001",
-            "size": 5280488,
-            "blake3": "44cac167c21ad8b3e527e0e950cfe554fdfe66dc1c809e3229dbdec4f3cb60e8"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.2/lyno-redfunctions-d2bd314bdc877495.tar.zst.001",
+            "size": 5280496,
+            "blake3": "7cf9be0ddafdfd11f21b422cacca00abcf6d7d6e45e76250e22a2c7a72d7c8d2"
           }
         ]
       }
     },
     {
       "kind": "mod",
-      "id": "redfilesystem",
-      "name": "RedFileSystem",
+      "id": "lyno-redfilesystem",
+      "name": "[LYNO] RedFileSystem",
       "enabled": true,
       "version": "0.15.1.0",
       "nexus": {
@@ -792,17 +799,17 @@
         "size": 553582,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/redfilesystem-b00e6e22030ea49c.tar.zst.001",
-            "size": 220187,
-            "blake3": "60b94db346e79d05bb4475c216af1250882008feaed999402d89056245234fde"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.2/lyno-redfilesystem-b00e6e22030ea49c.tar.zst.001",
+            "size": 220197,
+            "blake3": "e68a9e731d56ca528308d4521249a27d220b0e899a8d6409b6933068e48326b8"
           }
         ]
       }
     },
     {
       "kind": "mod",
-      "id": "reddata",
-      "name": "RedData",
+      "id": "lyno-reddata",
+      "name": "[LYNO] RedData",
       "enabled": true,
       "version": "0.10.1.0",
       "nexus": {
@@ -814,17 +821,17 @@
         "size": 494090,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/reddata-aef9a842a61fe1d6.tar.zst.001",
-            "size": 189289,
-            "blake3": "b2458b4e3a3dc54120f658865808180e4cd8f44e0b235b9b067788826dda5693"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.2/lyno-reddata-aef9a842a61fe1d6.tar.zst.001",
+            "size": 189299,
+            "blake3": "7f5391366d3a9fcba91db20c9a90ccd7652fd465da24850c73e88706a1aff166"
           }
         ]
       }
     },
     {
       "kind": "mod",
-      "id": "window-utils-gui-library-animation-grid-alignment",
-      "name": "Window Utils (GUI Library - Animation - Grid Alignment)",
+      "id": "lyno-window-utils-gui-library-animation-grid-alignment",
+      "name": "[LYNO] Window Utils (GUI Library - Animation - Grid Alignment)",
       "enabled": true,
       "version": "1.1.3.0",
       "nexus": {
@@ -836,17 +843,17 @@
         "size": 743010,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/window-utils-gui-library-animation-grid-alignment-de5734be70c5b6bb.tar.zst.001",
-            "size": 143542,
-            "blake3": "373c6dec03f785c5d2a3b083973b4709e7bca02e1523625d906f7df63ce4625f"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.2/lyno-window-utils-gui-library-animation-grid-alignment-de5734be70c5b6bb.tar.zst.001",
+            "size": 143551,
+            "blake3": "dce579722b5c2730a31edcdf7477093886282b547107692899fb62360a48f7c7"
           }
         ]
       }
     },
     {
       "kind": "mod",
-      "id": "redhttpclient",
-      "name": "RedHttpClient",
+      "id": "lyno-redhttpclient",
+      "name": "[LYNO] RedHttpClient",
       "enabled": true,
       "version": "0.7.0.0",
       "nexus": {
@@ -858,17 +865,17 @@
         "size": 1142446,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/redhttpclient-7fb1160fb06bafa9.tar.zst.001",
-            "size": 492848,
-            "blake3": "eb006b7ec6f422ceb5c9c6e8d0c62874be78bdf0de46f7c1691e14defa75a781"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.2/lyno-redhttpclient-7fb1160fb06bafa9.tar.zst.001",
+            "size": 492857,
+            "blake3": "aba8e5c19f0db13da889a607d0857ae9cc9c7469d53e65f1f027f665a086d809"
           }
         ]
       }
     },
     {
       "kind": "mod",
-      "id": "digitalvixen-core",
-      "name": "DigitalVixen Core",
+      "id": "lyno-digitalvixen-core",
+      "name": "[LYNO] DigitalVixen Core",
       "enabled": true,
       "version": "4.9.3.0",
       "nexus": {
@@ -880,17 +887,17 @@
         "size": 10151303,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/digitalvixen-core-c45e10e945bc043d.tar.zst.001",
-            "size": 416732,
-            "blake3": "1983697e3937e1951acdb6c31ff09368d35fc60b2d49ae0e828d7bcbe59cf846"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.2/lyno-digitalvixen-core-c45e10e945bc043d.tar.zst.001",
+            "size": 416751,
+            "blake3": "a0f6318d1c0abbc943fe17e77d8985f915ae45088e0b21e33837f04988f4c21d"
           }
         ]
       }
     },
     {
       "kind": "mod",
-      "id": "nightlynow-core",
-      "name": "NightlyNow Core",
+      "id": "lyno-nightlynow-core",
+      "name": "[LYNO] NightlyNow Core",
       "enabled": true,
       "version": "1.1.8.0",
       "nexus": {
@@ -902,17 +909,17 @@
         "size": 91873,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/nightlynow-core-4a6ed8c42133e845.tar.zst.001",
-            "size": 19589,
-            "blake3": "3159b2305a8ddd2c8d62ec11052e8aa72a2f13c46a385cdbc4500586cb246801"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.2/lyno-nightlynow-core-4a6ed8c42133e845.tar.zst.001",
+            "size": 19596,
+            "blake3": "ac41b9dfadfea7863f4372572f9e87628c837cdea78b17d0257062c56733c756"
           }
         ]
       }
     },
     {
       "kind": "mod",
-      "id": "perk-addition-framework",
-      "name": "Perk Addition Framework",
+      "id": "lyno-perk-addition-framework",
+      "name": "[LYNO] Perk Addition Framework",
       "enabled": true,
       "version": "1.0.0.0",
       "nexus": {
@@ -924,17 +931,17 @@
         "size": 5062,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/perk-addition-framework-b7fba230d3cc06f8.tar.zst.001",
-            "size": 2567,
-            "blake3": "cc2e5ffc5d18685725fab1707b319bb6f901f85258a5b280d2821237d4dd3064"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.2/lyno-perk-addition-framework-b7fba230d3cc06f8.tar.zst.001",
+            "size": 2573,
+            "blake3": "5327b642b66a80d2e119da02c663d8aa632aa13a8c581806549a128007985974"
           }
         ]
       }
     },
     {
       "kind": "mod",
-      "id": "vehicle-core",
-      "name": "Vehicle Core",
+      "id": "lyno-vehicle-core",
+      "name": "[LYNO] Vehicle Core",
       "enabled": true,
       "version": "1.0.0.0",
       "nexus": {
@@ -946,17 +953,17 @@
         "size": 181178,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/vehicle-core-c1d99f440b3f1d97.tar.zst.001",
-            "size": 36275,
-            "blake3": "69faf675b1bc513f0f38070e397a98f1e3f187bb1e04f1b5bb3f037d598c9877"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.2/lyno-vehicle-core-c1d99f440b3f1d97.tar.zst.001",
+            "size": 36283,
+            "blake3": "8685d5653ccfeb466e4153baa20d494924a30333bac52b90fa112f7613e7264b"
           }
         ]
       }
     },
     {
       "kind": "mod",
-      "id": "xutils",
-      "name": "XUtils",
+      "id": "lyno-xutils",
+      "name": "[LYNO] XUtils",
       "enabled": true,
       "version": "1.0.2.0",
       "nexus": {
@@ -968,17 +975,17 @@
         "size": 2416422,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/xutils-37ec6e174418aea4.tar.zst.001",
-            "size": 519719,
-            "blake3": "3c35c6d715aa4e8338960a2a5525b59f66abf0811e1678eaef1f17fa3ec324e8"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.2/lyno-xutils-37ec6e174418aea4.tar.zst.001",
+            "size": 519727,
+            "blake3": "7b0f3c9bd5c189bde588ea9d8b1da2cbaa81eb875c4bbe2893da7dbe794749e0"
           }
         ]
       }
     },
     {
       "kind": "mod",
-      "id": "0-engine",
-      "name": "0-Engine",
+      "id": "lyno-0-engine",
+      "name": "[LYNO] 0-Engine",
       "enabled": true,
       "version": "0.18.6.0",
       "nexus": {
@@ -990,17 +997,17 @@
         "size": 217132,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/0-engine-13256152a2d68006.tar.zst.001",
-            "size": 46828,
-            "blake3": "f1e98df1e89990837bde19d8e0a19641bf8935b90007ee5e2267af1a47f00002"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.2/lyno-0-engine-13256152a2d68006.tar.zst.001",
+            "size": 46835,
+            "blake3": "c4c6520c65f9510cee736574e7e616eabec7109d1f608b43ebaaf2deb34aebe5"
           }
         ]
       }
     },
     {
       "kind": "mod",
-      "id": "native-and-mod-settings-localized",
-      "name": "Native and Mod Settings Localized",
+      "id": "lyno-native-and-mod-settings-localized",
+      "name": "[LYNO] Native and Mod Settings Localized",
       "enabled": true,
       "version": "1.1.3.0",
       "nexus": {
@@ -1012,9 +1019,9 @@
         "size": 8479,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/native-and-mod-settings-localized-6915bf7d02f1b5a9.tar.zst.001",
-            "size": 3377,
-            "blake3": "8368145a6551f08610f33e0894a6f734f6ef4812401fc371f4935e5594a23bb6"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.2/lyno-native-and-mod-settings-localized-6915bf7d02f1b5a9.tar.zst.001",
+            "size": 3383,
+            "blake3": "e7dbe931fe8325a44c6a71cd260e9f378830387f806b1c99ef567dfedc85a14c"
           }
         ]
       }
@@ -4981,7 +4988,7 @@
       "kind": "mod",
       "id": "melee-attacks-fixes-and-enhancements",
       "name": "Melee Attacks Fixes And Enhancements",
-      "enabled": true,
+      "enabled": false,
       "version": "0.41.0.0",
       "nexus": {
         "game": "cyberpunk2077",
@@ -5856,19 +5863,19 @@
       "id": "oni-arasaka-s-demon-lore-friendly-questline-companion-and-romance",
       "name": "ONI - Arasaka's Demon (Lore-Friendly Questline Companion and Romance)",
       "enabled": true,
-      "version": "1.0.2.0",
+      "version": "1.1.3.0",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 34062
       },
       "package": {
-        "hash": "80e621908e92114b0479540cd31425650a3e44872a42c529248ae3d74b5eb4b1",
-        "size": 125544546,
+        "hash": "8611bb68e45e67de9f4c2f0f11e3b2512ee6c349b74dd0143d575cc82b4422d8",
+        "size": 125746541,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/oni-arasaka-s-demon-lore-friendly-questline-companion-and-romance-80e621908e92114b.tar.zst.001",
-            "size": 123878832,
-            "blake3": "48e47d243beaffda2f432836ef5fa40f0e9a0fdaedbf4515891a19202f74c282"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.2/oni-arasaka-s-demon-lore-friendly-questline-companion-and-romance-8611bb68e45e67de.tar.zst.001",
+            "size": 123904594,
+            "blake3": "f8e1e3a8693c3e6c001694747079c397c73948a48ba9c55fc0b7b3d8fc0cd16c"
           }
         ]
       }
