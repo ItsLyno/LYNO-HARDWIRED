@@ -37,6 +37,10 @@ package is the instance root.
   `ModList` keeps entries in UI order (lowest first) and flips on read/write.
 - `+` enabled, `-` disabled, `*` unmanaged (game DLC, foreign files).
 - Separators: `<title>_separator` (always `-`).
+  The color picked in MO2 lives in the separator's `meta.ini` as `[General] color=@Variant(...)`:
+  QSettings-escaped QDataStream bytes of a QColor (`\0\0\0\x43` type id, spec `\x1` = RGB, then
+  16-bit alpha, red, green, blue). `lyno-pack` turns it into `#rrggbb` in the manifest; the launcher
+  shows it in the mod list and writes it back into the player's separator (`meta::qt_color`, `meta::save_color`).
 
 ## `mods/<folder>/meta.ini`
 

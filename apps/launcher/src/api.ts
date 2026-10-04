@@ -29,7 +29,7 @@ export interface ChangelogEntry {
 }
 
 export type ModRow =
-  | { kind: "separator"; title: string }
+  | { kind: "separator"; title: string; color: string | null }
   | {
       kind: "mod";
       id: string;

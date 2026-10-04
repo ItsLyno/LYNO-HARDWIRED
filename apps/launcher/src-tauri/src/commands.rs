@@ -140,7 +140,7 @@ pub struct LastUpdateInfo {
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum ModRow {
     #[serde(rename_all = "camelCase")]
-    Separator { title: String },
+    Separator { title: String, color: Option<String> },
     #[serde(rename_all = "camelCase")]
     Mod {
         id: String,
@@ -221,7 +221,7 @@ pub async fn fetch_build(app: AppHandle) -> CmdResult<BuildInfo> {
         .mods
         .iter()
         .map(|e| match e {
-            ModEntry::Separator { title } => ModRow::Separator { title: title.clone() },
+            ModEntry::Separator { title, color } => ModRow::Separator { title: title.clone(), color: color.clone() },
             ModEntry::Mod(m) => {
                 let have = installed.mods.get(&m.id);
                 ModRow::Mod {

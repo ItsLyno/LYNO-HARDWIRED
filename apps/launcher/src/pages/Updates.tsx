@@ -1,8 +1,8 @@
 import { Download, RefreshCw, RotateCw, Wrench } from "lucide-react";
 import { Button } from "../components/Button";
 import { Changelog } from "../components/Changelog";
+import { PageTitle } from "../components/PageTitle";
 import { Section } from "../components/Section";
-import { StatusDot } from "../components/StatusDot";
 import { UpdateProgress } from "../components/UpdateProgress";
 import { formatBytes, plural } from "../format";
 import { isRepairOnly, useApp } from "../store";
@@ -16,14 +16,14 @@ export function Updates() {
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold tracking-tight">Обновления</h1>
+        <PageTitle>Обновления</PageTitle>
         <Button onClick={refreshBuild} disabled={busy}>
           <RotateCw size={15} />
           Проверить
         </Button>
       </div>
 
-      <div className="grid grid-cols-3 gap-px overflow-hidden rounded-lg border border-line bg-line">
+      <div className="grid grid-cols-3 gap-3">
         <Stat label="Установлена" value={installed ?? "—"} />
         <Stat label="Последняя" value={build?.latestVersion ?? "—"} />
         <Stat label="Патч игры" value={build?.gameVersion ?? "—"} />
@@ -32,8 +32,7 @@ export function Updates() {
       {progress ? (
         <UpdateProgress progress={progress} />
       ) : (
-        <div className="flex items-center gap-4 rounded-lg border border-line bg-surface px-5 py-4">
-          <StatusDot tone={!build ? "bad" : build.upToDate ? "ok" : "warn"} />
+        <div className="panel flex items-center gap-4 px-5 py-4">
           <div className="flex-1 text-[13px]">
             {!build ? (
               <span className="text-muted">{buildError ?? "Загрузка…"}</span>
@@ -44,7 +43,7 @@ export function Updates() {
             ) : (
               <>
                 {repair ? "Нужно восстановить повреждённые файлы" : installed ? "Доступно обновление" : "Сборка ещё не установлена"}
-                <div className="mt-0.5 text-muted tabular-nums">
+                <div className="mt-1 font-mono text-xs text-muted tabular-nums">
                   {build.changes} {plural(build.changes, "изменение", "изменения", "изменений")} ·{" "}
                   {formatBytes(build.downloadSize)} к загрузке
                 </div>
@@ -76,9 +75,9 @@ export function Updates() {
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="bg-surface px-5 py-4">
-      <div className="text-xs text-muted">{label}</div>
-      <div className="mt-1 text-xl font-semibold tabular-nums">{value}</div>
+    <div className="panel px-5 py-4">
+      <div className="label">{label}</div>
+      <div className="mt-2 font-mono text-xl font-semibold tabular-nums">{value}</div>
     </div>
   );
 }
