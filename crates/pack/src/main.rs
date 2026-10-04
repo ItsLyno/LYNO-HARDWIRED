@@ -142,7 +142,9 @@ fn build_cmd(command: Command) -> ExitCode {
     };
 
     let mut nexus = Nexus::new(nexus_key);
-    let result = build(&instance, &opts, &mut |meta| nexus.info(meta), &mut |msg| eprintln!("  {msg}"));
+    // Timestamps show where a slow build spends its time (disk, antivirus, Nexus).
+    let result =
+        build(&instance, &opts, &mut |meta| nexus.info(meta), &mut |msg| eprintln!("  {} {msg}", elapsed(started.elapsed())));
     let output = match result {
         Ok(o) => o,
         Err(e) => return fail(e.to_string()),
@@ -238,6 +240,9 @@ fn fail(msg: impl std::fmt::Display) -> ExitCode {
 /// Looks up mod authors and titles on Nexus (`/v1/games/{game}/mods/{id}.json`).
 struct Nexus {
     key: Option<String>,
+    /// Lookups that failed in a row; the build gives up on Nexus after a few
+    /// instead of waiting on an unreachable API for every mod.
+    failures: u32,
     agent: ureq::Agent,
     cache: HashMap<(String, u64), ModInfo>,
 }
@@ -247,29 +252,43 @@ impl Nexus {
         if key.is_none() {
             eprintln!("note: no Nexus API key, mod authors will be empty (pass --nexus-key or NEXUS_API_KEY)");
         }
-        Self { key, agent: ureq::Agent::new_with_defaults(), cache: HashMap::new() }
+        // ureq has no overall timeout by default: one stalled request would hold the whole build.
+        let agent = ureq::Agent::config_builder().timeout_global(Some(NEXUS_TIMEOUT)).build().new_agent();
+        Self { key, failures: 0, agent, cache: HashMap::new() }
     }
 
     fn info(&mut self, meta: &ModMeta) -> ModInfo {
+        if self.failures >= NEXUS_MAX_FAILURES {
+            return ModInfo::default();
+        }
         let (Some(key), Some(mod_id)) = (&self.key, meta.mod_id) else { return ModInfo::default() };
         let game = meta.game_name.clone().unwrap_or_else(|| "cyberpunk2077".into()).to_lowercase();
         if let Some(hit) = self.cache.get(&(game.clone(), mod_id)) {
             return hit.clone();
         }
         let url = format!("https://api.nexusmods.com/v1/games/{game}/mods/{mod_id}.json");
-        let info = match self.agent.get(&url).header("apikey", key).call() {
-            Ok(mut resp) => match resp.body_mut().read_json::<serde_json::Value>() {
-                Ok(v) => ModInfo {
+        let result = self
+            .agent
+            .get(&url)
+            .header("apikey", key)
+            .call()
+            .and_then(|mut resp| resp.body_mut().read_json::<serde_json::Value>());
+        let info = match result {
+            Ok(v) => {
+                self.failures = 0;
+                ModInfo {
                     author: v["author"].as_str().filter(|s| !s.is_empty()).map(Into::into),
                     title: v["name"].as_str().filter(|s| !s.is_empty()).map(Into::into),
-                },
-                Err(e) => {
-                    eprintln!("warning: Nexus {mod_id}: {e}");
-                    ModInfo::default()
                 }
-            },
+            }
             Err(e) => {
                 eprintln!("warning: Nexus {mod_id}: {e}");
+                // A hidden or deleted mod answers 404: Nexus itself is fine.
+                let reachable = matches!(e, ureq::Error::StatusCode(code) if code != 429);
+                self.failures = if reachable { 0 } else { self.failures + 1 };
+                if self.failures == NEXUS_MAX_FAILURES {
+                    eprintln!("warning: Nexus failed {NEXUS_MAX_FAILURES} times in a row, authors of the remaining mods stay empty");
+                }
                 ModInfo::default()
             }
         };
@@ -277,6 +296,9 @@ impl Nexus {
         info
     }
 }
+
+const NEXUS_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(15);
+const NEXUS_MAX_FAILURES: u32 = 3;
 
 /// UTC date as YYYY-MM-DD (days-to-civil, Howard Hinnant).
 fn today() -> String {

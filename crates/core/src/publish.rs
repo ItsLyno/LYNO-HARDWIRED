@@ -106,7 +106,8 @@ pub fn build(
     warnings.extend(profile_warnings(&inst.profile_dir(&opts.profile)));
     let files = tree::list_files_with(root, &keep_base)?;
     let previous_base = opts.previous.as_ref().map(|m| &m.base);
-    let base = packer.package(root, "", &files, "base", "base", &format!("[1/{steps}] base"), previous_base, log)?;
+    let base_label = format!("[1/{steps}] base ({})", base_breakdown(&files));
+    let base = packer.package(root, "", &files, "base", "base", &base_label, previous_base, log)?;
 
     let mut mods = Vec::new();
     let mut redmod = false;
@@ -216,6 +217,23 @@ pub fn check_published(manifest: &Manifest, downloader: &Downloader, progress: &
 }
 
 const CHECK_THREADS: usize = 8;
+
+/// Size of the base package by top-level entry, largest first. The base is
+/// everything in the instance root outside `BASE_EXCLUDED`, so a stray folder
+/// there (a game copy, old output, backups) silently becomes gigabytes to read
+/// and upload on every build.
+fn base_breakdown(files: &[FileEntry]) -> String {
+    let mut sizes: std::collections::BTreeMap<&str, u64> = std::collections::BTreeMap::new();
+    for f in files {
+        let top = f.path.split_once('/').map_or(f.path.as_str(), |(first, _)| first);
+        *sizes.entry(top).or_default() += f.size;
+    }
+    let mut sizes: Vec<_> = sizes.into_iter().collect();
+    sizes.sort_by_key(|(_, size)| std::cmp::Reverse(*size));
+    let total: u64 = sizes.iter().map(|(_, s)| s).sum();
+    let top: Vec<String> = sizes.iter().take(5).map(|(name, s)| format!("{name} {} MB", s / 1_000_000)).collect();
+    format!("{} files, {} MB; largest: {}", files.len(), total / 1_000_000, top.join(", "))
+}
 
 /// REDmod mods keep their content in `mods/<name>/` with an `info.json`.
 fn has_redmod(folder: &Path) -> bool {
