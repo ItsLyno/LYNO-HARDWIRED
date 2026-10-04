@@ -171,7 +171,7 @@ function Handler() {
 }
 
 const mo2Reasons: Record<string, string> = {
-  fomod: "в архиве установщик с выбором опций (FOMOD)",
+  fomod: "лаунчер не смог прочитать установщик FOMOD в архиве",
   format: "архив RAR или другой формат, который лаунчер не распаковывает",
   layout: "лаунчер не узнал структуру архива",
 };
@@ -184,6 +184,8 @@ function outcomeText(o: Outcome): string {
       return `Лежит в загрузках MO2: ${mo2Reasons[o.reason]}. Установите его в MO2 на вкладке «Загрузки».`;
     case "mo2Open":
       return "MO2 открыт, поэтому архив лежит в его загрузках: установите его там.";
+    case "fomod":
+      return "Ждёт выбора вариантов установки";
   }
 }
 
@@ -220,7 +222,7 @@ function Jobs({ jobs }: { jobs: NexusJob[] }) {
 }
 
 function JobRow({ job }: { job: NexusJob }) {
-  const { run } = useApp();
+  const { run, setFomodJob } = useApp();
   const s = job.state;
   const title = job.title ?? (job.modId ? `Мод ${job.modId}` : "Ссылка nxm://");
   const pct = s.kind === "downloading" && s.total > 0 ? (s.done / s.total) * 100 : null;
@@ -240,6 +242,9 @@ function JobRow({ job }: { job: NexusJob }) {
       break;
     case "installing":
       line = "Установка…";
+      break;
+    case "choosing":
+      line = <span className="text-warn">В архиве установщик с вариантами: выберите, что ставить</span>;
       break;
     case "done":
       line = <span className={s.outcome.kind === "installed" ? "text-ok" : "text-warn"}>{outcomeText(s.outcome)}</span>;
@@ -264,6 +269,11 @@ function JobRow({ job }: { job: NexusJob }) {
           </div>
           {job.replaces && isJobActive(job) && <div className="text-xs text-faint">заменит «{job.replaces}»</div>}
         </div>
+        {s.kind === "choosing" && (
+          <Button variant="primary" className="h-8 text-[13px]" onClick={() => setFomodJob(job.id)}>
+            Выбрать варианты
+          </Button>
+        )}
         {showMo2 && (
           <Button className="h-8 text-[13px]" onClick={() => run(api.openMo2)}>
             Открыть MO2

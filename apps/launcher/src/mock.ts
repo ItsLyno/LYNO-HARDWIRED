@@ -22,6 +22,10 @@ import type {
   UpdateEvent,
   UpdateFinished,
   VerifyReport,
+  FomodOutline,
+  FomodSelection,
+  FomodState,
+  FomodWizard,
 } from "./api";
 
 const GB = 1024 ** 3;
@@ -317,7 +321,64 @@ let jobs: NexusJob[] = [];
 let nexusHandlers: NexusHandlers | null = null;
 let jobSeq = 0;
 
-async function simulateDownload(job: NexusJob) {
+// A FOMOD installer: the second step shows only for the athletic body, like a flag dependency.
+const fomodOutline: FomodOutline = {
+  name: "Better Lightning",
+  image: null,
+  steps: [
+    {
+      name: "Основной вариант",
+      groups: [
+        {
+          name: "Яркость",
+          kind: "exactlyOne",
+          plugins: [
+            { name: "Мягкий свет", description: "Ближе к ванильной игре: ночи темнее, неон не слепит.", image: null },
+            { name: "Кинематографичный", description: "Контрастнее и насыщеннее. Рекомендуется для HDR.", image: null },
+          ],
+        },
+      ],
+    },
+    {
+      name: "Дополнения",
+      groups: [
+        {
+          name: "Модули",
+          kind: "any",
+          plugins: [
+            { name: "Объёмный туман", description: "Требует Nova LUT.", image: null },
+            { name: "Отражения в лужах", description: "Тяжело для видеокарты.", image: null },
+          ],
+        },
+        {
+          name: "Совместимость",
+          kind: "atMostOne",
+          plugins: [
+            { name: "Патч для Nova LUT", description: "Не нужен: Nova LUT уже учтён.", image: null },
+            { name: "Патч для ReShade", description: "Если вы пользуетесь ReShade.", image: null },
+          ],
+        },
+      ],
+    },
+  ],
+};
+
+function fomodEval(sel: FomodSelection): FomodState {
+  const first = sel[0]?.[0] ?? [1];
+  const visible = [true, first[0] === 1];
+  const kinds: FomodState["kinds"] = [
+    [["optional", "recommended"]],
+    [
+      ["optional", "optional"],
+      ["notUsable", "optional"],
+    ],
+  ];
+  const second = visible[1] ? (sel[1] ?? [[], []]).map((g, i) => g.filter((p) => kinds[1][i][p] !== "notUsable").slice(0, i === 1 ? 1 : 2)) : [];
+  const selection = [[first], second];
+  return { visible, kinds, selection, valid: [first.length === 1, true] };
+}
+
+async function simulateDownload(job: NexusJob, fomod = false) {
   const emit = (patch: Partial<NexusJob>) => {
     job = { ...job, ...patch };
     jobs = jobs.map((j) => (j.id === job.id ? job : j));
@@ -331,9 +392,25 @@ async function simulateDownload(job: NexusJob) {
     emit({ state: { kind: "downloading", done, total } });
     await delay(120);
   }
+  if (fomod) {
+    emit({ state: { kind: "choosing" } });
+    return;
+  }
   emit({ state: { kind: "installing" } });
   await delay(500);
   emit({ state: { kind: "done", outcome: { kind: "installed", folder: "Better Lightning" } } });
+  nexusHandlers?.changed();
+}
+
+async function simulateFomodInstall(id: number) {
+  const emit = (state: NexusJob["state"]) => {
+    jobs = jobs.map((j) => (j.id === id ? { ...j, state } : j));
+    const job = jobs.find((j) => j.id === id);
+    if (job) nexusHandlers?.job(job);
+  };
+  emit({ kind: "installing" });
+  await delay(600);
+  emit({ kind: "done", outcome: { kind: "installed", folder: "Better Lightning" } });
   nexusHandlers?.changed();
 }
 
@@ -493,8 +570,19 @@ export const mock = {
     const job: NexusJob = { id: ++jobSeq, game, modId, fileId, title: null, fileTitle: null, version: null, replaces: null, state: { kind: "queued" } };
     jobs = [...jobs, job];
     nexusHandlers?.job(job);
-    void simulateDownload(job);
+    // Every second download carries a FOMOD installer.
+    void simulateDownload(job, jobSeq % 2 === 0);
     return job.id;
+  },
+  nexusFomod: async (_id: number): Promise<FomodWizard> => {
+    await delay(300);
+    const previous: FomodSelection = [[[1]], [[0], []]];
+    return { outline: fomodOutline, images: {}, previous, state: fomodEval(previous) };
+  },
+  nexusFomodEval: async (_id: number, selection: FomodSelection) => fomodEval(selection),
+  nexusFomodInstall: async (id: number, selection: FomodSelection) => {
+    if (!fomodEval(selection).valid.every(Boolean)) throw new Error("Шаг «Основной вариант»: выберите варианты");
+    void simulateFomodInstall(id);
   },
   onNexus: async (h: NexusHandlers) => {
     const mine = { ...h };

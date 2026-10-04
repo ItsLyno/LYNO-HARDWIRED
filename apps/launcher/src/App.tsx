@@ -1,6 +1,7 @@
 import { X } from "lucide-react";
 import { useEffect } from "react";
 import { api } from "./api";
+import { FomodWizard } from "./components/FomodWizard";
 import { Header } from "./components/Header";
 import { LauncherUpdateBar } from "./components/LauncherUpdateBar";
 import { Home } from "./pages/Home";
@@ -23,7 +24,7 @@ const pages: Record<Page, () => React.JSX.Element | null> = {
 };
 
 export default function App() {
-  const { page, error, clearError } = useApp();
+  const { page, error, clearError, fomodJob, setFomodJob } = useApp();
   const PageView = pages[page];
 
   useEffect(() => {
@@ -73,6 +74,7 @@ export default function App() {
       <LauncherUpdateBar />
       <main className="relative min-h-0 flex-1 overflow-y-auto px-8 pt-6 pb-8">
         <PageView />
+        {fomodJob !== null && <FomodWizard key={fomodJob} jobId={fomodJob} onClose={() => setFomodJob(null)} />}
         {error && (
           <div
             role="alert"

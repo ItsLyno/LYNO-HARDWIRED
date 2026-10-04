@@ -4,14 +4,21 @@
 //!
 //! Downloads run one at a time in a queue: Nexus serves free accounts one
 //! file at a time anyway, and installs must not overlap in `modlist.txt`.
+//!
+//! A FOMOD archive parks its job in `Choosing` and the queue moves on; the
+//! wizard asks `nexus_fomod_eval` for every click (the rules live in
+//! `lyno_core::fomod`), and `nexus_fomod_install` puts the job back in the
+//! queue with the choice.
 
+use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use lyno_core::download::Downloader;
 use lyno_core::mo2::Instance;
-use lyno_core::mod_install::{self, BuildMod, Context, Outcome, Progress};
+use lyno_core::fomod::{Evaluated, Outline, Selection};
+use lyno_core::mod_install::{self, BuildMod, Context, Download, Fomod, Outcome, Progress, Target};
 use lyno_core::nexus::{NexusApi, RateLimit, User};
 use lyno_core::nexus_sso;
 use lyno_core::nxm::{self, HandlerStatus, NxmLink};
@@ -38,6 +45,14 @@ pub struct NexusState {
     worker: AtomicBool,
     next_id: AtomicU64,
     rate_limit: Mutex<Option<RateLimit>>,
+    /// FOMOD installers waiting for the player's choice, by job id.
+    fomods: Mutex<HashMap<u64, Arc<PendingFomod>>>,
+}
+
+struct PendingFomod {
+    fomod: Fomod,
+    download: Download,
+    target: Target,
 }
 
 fn now() -> u64 {
@@ -327,6 +342,8 @@ pub enum JobState {
     /// Waiting for a build update or an integrity check to finish.
     Waiting,
     Installing,
+    /// A FOMOD installer waits for the player's choice.
+    Choosing,
     Done { outcome: Outcome },
     Failed { error: String },
     Cancelled,
@@ -355,6 +372,9 @@ pub struct Job {
     state: JobState,
     #[serde(skip)]
     link: Option<NxmLink>,
+    /// The FOMOD choice to install: the job is back in the queue for it.
+    #[serde(skip)]
+    choice: Option<Selection>,
     #[serde(skip)]
     cancel: Arc<AtomicBool>,
 }
@@ -384,15 +404,20 @@ fn enqueue(app: &AppHandle, link: NxmLink) -> u64 {
         replaces: None,
         state: JobState::Queued,
         link: Some(link),
+        choice: None,
         cancel: Arc::new(AtomicBool::new(false)),
     };
     state.nexus.jobs.lock().unwrap().push(job.clone());
     let _ = app.emit("nexus-job", job);
-    if !state.nexus.worker.swap(true, Ordering::SeqCst) {
+    start_worker(app);
+    id
+}
+
+fn start_worker(app: &AppHandle) {
+    if !app.state::<AppState>().nexus.worker.swap(true, Ordering::SeqCst) {
         let app = app.clone();
         std::thread::spawn(move || work(&app));
     }
-    id
 }
 
 /// An nxm link from the command line: the launcher was started for it, or a
@@ -431,6 +456,7 @@ fn enqueue_failed(app: &AppHandle, error: String) -> u64 {
         replaces: None,
         state: JobState::Failed { error },
         link: None,
+        choice: None,
         cancel: Arc::new(AtomicBool::new(false)),
     };
     state.nexus.jobs.lock().unwrap().push(job.clone());
@@ -457,6 +483,7 @@ fn work(app: &AppHandle) {
         };
         let result = run_job(app, &job);
         let final_state = match result {
+            Ok(Ok(Outcome::Fomod { .. })) => JobState::Choosing,
             Ok(Ok(outcome)) => JobState::Done { outcome },
             Ok(Err(BuildMod(folder))) => JobState::Failed {
                 error: format!("«{folder}» входит в сборку: он обновляется вместе со сборкой, а не с Nexus"),
@@ -470,6 +497,9 @@ fn work(app: &AppHandle) {
         if let JobState::Done { outcome } = &final_state {
             log::info!("nexus download {}/{}: {outcome:?}", job.mod_id, job.file_id);
             let _ = app.emit("nexus-changed", ());
+        }
+        if !matches!(final_state, JobState::Choosing) {
+            state.nexus.fomods.lock().unwrap().remove(&job.id);
         }
         update_job(app, job.id, |j| j.state = final_state);
     }
@@ -505,7 +535,11 @@ fn run_job(app: &AppHandle, job: &Job) -> lyno_core::Result<Result<Outcome, Buil
         }
     }
     let (game, mo2) = running_processes();
-    let ctx = Context { inst: &inst, profile: &profile(&inst), author: settings.author_mode, mo2_running: game || mo2, now: now() };
+    let profile = profile(&inst);
+    if let Some(choice) = &job.choice {
+        return install_choice(app, job.id, &inst, &profile, choice, game || mo2);
+    }
+    let ctx = Context { inst: &inst, profile: &profile, author: settings.author_mode, mo2_running: game || mo2, now: now() };
     let mut last_emit = std::time::Instant::now() - Duration::from_secs(1);
     let id = job.id;
     let result = mod_install::fetch_and_install(&api, &Downloader::new(), &ctx, &link, &cancelled, &mut |p| match p {
@@ -528,7 +562,42 @@ fn run_job(app: &AppHandle, job: &Job) -> lyno_core::Result<Result<Outcome, Buil
         Progress::Installing => update_job(app, id, |j| j.state = JobState::Installing),
     });
     *state.nexus.rate_limit.lock().unwrap() = Some(api.rate_limit());
-    result.map(|r| r.map(|(_, outcome)| outcome))
+    let (download, outcome) = match result? {
+        Ok(done) => done,
+        Err(build_mod) => return Ok(Err(build_mod)),
+    };
+    let Outcome::Fomod { archive, target } = &outcome else { return Ok(Ok(outcome)) };
+    match mod_install::open_fomod(&inst, archive, target) {
+        Ok(fomod) => {
+            log::info!("nexus download {}/{}: FOMOD installer, waiting for a choice", job.mod_id, job.file_id);
+            let pending = PendingFomod { fomod, download, target: target.clone() };
+            state.nexus.fomods.lock().unwrap().insert(job.id, Arc::new(pending));
+            Ok(Ok(outcome))
+        }
+        Err(e) => {
+            log::warn!("FOMOD {}: {e}", archive.display());
+            Ok(Ok(Outcome::Mo2 { reason: lyno_core::archive::Mo2Reason::Fomod }))
+        }
+    }
+}
+
+/// Installs a FOMOD choice; the archive already sits in MO2's downloads.
+fn install_choice(
+    app: &AppHandle,
+    id: u64,
+    inst: &Instance,
+    profile: &str,
+    choice: &Selection,
+    mo2_running: bool,
+) -> lyno_core::Result<Result<Outcome, BuildMod>> {
+    let pending = pending_fomod(app, id).map_err(lyno_core::Error::Fomod)?;
+    // MO2 would overwrite modlist.txt on exit; it can install the archive itself.
+    if mo2_running {
+        return Ok(Ok(Outcome::Mo2Open));
+    }
+    update_job(app, id, |j| j.state = JobState::Installing);
+    let outcome = mod_install::install_fomod(inst, profile, &pending.fomod, &pending.download, &pending.target, choice)?;
+    Ok(Ok(outcome))
 }
 
 #[tauri::command]
@@ -539,14 +608,16 @@ pub fn nexus_jobs(state: TauriState<'_, AppState>) -> Vec<Job> {
 #[tauri::command]
 pub fn nexus_cancel_job(app: AppHandle, id: u64) {
     let state = app.state::<AppState>();
-    let queued = {
+    let idle = {
         let jobs = state.nexus.jobs.lock().unwrap();
         let Some(job) = jobs.iter().find(|j| j.id == id) else { return };
         job.cancel.store(true, Ordering::Relaxed);
-        matches!(job.state, JobState::Queued)
+        matches!(job.state, JobState::Queued | JobState::Choosing)
     };
-    // A running job notices the flag; a queued one never starts.
-    if queued {
+    // A running job notices the flag; a queued one never starts. A FOMOD
+    // archive stays in MO2's downloads, where MO2 can still install it.
+    if idle {
+        state.nexus.fomods.lock().unwrap().remove(&id);
         update_job(&app, id, |j| j.state = JobState::Cancelled);
     }
 }
@@ -566,4 +637,67 @@ pub fn nexus_download(app: AppHandle, game: String, mod_id: u64, file_id: u64) -
         return Err("Без Premium Nexus отдаёт файлы только по кнопке «Mod Manager Download» на сайте".into());
     }
     Ok(enqueue(&app, NxmLink { game, mod_id, file_id, key: None, expires: None }))
+}
+
+fn pending_fomod(app: &AppHandle, id: u64) -> CmdResult<Arc<PendingFomod>> {
+    app.state::<AppState>().nexus.fomods.lock().unwrap().get(&id).cloned().ok_or_else(|| "Установщик уже закрыт: скачайте мод заново".into())
+}
+
+/// The FOMOD wizard of a job: the installer, its images and the first state.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FomodWizard {
+    outline: Outline,
+    /// `data:` URLs by installer path.
+    images: HashMap<String, String>,
+    /// The choice of the installed version this file replaces.
+    previous: Option<Selection>,
+    state: Evaluated,
+}
+
+#[tauri::command]
+pub async fn nexus_fomod(app: AppHandle, id: u64) -> CmdResult<FomodWizard> {
+    let pending = pending_fomod(&app, id)?;
+    let (inst, profile) = instance(&app.state::<AppState>())?;
+    tauri::async_runtime::spawn_blocking(move || {
+        // Images of a solid 7z need its stream read up to them: worth a log line, not a failure.
+        let images = pending.fomod.images().unwrap_or_else(|e| {
+            log::warn!("FOMOD images: {e}");
+            HashMap::new()
+        });
+        let selection = pending.fomod.previous.clone().unwrap_or_default();
+        let state = pending.fomod.installer.evaluate(&selection, &mod_install::file_states(&inst, &profile));
+        FomodWizard { outline: pending.fomod.installer.outline(), images, previous: pending.fomod.previous.clone(), state }
+    })
+    .await
+    .map_err(err)
+}
+
+/// The wizard after a click: visible steps, plugin types and the selection
+/// with the installer's rules applied.
+#[tauri::command]
+pub fn nexus_fomod_eval(app: AppHandle, id: u64, selection: Selection) -> CmdResult<Evaluated> {
+    let pending = pending_fomod(&app, id)?;
+    let (inst, profile) = instance(&app.state::<AppState>())?;
+    Ok(pending.fomod.installer.evaluate(&selection, &mod_install::file_states(&inst, &profile)))
+}
+
+/// Puts the job back in the queue to install `selection`.
+#[tauri::command]
+pub fn nexus_fomod_install(app: AppHandle, id: u64, selection: Selection) -> CmdResult<()> {
+    let pending = pending_fomod(&app, id)?;
+    let (inst, profile) = instance(&app.state::<AppState>())?;
+    if running_processes() != (false, false) {
+        return Err("Закройте игру и Mod Organizer 2: MO2 переписывает список модов при выходе".into());
+    }
+    let ev = pending.fomod.installer.evaluate(&selection, &mod_install::file_states(&inst, &profile));
+    if let Some(step) = ev.valid.iter().position(|v| !v) {
+        return Err(format!("Шаг «{}»: выберите варианты", pending.fomod.installer.steps[step].name));
+    }
+    update_job(&app, id, |j| {
+        j.choice = Some(selection);
+        j.state = JobState::Queued;
+    });
+    start_worker(&app);
+    Ok(())
 }

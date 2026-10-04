@@ -59,6 +59,8 @@ interface AppStore {
   nexusChecking: { done: number; total: number } | null;
   /** Downloads from nxm links and Premium updates, oldest first. */
   nexusJobs: NexusJob[];
+  /** Job whose FOMOD wizard is open. */
+  fomodJob: number | null;
   setPage: (page: Page) => void;
   refreshStatus: () => Promise<void>;
   refreshBuild: () => Promise<void>;
@@ -78,6 +80,7 @@ interface AppStore {
   refreshNexus: () => Promise<void>;
   checkNexus: (force: boolean) => Promise<void>;
   onNexusJob: (job: NexusJob) => void;
+  setFomodJob: (id: number | null) => void;
   clearError: () => void;
 }
 
@@ -99,6 +102,7 @@ export const useApp = create<AppStore>((set, get) => ({
   nexusUpdates: null,
   nexusChecking: null,
   nexusJobs: [],
+  fomodJob: null,
   setPage: (page) => set({ page }),
   refreshStatus: async () => {
     try {
@@ -260,8 +264,12 @@ export const useApp = create<AppStore>((set, get) => ({
   },
   onNexusJob: (job) => {
     const jobs = get().nexusJobs;
+    const was = jobs.find((j) => j.id === job.id)?.state.kind;
     set({ nexusJobs: jobs.some((j) => j.id === job.id) ? jobs.map((j) => (j.id === job.id ? job : j)) : [...jobs, job] });
+    // The player just clicked "Mod Manager Download": the installer's questions come up by themselves.
+    if (job.state.kind === "choosing" && was !== "choosing" && get().fomodJob === null) set({ fomodJob: job.id });
   },
+  setFomodJob: (id) => set({ fomodJob: id }),
   clearError: () => set({ error: null }),
 }));
 

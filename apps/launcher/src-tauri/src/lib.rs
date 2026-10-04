@@ -129,6 +129,9 @@ pub fn run() {
             nexus::nexus_cancel_job,
             nexus::nexus_clear_jobs,
             nexus::nexus_download,
+            nexus::nexus_fomod,
+            nexus::nexus_fomod_eval,
+            nexus::nexus_fomod_install,
         ])
         .run(tauri::generate_context!())
         .expect("error while running LYNO//HARDWIRED");

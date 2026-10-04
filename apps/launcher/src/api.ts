@@ -248,7 +248,9 @@ export type Outcome =
   | { kind: "installed"; folder: string }
   /** Left in MO2's downloads for the player to install there. */
   | { kind: "mo2"; reason: Mo2Reason }
-  | { kind: "mo2Open" };
+  | { kind: "mo2Open" }
+  /** A FOMOD installer: the job waits in "choosing". */
+  | { kind: "fomod" };
 
 export type JobState =
   | { kind: "queued" }
@@ -256,6 +258,8 @@ export type JobState =
   | { kind: "retry"; attempt: number; delaySecs: number; error: string }
   | { kind: "waiting" }
   | { kind: "installing" }
+  /** A FOMOD installer waits for the player's choice (`nexusFomod`). */
+  | { kind: "choosing" }
   | { kind: "done"; outcome: Outcome }
   | { kind: "failed"; error: string }
   | { kind: "cancelled" };
@@ -271,6 +275,43 @@ export interface NexusJob {
   /** Installed mod folder this file replaces. */
   replaces: string | null;
   state: JobState;
+}
+
+export type GroupKind = "exactlyOne" | "atMostOne" | "atLeastOne" | "all" | "any";
+export type PluginKind = "required" | "optional" | "recommended" | "notUsable" | "couldBeUsable";
+
+export interface FomodOutline {
+  name: string | null;
+  /** Installer path of the main image, a key of `FomodWizard.images`. */
+  image: string | null;
+  steps: {
+    name: string;
+    groups: { name: string; kind: GroupKind; plugins: { name: string; description: string; image: string | null }[] }[];
+  }[];
+}
+
+/** Picked plugins by step, group and plugin index; null for a step not seen yet (the installer's defaults). */
+export type FomodSelection = (number[][] | null)[];
+
+/** The wizard at a selection, evaluated by the launcher. */
+export interface FomodState {
+  /** Per step: shown with the options picked on the steps before it. */
+  visible: boolean[];
+  /** Per step, group and plugin. */
+  kinds: PluginKind[][][];
+  /** The selection with the installer's rules applied; empty for hidden steps. */
+  selection: number[][][];
+  /** Per step: every group has an allowed number of picks. */
+  valid: boolean[];
+}
+
+export interface FomodWizard {
+  outline: FomodOutline;
+  /** data: URLs by installer path; images the launcher can't show are missing. */
+  images: Record<string, string>;
+  /** The choice of the installed version this file replaces. */
+  previous: FomodSelection | null;
+  state: FomodState;
 }
 
 export interface NexusHandlers {
@@ -345,6 +386,10 @@ export const api = isTauri()
       nexusClearJobs: () => invoke<void>("nexus_clear_jobs"),
       /** Premium only: downloads the file without a visit to the site. */
       nexusDownload: (game: string, modId: number, fileId: number) => invoke<number>("nexus_download", { game, modId, fileId }),
+      nexusFomod: (id: number) => invoke<FomodWizard>("nexus_fomod", { id }),
+      nexusFomodEval: (id: number, selection: FomodSelection) => invoke<FomodState>("nexus_fomod_eval", { id, selection }),
+      /** Queues the install of the choice; the job reports the outcome. */
+      nexusFomodInstall: (id: number, selection: FomodSelection) => invoke<void>("nexus_fomod_install", { id, selection }),
       onNexus: (handlers: NexusHandlers): Promise<UnlistenFn> =>
         Promise.all([
           listen<NexusJob>("nexus-job", (e) => handlers.job(e.payload)),
