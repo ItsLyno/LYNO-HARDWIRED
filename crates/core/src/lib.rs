@@ -9,6 +9,7 @@ pub mod author;
 pub mod download;
 pub mod error;
 pub mod files;
+pub mod fomod;
 pub mod game;
 pub mod github;
 pub mod hash;

@@ -5,13 +5,16 @@ import {
   type AuthorJob,
   type BuildInfo,
   type BuiltRelease,
+  type DownloadItem,
   type LauncherUpdate,
   type NexusJob,
   type NexusStatus,
+  type RateLimit,
   type Settings,
   type Status,
   type UpdateEvent,
   type UpdatesView,
+  type UserRow,
   type VerifyReport,
 } from "./api";
 
@@ -59,6 +62,20 @@ interface AppStore {
   nexusChecking: { done: number; total: number } | null;
   /** Downloads from nxm links and Premium updates, oldest first. */
   nexusJobs: NexusJob[];
+  /** Job whose FOMOD wizard is open. */
+  fomodJob: number | null;
+  /** Job whose "pick the mod's folder" dialog is open. */
+  rootJob: number | null;
+  /** Requests left on the Nexus account, from its last answer. */
+  nexusLimits: RateLimit | null;
+  /** Newest archives of MO2's downloads; null until loaded. */
+  downloads: DownloadItem[] | null;
+  /** The player's own section of the mod list; null until loaded. */
+  userMods: UserRow[] | null;
+  /** An archive being dragged from the downloads list; `over`: the list entry it would land below. */
+  drag: { file: string; label: string; x: number; y: number; over: DropSpot | null } | null;
+  /** Files from Explorer are over the window; `outside`: not over the mod list. */
+  fileOver: (DropSpot & { outside?: boolean }) | null;
   setPage: (page: Page) => void;
   refreshStatus: () => Promise<void>;
   refreshBuild: () => Promise<void>;
@@ -78,6 +95,12 @@ interface AppStore {
   refreshNexus: () => Promise<void>;
   checkNexus: (force: boolean) => Promise<void>;
   onNexusJob: (job: NexusJob) => void;
+  setFomodJob: (id: number | null) => void;
+  setRootJob: (id: number | null) => void;
+  refreshDownloads: () => Promise<void>;
+  refreshUserMods: () => Promise<void>;
+  /** A file name in MO2's downloads or a path from Explorer. */
+  installArchive: (file: string, after: string | null) => Promise<void>;
   clearError: () => void;
 }
 
@@ -99,6 +122,13 @@ export const useApp = create<AppStore>((set, get) => ({
   nexusUpdates: null,
   nexusChecking: null,
   nexusJobs: [],
+  fomodJob: null,
+  rootJob: null,
+  nexusLimits: null,
+  downloads: null,
+  userMods: null,
+  drag: null,
+  fileOver: null,
   setPage: (page) => set({ page }),
   refreshStatus: async () => {
     try {
@@ -260,10 +290,55 @@ export const useApp = create<AppStore>((set, get) => ({
   },
   onNexusJob: (job) => {
     const jobs = get().nexusJobs;
+    const was = jobs.find((j) => j.id === job.id)?.state.kind;
     set({ nexusJobs: jobs.some((j) => j.id === job.id) ? jobs.map((j) => (j.id === job.id ? job : j)) : [...jobs, job] });
+    // The player just clicked "Mod Manager Download": the installer's questions come up by themselves.
+    const open = get().fomodJob === null && get().rootJob === null;
+    if (job.state.kind === "choosing" && was !== "choosing" && open) set({ fomodJob: job.id });
+    if (job.state.kind === "choosingRoot" && was !== "choosingRoot" && open) set({ rootJob: job.id });
+    if (job.state.kind === "done" && was !== "done") {
+      void get().refreshDownloads();
+      void get().refreshUserMods();
+    }
+  },
+  setFomodJob: (id) => set({ fomodJob: id }),
+  setRootJob: (id) => set({ rootJob: id }),
+  // Quiet: without an installed build there is no downloads folder or list to show.
+  refreshDownloads: async () => {
+    try {
+      set({ downloads: await api.downloadsRecent() });
+    } catch {
+      set({ downloads: [] });
+    }
+  },
+  refreshUserMods: async () => {
+    try {
+      set({ userMods: await api.userMods() });
+    } catch {
+      set({ userMods: [] });
+    }
+  },
+  installArchive: async (file, after) => {
+    try {
+      await api.installArchive(file, after);
+    } catch (e) {
+      set({ error: String(e) });
+    }
   },
   clearError: () => set({ error: null }),
 }));
+
+/** Where a dropped archive lands: below this entry of the list (`after`), `null` for the end of the player's section. */
+export interface DropSpot {
+  after: string | null;
+}
+
+/** The drop spot under a point of the window: rows of the mod list carry `data-drop-after`. */
+export function dropSpotAt(x: number, y: number): DropSpot | null {
+  const el = document.elementFromPoint(x, y)?.closest<HTMLElement>("[data-drop-after], [data-drop-zone]");
+  if (!el) return null;
+  return { after: el.dataset.dropAfter ?? null };
+}
 
 export function isJobActive(job: NexusJob): boolean {
   return !["done", "failed", "cancelled"].includes(job.state.kind);

@@ -1,6 +1,6 @@
 import { ChevronRight, ExternalLink, FolderOpen, Lock, Search } from "lucide-react";
-import { useState, type CSSProperties } from "react";
-import { api, type ModRow } from "../api";
+import { useEffect, useState, type CSSProperties } from "react";
+import { api, type ModRow, type UserRow } from "../api";
 import { PageTitle } from "../components/PageTitle";
 import { formatBytes, plural } from "../format";
 import { useApp } from "../store";
@@ -9,8 +9,15 @@ type Mod = Extract<ModRow, { kind: "mod" }>;
 type Group = { title: string | null; color: string | null; mods: Mod[] };
 type Filter = "all" | "off" | "changes";
 
+/** MO2's folder of the separator above the player's own mods (`plan::USER_SEPARATOR`). */
+const USER_SEPARATOR = "LYNO USER MODS_separator";
+
 export function Mods() {
-  const { build, buildError, status, progress, run, setModEnabled, settings, nexusUpdates } = useApp();
+  const { build, buildError, status, progress, run, setModEnabled, settings, nexusUpdates, userMods, refreshUserMods, drag, fileOver } =
+    useApp();
+  useEffect(() => {
+    void refreshUserMods();
+  }, []);
   // The author takes Nexus updates of build mods into the next release (tab «Nexus»).
   const nexusUpdate = new Map(
     settings?.authorMode
@@ -45,6 +52,17 @@ export function Mods() {
     return <p className="text-muted">{buildError ?? "Загрузка списка модов…"}</p>;
   }
   const last = build.lastUpdate;
+  // Where an archive being dragged or dropped from Explorer would land. A player's mod never goes among the
+  // build's: over those it lands at the top of their own section, which is what the core does with it too.
+  const spot = drag?.over ?? (fileOver && !fileOver.outside ? fileOver : null);
+  const dropping = !!drag || (!!fileOver && !fileOver.outside);
+  const buildNames = new Set(build.mods.map((r) => (r.kind === "mod" ? r.name : `${r.title}_separator`)));
+  const lineAfter = spot && (spot.after === null ? "end" : !settings?.authorMode && buildNames.has(spot.after) ? USER_SEPARATOR : spot.after);
+  const userRows = (userMods ?? []).filter((r) => r.kind === "separator" || filter === "all" || (filter === "off" && !r.enabled));
+  const q = query.trim().toLowerCase();
+  const shownUser = userRows.filter((r) => !q || r.kind === "separator" || r.name.toLowerCase().includes(q));
+  const endKey = shownUser.length > 0 ? rowKey(shownUser[shownUser.length - 1]) : USER_SEPARATOR;
+  const line = (key: string) => (lineAfter === key || (lineAfter === "end" && key === endKey) ? "shadow-[inset_0_-2px_0_0_var(--color-neon)]" : "");
 
   return (
     <div className="mx-auto flex h-full max-w-5xl flex-col">
@@ -95,7 +113,7 @@ export function Mods() {
         </p>
       )}
 
-      <div className="panel mt-4 min-h-0 flex-1 overflow-y-auto">
+      <div data-drop-zone className={`panel mt-4 min-h-0 flex-1 overflow-y-auto transition-shadow ${dropping ? "ring-1 ring-neon/40" : ""}`}>
         <table className="w-full table-fixed text-left">
           <colgroup>
             <col />
@@ -117,6 +135,8 @@ export function Mods() {
             <tbody key={g.title ?? `group-${i}`}>
               {g.title && (
                 <SeparatorRow
+                  dropKey={`${g.title}_separator`}
+                  lineClass={line(`${g.title}_separator`)}
                   title={g.title}
                   color={g.color}
                   count={g.mods.length}
@@ -126,7 +146,7 @@ export function Mods() {
                 />
               )}
               {(!g.title || query.trim() || !collapsed.has(g.title)) && g.mods.map((m) => (
-                <tr key={m.id} className="h-12 border-b border-line/60 last:border-b-0 hover:bg-raised/50">
+                <tr key={m.id} data-drop-after={m.name} className={`h-12 border-b border-line/60 last:border-b-0 hover:bg-raised/50 ${line(m.name)}`}>
                   <td className="truncate pl-5">
                     <span className={m.enabled ? "" : "text-faint"}>{m.title ?? m.name}</span>
                     {!m.enabled && <Badge>выключен</Badge>}
@@ -194,8 +214,30 @@ export function Mods() {
               ))}
             </tbody>
           ))}
+          {(shownUser.length > 0 || dropping) && filter !== "changes" && (
+            <tbody>
+              <SeparatorRow
+                title="Мои моды"
+                color={null}
+                count={shownUser.filter((r) => r.kind === "mod").length}
+                open={!!q || dropping || !collapsed.has(USER_SEPARATOR)}
+                onToggle={() => toggleGroup(USER_SEPARATOR)}
+                dropKey={USER_SEPARATOR}
+                lineClass={line(USER_SEPARATOR)}
+              />
+              {(q || dropping || !collapsed.has(USER_SEPARATOR)) &&
+                shownUser.map((r) => <UserModRow key={rowKey(r)} row={r} locked={locked} lockReason={lockReason} lineClass={line(rowKey(r))} />)}
+              {dropping && shownUser.length === 0 && (
+                <tr data-drop-after={USER_SEPARATOR}>
+                  <td colSpan={5} className="px-5 py-4 text-center text-[13px] text-neon">
+                    Отпустите архив, чтобы установить его в ваши моды
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          )}
         </table>
-        {shown === 0 && <p className="px-5 py-8 text-center text-[13px] text-muted">Ничего не найдено</p>}
+        {shown === 0 && shownUser.length === 0 && !dropping && <p className="px-5 py-8 text-center text-[13px] text-muted">Ничего не найдено</p>}
       </div>
 
       <p className="mt-4 text-xs text-faint">
@@ -254,8 +296,78 @@ function Switch(props: { checked: boolean; disabled?: boolean; title: string; on
   );
 }
 
+function rowKey(r: UserRow): string {
+  return r.kind === "mod" ? r.name : `${r.title}_separator`;
+}
+
+// The player's own mods: theirs to switch, in MO2's list order. Updates of the build never touch them.
+function UserModRow(props: { row: UserRow; locked: boolean; lockReason: string; lineClass: string }) {
+  const { run, refreshUserMods } = useApp();
+  const r = props.row;
+  if (r.kind === "separator") {
+    return (
+      <tr data-drop-after={rowKey(r)} className={`h-9 border-b border-line/60 ${props.lineClass}`}>
+        <td colSpan={5} className="pl-5 text-[12px] font-semibold text-muted">
+          {r.title}
+        </td>
+      </tr>
+    );
+  }
+  const toggle = (enabled: boolean) =>
+    run(async () => {
+      await api.setUserModEnabled(r.name, enabled);
+      await refreshUserMods();
+    });
+  return (
+    <tr data-drop-after={r.name} className={`h-12 border-b border-line/60 last:border-b-0 hover:bg-raised/50 ${props.lineClass}`}>
+      <td className="truncate pl-5">
+        <span className={r.enabled ? "" : "text-faint"}>{r.name}</span>
+        {!r.enabled && <Badge>выключен</Badge>}
+      </td>
+      <td className="truncate text-muted">—</td>
+      <td className="truncate font-mono text-xs text-muted tabular-nums">{r.version ?? "—"}</td>
+      <td className="pr-4 text-right font-mono text-xs text-muted tabular-nums">—</td>
+      <td className="pr-5">
+        <div className="flex items-center justify-end gap-1">
+          <Switch
+            checked={r.enabled}
+            disabled={props.locked}
+            title={props.locked ? props.lockReason : r.enabled ? "Выключить мод" : "Включить мод"}
+            onChange={toggle}
+          />
+          <button
+            onClick={() => run(() => api.openUserModFolder(r.name))}
+            className="inline-flex h-7 w-7 items-center justify-center rounded-full text-muted transition-colors hover:bg-raised hover:text-fg"
+            title="Открыть папку мода"
+          >
+            <FolderOpen size={14} />
+          </button>
+          {r.nexusUrl && (
+            <button
+              onClick={() => run(() => api.openUrl(r.nexusUrl!))}
+              className="inline-flex h-7 items-center gap-1.5 rounded-full px-2.5 text-[13px] text-muted transition-colors hover:bg-raised hover:text-fg"
+              title={r.nexusUrl}
+            >
+              Nexus
+              <ExternalLink size={13} />
+            </button>
+          )}
+        </div>
+      </td>
+    </tr>
+  );
+}
+
 // Separators come from the author's MO2 (title, order and color); like in MO2, a click folds the group.
-function SeparatorRow(props: { title: string; color: string | null; count: number; open: boolean; onToggle: () => void }) {
+function SeparatorRow(props: {
+  title: string;
+  color: string | null;
+  count: number;
+  open: boolean;
+  onToggle: () => void;
+  dropKey?: string;
+  lineClass?: string;
+}) {
   // Opaque background: the row sticks under the table header while its group scrolls by.
   const style: CSSProperties = props.color
     ? {
@@ -264,7 +376,7 @@ function SeparatorRow(props: { title: string; color: string | null; count: numbe
       }
     : { background: "var(--color-raised)" };
   return (
-    <tr>
+    <tr data-drop-after={props.dropKey} className={props.lineClass}>
       <td colSpan={5} className="sticky top-10 z-[5] p-0">
         <button
           onClick={props.onToggle}

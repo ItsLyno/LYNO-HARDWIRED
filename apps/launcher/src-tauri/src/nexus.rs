@@ -1,17 +1,29 @@
 //! Nexus Mods in the launcher: the player's account, version tracking of
-//! mods from Nexus, and downloads from nxm links (the launcher can take over
-//! "Mod Manager Download" from MO2 or Vortex).
+//! mods from Nexus, downloads from nxm links (the launcher can take over
+//! "Mod Manager Download" from MO2 or Vortex), and installs of archives from
+//! MO2's downloads or the player's disk.
 //!
-//! Downloads run one at a time in a queue: Nexus serves free accounts one
-//! file at a time anyway, and installs must not overlap in `modlist.txt`.
+//! Jobs run one at a time in a queue: Nexus serves free accounts one file at
+//! a time anyway, and installs must not overlap in `modlist.txt`.
+//!
+//! What MO2 would ask, a job asks too and parks, the queue moving on: a
+//! FOMOD installer (`Choosing`; the wizard asks `nexus_fomod_eval` for every
+//! click, the rules live in `lyno_core::fomod`), an archive no rule
+//! recognizes (`ChoosingRoot`), or MO2 / the game running (`WaitingMo2`: MO2
+//! rewrites `modlist.txt` on exit, so the install waits for it to close and
+//! then runs by itself). The answer puts the job back in the queue.
 
+use std::collections::HashMap;
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+use lyno_core::archive::Root;
 use lyno_core::download::Downloader;
+use lyno_core::fomod::{Evaluated, Outline, Selection};
 use lyno_core::mo2::Instance;
-use lyno_core::mod_install::{self, BuildMod, Context, Outcome, Progress};
+use lyno_core::mod_install::{self, BuildMod, Context, Download, DownloadItem, Fomod, Outcome, Progress, Target};
 use lyno_core::nexus::{NexusApi, RateLimit, User};
 use lyno_core::nexus_sso;
 use lyno_core::nxm::{self, HandlerStatus, NxmLink};
@@ -28,6 +40,9 @@ use crate::AppState;
 /// then players log in with a personal API key.
 const SSO_APP: Option<&str> = option_env!("LYNO_NEXUS_APP");
 
+/// How often parked installs look whether MO2 and the game are closed.
+const MO2_POLL: Duration = Duration::from_secs(2);
+
 #[derive(Default)]
 pub struct NexusState {
     /// The account behind the saved key, once validated in this session.
@@ -36,8 +51,35 @@ pub struct NexusState {
     sso: Mutex<Option<Arc<AtomicBool>>>,
     jobs: Mutex<Vec<Job>>,
     worker: AtomicBool,
+    /// A thread waits for MO2 to close for `WaitingMo2` jobs.
+    watcher: AtomicBool,
     next_id: AtomicU64,
     rate_limit: Mutex<Option<RateLimit>>,
+    /// Archives of parked jobs, by job id.
+    parked: Mutex<HashMap<u64, Arc<Parked>>>,
+}
+
+/// An archive waiting for the player or for MO2 to close.
+struct Parked {
+    archive: PathBuf,
+    download: Download,
+    target: Target,
+    fomod: Option<Fomod>,
+}
+
+/// Stores the latest allowance and tells the footer.
+fn record_limit(app: &AppHandle, limit: RateLimit) {
+    if limit == RateLimit::default() {
+        return;
+    }
+    *app.state::<AppState>().nexus.rate_limit.lock().unwrap() = Some(limit);
+    let _ = app.emit("nexus-limits", limit);
+}
+
+/// Requests left on the account, from the last answer of Nexus in this session.
+#[tauri::command]
+pub fn nexus_limits(state: TauriState<'_, AppState>) -> Option<RateLimit> {
+    *state.nexus.rate_limit.lock().unwrap()
 }
 
 fn now() -> u64 {
@@ -93,7 +135,14 @@ pub async fn nexus_status(app: AppHandle) -> CmdResult<NexusStatus> {
     let mut account_error = None;
     if let (Some(key), None) = (&key, &account) {
         let key = key.clone();
-        match tauri::async_runtime::spawn_blocking(move || NexusApi::new(&key).validate()).await.map_err(err)? {
+        let checked = tauri::async_runtime::spawn_blocking(move || {
+            let api = NexusApi::new(&key);
+            (api.validate(), api.rate_limit())
+        })
+        .await
+        .map_err(err)?;
+        record_limit(&app, checked.1);
+        match checked.0 {
             Ok(user) => {
                 *state.nexus.account.lock().unwrap() = Some(user.clone());
                 account = Some(user);
@@ -296,7 +345,7 @@ pub async fn nexus_check(app: AppHandle, force: bool) -> CmdResult<Option<Update
     *state.nexus.check.lock().unwrap() = None;
     match result {
         Ok((tracked, untracked, cache, limit)) => {
-            *state.nexus.rate_limit.lock().unwrap() = Some(limit);
+            record_limit(&app, limit);
             let view = view(&state, tracked, untracked, &cache);
             let updates = view.mods.iter().filter(|m| matches!(m.status, Status::Update { .. })).count();
             log::info!("nexus check: {} mod(s), {updates} update(s), rate limit {limit:?}", view.mods.len());
@@ -326,7 +375,13 @@ pub enum JobState {
     Retry { attempt: u32, delay_secs: u64, error: String },
     /// Waiting for a build update or an integrity check to finish.
     Waiting,
+    /// MO2 or the game is running: the install follows once they close.
+    WaitingMo2,
     Installing,
+    /// A FOMOD installer waits for the player's choice.
+    Choosing,
+    /// No rule recognizes the archive: the player picks the mod's folder.
+    ChoosingRoot,
     Done { outcome: Outcome },
     Failed { error: String },
     Cancelled,
@@ -336,6 +391,34 @@ impl JobState {
     fn is_final(&self) -> bool {
         matches!(self, JobState::Done { .. } | JobState::Failed { .. } | JobState::Cancelled)
     }
+
+    /// Parked: nothing runs, the job waits for the player or for MO2.
+    fn is_parked(&self) -> bool {
+        matches!(self, JobState::WaitingMo2 | JobState::Choosing | JobState::ChoosingRoot)
+    }
+}
+
+/// What a queued job does when the worker takes it.
+#[derive(Clone)]
+enum Work {
+    /// Download the file of an nxm link, then install it.
+    Fetch(NxmLink),
+    /// Install an archive from MO2's downloads or the player's disk.
+    Install { archive: PathBuf, after: Option<String> },
+    /// Install the parked archive as it is (it waited for MO2 to close).
+    Resume,
+    /// Install the parked FOMOD archive with this choice.
+    Fomod(Selection),
+    /// Install this folder of the parked archive as the mod.
+    Root(String),
+}
+
+#[derive(Clone, Copy, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum Source {
+    Nexus,
+    /// An archive from MO2's downloads or the player's disk.
+    File,
 }
 
 /// One file to download and install, as the UI shows it.
@@ -343,10 +426,11 @@ impl JobState {
 #[serde(rename_all = "camelCase")]
 pub struct Job {
     id: u64,
+    source: Source,
     game: String,
     mod_id: u64,
     file_id: u64,
-    /// Mod page title once known.
+    /// Mod page title once known; the archive's name for a file.
     title: Option<String>,
     file_title: Option<String>,
     version: Option<String>,
@@ -354,9 +438,37 @@ pub struct Job {
     replaces: Option<String>,
     state: JobState,
     #[serde(skip)]
-    link: Option<NxmLink>,
+    work: Option<Work>,
     #[serde(skip)]
     cancel: Arc<AtomicBool>,
+}
+
+impl Job {
+    fn new(id: u64, source: Source, work: Option<Work>, state: JobState) -> Self {
+        Job {
+            id,
+            source,
+            game: String::new(),
+            mod_id: 0,
+            file_id: 0,
+            title: None,
+            file_title: None,
+            version: None,
+            replaces: None,
+            state,
+            work,
+            cancel: Arc::new(AtomicBool::new(false)),
+        }
+    }
+
+    fn describe(&mut self, dl: &Download) {
+        self.game = dl.game.clone();
+        self.mod_id = dl.mod_id;
+        self.file_id = dl.file_id;
+        self.title = Some(dl.mod_name.clone()).filter(|t| !t.is_empty()).or_else(|| Some(dl.file_name.clone()));
+        self.file_title = Some(dl.file_title.clone()).filter(|t| !t.is_empty());
+        self.version = dl.version.clone();
+    }
 }
 
 fn update_job(app: &AppHandle, id: u64, f: impl FnOnce(&mut Job)) {
@@ -370,29 +482,65 @@ fn update_job(app: &AppHandle, id: u64, f: impl FnOnce(&mut Job)) {
     let _ = app.emit("nexus-job", snapshot);
 }
 
-fn enqueue(app: &AppHandle, link: NxmLink) -> u64 {
+fn push_job(app: &AppHandle, f: impl FnOnce(u64) -> Job) -> u64 {
     let state = app.state::<AppState>();
     let id = state.nexus.next_id.fetch_add(1, Ordering::Relaxed) + 1;
-    let job = Job {
-        id,
-        game: link.game.clone(),
-        mod_id: link.mod_id,
-        file_id: link.file_id,
-        title: None,
-        file_title: None,
-        version: None,
-        replaces: None,
-        state: JobState::Queued,
-        link: Some(link),
-        cancel: Arc::new(AtomicBool::new(false)),
-    };
+    let job = f(id);
+    let queued = matches!(job.state, JobState::Queued);
     state.nexus.jobs.lock().unwrap().push(job.clone());
     let _ = app.emit("nexus-job", job);
-    if !state.nexus.worker.swap(true, Ordering::SeqCst) {
+    if queued {
+        start_worker(app);
+    }
+    id
+}
+
+fn enqueue(app: &AppHandle, link: NxmLink) -> u64 {
+    push_job(app, |id| {
+        let mut job = Job::new(id, Source::Nexus, None, JobState::Queued);
+        (job.game, job.mod_id, job.file_id) = (link.game.clone(), link.mod_id, link.file_id);
+        job.work = Some(Work::Fetch(link));
+        job
+    })
+}
+
+fn start_worker(app: &AppHandle) {
+    if !app.state::<AppState>().nexus.worker.swap(true, Ordering::SeqCst) {
         let app = app.clone();
         std::thread::spawn(move || work(&app));
     }
-    id
+}
+
+/// Puts `WaitingMo2` jobs back in the queue once MO2 and the game are closed.
+fn start_watcher(app: &AppHandle) {
+    if app.state::<AppState>().nexus.watcher.swap(true, Ordering::SeqCst) {
+        return;
+    }
+    let app = app.clone();
+    std::thread::spawn(move || {
+        let state = app.state::<AppState>();
+        loop {
+            std::thread::sleep(MO2_POLL);
+            let waiting: Vec<u64> =
+                state.nexus.jobs.lock().unwrap().iter().filter(|j| matches!(j.state, JobState::WaitingMo2)).map(|j| j.id).collect();
+            if waiting.is_empty() {
+                state.nexus.watcher.store(false, Ordering::SeqCst);
+                // A job parked between the look and the flag would wait forever.
+                let again = state.nexus.jobs.lock().unwrap().iter().any(|j| matches!(j.state, JobState::WaitingMo2));
+                if again && !state.nexus.watcher.swap(true, Ordering::SeqCst) {
+                    continue;
+                }
+                return;
+            }
+            if running_processes() == (false, false) {
+                log::info!("MO2 and the game are closed: {} waiting install(s) resume", waiting.len());
+                for id in waiting {
+                    update_job(&app, id, |j| j.state = JobState::Queued);
+                }
+                start_worker(&app);
+            }
+        }
+    });
 }
 
 /// An nxm link from the command line: the launcher was started for it, or a
@@ -411,34 +559,19 @@ pub fn receive(app: &AppHandle, url: &str) {
             } else {
                 format!("Непонятная ссылка: {url}")
             };
-            let id = enqueue_failed(app, error);
+            let id = push_job(app, |id| Job::new(id, Source::Nexus, None, JobState::Failed { error }));
             log::warn!("nxm job {id} rejected");
         }
     }
 }
 
-fn enqueue_failed(app: &AppHandle, error: String) -> u64 {
-    let state = app.state::<AppState>();
-    let id = state.nexus.next_id.fetch_add(1, Ordering::Relaxed) + 1;
-    let job = Job {
-        id,
-        game: String::new(),
-        mod_id: 0,
-        file_id: 0,
-        title: None,
-        file_title: None,
-        version: None,
-        replaces: None,
-        state: JobState::Failed { error },
-        link: None,
-        cancel: Arc::new(AtomicBool::new(false)),
-    };
-    state.nexus.jobs.lock().unwrap().push(job.clone());
-    let _ = app.emit("nexus-job", job);
-    id
+/// Where a job is after a run.
+enum Next {
+    Done(Outcome),
+    Parked(JobState),
 }
 
-/// Downloads queued jobs until none is left.
+/// Runs queued jobs until none is left.
 fn work(app: &AppHandle) {
     let state = app.state::<AppState>();
     loop {
@@ -455,23 +588,37 @@ fn work(app: &AppHandle) {
             }
             return;
         };
-        let result = run_job(app, &job);
-        let final_state = match result {
-            Ok(Ok(outcome)) => JobState::Done { outcome },
+        let new_state = match run_job(app, &job) {
+            Ok(Ok(Next::Parked(parked))) => parked,
+            Ok(Ok(Next::Done(outcome))) => {
+                log::info!("job {} ({:?}): {outcome:?}", job.id, job.title);
+                let _ = app.emit("nexus-changed", ());
+                JobState::Done { outcome }
+            }
             Ok(Err(BuildMod(folder))) => JobState::Failed {
                 error: format!("«{folder}» входит в сборку: он обновляется вместе со сборкой, а не с Nexus"),
             },
             Err(lyno_core::Error::Cancelled) => JobState::Cancelled,
             Err(e) => {
-                log::error!("nexus download {}/{}: {e}", job.mod_id, job.file_id);
-                JobState::Failed { error: nexus_error(&e) }
+                log::error!("job {} ({:?}): {e}", job.id, job.title);
+                JobState::Failed { error: job_error(&e) }
             }
         };
-        if let JobState::Done { outcome } = &final_state {
-            log::info!("nexus download {}/{}: {outcome:?}", job.mod_id, job.file_id);
-            let _ = app.emit("nexus-changed", ());
+        if !new_state.is_parked() {
+            state.nexus.parked.lock().unwrap().remove(&job.id);
         }
-        update_job(app, job.id, |j| j.state = final_state);
+        if matches!(new_state, JobState::WaitingMo2) {
+            start_watcher(app);
+        }
+        update_job(app, job.id, |j| j.state = new_state);
+    }
+}
+
+fn job_error(e: &lyno_core::Error) -> String {
+    match e {
+        lyno_core::Error::Fomod(m) => format!("Не удалось установить: {m}"),
+        lyno_core::Error::Parse { message, .. } => format!("Не удалось прочитать архив: {message}"),
+        e => nexus_error(e),
     }
 }
 
@@ -479,14 +626,9 @@ fn busy(state: &AppState) -> bool {
     state.update.lock().unwrap().is_some() || state.verify.lock().unwrap().is_some() || state.author_job.lock().unwrap().is_some()
 }
 
-fn run_job(app: &AppHandle, job: &Job) -> lyno_core::Result<Result<Outcome, BuildMod>> {
+fn run_job(app: &AppHandle, job: &Job) -> lyno_core::Result<Result<Next, BuildMod>> {
     let state = app.state::<AppState>();
-    let link = job.link.clone().ok_or(lyno_core::Error::Cancelled)?;
-    let key = secrets::get(Secret::NexusKey).ok_or_else(|| lyno_core::Error::Nexus {
-        status: 401,
-        message: String::new(),
-    })?;
-    let api = NexusApi::new(&key);
+    let work = job.work.clone().ok_or(lyno_core::Error::Cancelled)?;
     let settings = state.settings.lock().unwrap().clone();
     let inst = Instance::new(&settings.instance_dir);
     if !inst.is_installed() {
@@ -505,30 +647,107 @@ fn run_job(app: &AppHandle, job: &Job) -> lyno_core::Result<Result<Outcome, Buil
         }
     }
     let (game, mo2) = running_processes();
-    let ctx = Context { inst: &inst, profile: &profile(&inst), author: settings.author_mode, mo2_running: game || mo2, now: now() };
-    let mut last_emit = std::time::Instant::now() - Duration::from_secs(1);
+    let mo2_running = game || mo2;
+    let profile = profile(&inst);
     let id = job.id;
-    let result = mod_install::fetch_and_install(&api, &Downloader::new(), &ctx, &link, &cancelled, &mut |p| match p {
-        Progress::Resolved { mod_name, file_title, version, size, replaces } => update_job(app, id, |j| {
-            j.title = Some(mod_name);
-            j.file_title = Some(file_title);
-            j.version = version;
-            j.replaces = replaces;
-            j.state = JobState::Downloading { done: 0, total: size };
-        }),
-        Progress::Bytes { done, total } => {
-            if last_emit.elapsed() >= Duration::from_millis(150) || done == total {
-                last_emit = std::time::Instant::now();
-                update_job(app, id, |j| j.state = JobState::Downloading { done, total });
+
+    let parked = || app.state::<AppState>().nexus.parked.lock().unwrap().get(&id).cloned().ok_or(lyno_core::Error::Cancelled);
+    let outcome = match work {
+        Work::Fetch(link) => {
+            let key = secrets::get(Secret::NexusKey).ok_or_else(|| lyno_core::Error::Nexus { status: 401, message: String::new() })?;
+            let api = NexusApi::new(&key);
+            let ctx = Context { inst: &inst, profile: &profile, author: settings.author_mode, mo2_running, now: now() };
+            let mut last_emit = std::time::Instant::now() - Duration::from_secs(1);
+            let result = mod_install::fetch_and_install(&api, &Downloader::new(), &ctx, &link, &cancelled, &mut |p| match p {
+                Progress::Resolved { mod_name, file_title, version, size, replaces } => update_job(app, id, |j| {
+                    j.title = Some(mod_name);
+                    j.file_title = Some(file_title);
+                    j.version = version;
+                    j.replaces = replaces;
+                    j.state = JobState::Downloading { done: 0, total: size };
+                }),
+                Progress::Bytes { done, total } => {
+                    if last_emit.elapsed() >= Duration::from_millis(150) || done == total {
+                        last_emit = std::time::Instant::now();
+                        update_job(app, id, |j| j.state = JobState::Downloading { done, total });
+                    }
+                }
+                Progress::Retry { attempt, delay_secs, error } => {
+                    update_job(app, id, |j| j.state = JobState::Retry { attempt, delay_secs, error })
+                }
+                Progress::Installing => update_job(app, id, |j| j.state = JobState::Installing),
+            });
+            record_limit(app, api.rate_limit());
+            match result? {
+                Ok((download, outcome)) => return Ok(Ok(park(app, id, &inst, download, outcome))),
+                Err(build_mod) => return Ok(Err(build_mod)),
             }
         }
-        Progress::Retry { attempt, delay_secs, error } => {
-            update_job(app, id, |j| j.state = JobState::Retry { attempt, delay_secs, error })
+        Work::Install { archive, after } => {
+            let download = mod_install::download_for(&archive);
+            update_job(app, id, |j| j.describe(&download));
+            let target = match mod_install::target_for(&inst, &profile, &download, settings.author_mode, after)? {
+                Ok(t) => t,
+                Err(build_mod) => return Ok(Err(build_mod)),
+            };
+            if let Target::Replace(folder) = &target {
+                update_job(app, id, |j| j.replaces = Some(folder.clone()));
+            }
+            if mo2_running {
+                let parked = Parked { archive, download, target, fomod: None };
+                app.state::<AppState>().nexus.parked.lock().unwrap().insert(id, Arc::new(parked));
+                update_job(app, id, |j| j.work = Some(Work::Resume));
+                return Ok(Ok(Next::Parked(JobState::WaitingMo2)));
+            }
+            update_job(app, id, |j| j.state = JobState::Installing);
+            let outcome = mod_install::install(&inst, &profile, &archive, &download, &target)?;
+            return Ok(Ok(park(app, id, &inst, download, outcome)));
         }
-        Progress::Installing => update_job(app, id, |j| j.state = JobState::Installing),
-    });
-    *state.nexus.rate_limit.lock().unwrap() = Some(api.rate_limit());
-    result.map(|r| r.map(|(_, outcome)| outcome))
+        // The rest install a parked archive; MO2 open again means waiting again.
+        _ if mo2_running => return Ok(Ok(Next::Parked(JobState::WaitingMo2))),
+        Work::Resume => {
+            let p = parked()?;
+            update_job(app, id, |j| j.state = JobState::Installing);
+            let outcome = mod_install::install(&inst, &profile, &p.archive, &p.download, &p.target)?;
+            return Ok(Ok(park(app, id, &inst, p.download.clone(), outcome)));
+        }
+        Work::Fomod(choice) => {
+            let p = parked()?;
+            let fomod = p.fomod.as_ref().ok_or(lyno_core::Error::Cancelled)?;
+            update_job(app, id, |j| j.state = JobState::Installing);
+            mod_install::install_fomod(&inst, &profile, fomod, &p.download, &p.target, &choice)?
+        }
+        Work::Root(root) => {
+            let p = parked()?;
+            update_job(app, id, |j| j.state = JobState::Installing);
+            mod_install::install_root(&inst, &profile, &p.archive, &p.download, &p.target, &root)?
+        }
+    };
+    Ok(Ok(Next::Done(outcome)))
+}
+
+/// Parks a job whose install stopped halfway; anything else is done.
+fn park(app: &AppHandle, id: u64, inst: &Instance, download: Download, outcome: Outcome) -> Next {
+    let (archive, target, state, work) = match &outcome {
+        Outcome::Deferred { archive, target } => (archive, target, JobState::WaitingMo2, Work::Resume),
+        Outcome::Manual { archive, target } => (archive, target, JobState::ChoosingRoot, Work::Resume),
+        Outcome::Fomod { archive, target } => match mod_install::open_fomod(inst, archive, target) {
+            Ok(fomod) => {
+                let parked = Parked { archive: archive.clone(), download, target: target.clone(), fomod: Some(fomod) };
+                app.state::<AppState>().nexus.parked.lock().unwrap().insert(id, Arc::new(parked));
+                return Next::Parked(JobState::Choosing);
+            }
+            Err(e) => {
+                log::warn!("FOMOD {}: {e}", archive.display());
+                (archive, target, JobState::ChoosingRoot, Work::Resume)
+            }
+        },
+        _ => return Next::Done(outcome),
+    };
+    let parked = Parked { archive: archive.clone(), download, target: target.clone(), fomod: None };
+    app.state::<AppState>().nexus.parked.lock().unwrap().insert(id, Arc::new(parked));
+    update_job(app, id, |j| j.work = Some(work));
+    Next::Parked(state)
 }
 
 #[tauri::command]
@@ -539,14 +758,16 @@ pub fn nexus_jobs(state: TauriState<'_, AppState>) -> Vec<Job> {
 #[tauri::command]
 pub fn nexus_cancel_job(app: AppHandle, id: u64) {
     let state = app.state::<AppState>();
-    let queued = {
+    let idle = {
         let jobs = state.nexus.jobs.lock().unwrap();
         let Some(job) = jobs.iter().find(|j| j.id == id) else { return };
         job.cancel.store(true, Ordering::Relaxed);
-        matches!(job.state, JobState::Queued)
+        matches!(job.state, JobState::Queued) || job.state.is_parked()
     };
-    // A running job notices the flag; a queued one never starts.
-    if queued {
+    // A running job notices the flag; a queued one never starts. A parked
+    // archive stays in MO2's downloads, where it can still be installed.
+    if idle {
+        state.nexus.parked.lock().unwrap().remove(&id);
         update_job(&app, id, |j| j.state = JobState::Cancelled);
     }
 }
@@ -566,4 +787,122 @@ pub fn nexus_download(app: AppHandle, game: String, mod_id: u64, file_id: u64) -
         return Err("Без Premium Nexus отдаёт файлы только по кнопке «Mod Manager Download» на сайте".into());
     }
     Ok(enqueue(&app, NxmLink { game, mod_id, file_id, key: None, expires: None }))
+}
+
+/// The newest archives of MO2's downloads, for the downloads list.
+#[tauri::command]
+pub async fn downloads_recent(app: AppHandle) -> CmdResult<Vec<DownloadItem>> {
+    let (inst, _) = instance(&app.state::<AppState>())?;
+    tauri::async_runtime::spawn_blocking(move || mod_install::recent_downloads(&inst, 40)).await.map_err(err)?.map_err(err)
+}
+
+/// Installs an archive: a file name in MO2's downloads (the downloads list)
+/// or a path dropped from Explorer. `after`: the list entry it was dropped
+/// below (`None`: the end of the player's section).
+#[tauri::command]
+pub fn install_archive(app: AppHandle, file: String, after: Option<String>) -> CmdResult<u64> {
+    let (inst, _) = instance(&app.state::<AppState>())?;
+    let path = PathBuf::from(&file);
+    let archive = match path.is_absolute() {
+        true => path,
+        false if file.contains(['/', '\\']) => return Err(format!("Непонятный путь: {file}")),
+        false => inst.downloads_dir().join(&file),
+    };
+    if !archive.is_file() {
+        return Err(format!("Файл не найден: {}", archive.display()));
+    }
+    log::info!("install {} (after {after:?})", archive.display());
+    Ok(push_job(&app, |id| {
+        let mut job = Job::new(id, Source::File, Some(Work::Install { archive: archive.clone(), after }), JobState::Queued);
+        job.title = archive.file_name().map(|n| n.to_string_lossy().into_owned());
+        job
+    }))
+}
+
+fn parked(app: &AppHandle, id: u64) -> CmdResult<Arc<Parked>> {
+    app.state::<AppState>().nexus.parked.lock().unwrap().get(&id).cloned().ok_or_else(|| "Установка уже закрыта: начните её заново".into())
+}
+
+fn requeue(app: &AppHandle, id: u64, work: Work) {
+    update_job(app, id, |j| {
+        j.work = Some(work);
+        j.state = JobState::Queued;
+    });
+    start_worker(app);
+}
+
+/// Folders of a `ChoosingRoot` archive, to pick the mod from.
+#[tauri::command]
+pub async fn install_roots(app: AppHandle, id: u64) -> CmdResult<Vec<Root>> {
+    let p = parked(&app, id)?;
+    tauri::async_runtime::spawn_blocking(move || mod_install::roots(&p.archive)).await.map_err(err)?.map_err(|e| job_error(&e))
+}
+
+/// Installs the folder `root` of a `ChoosingRoot` archive as the mod.
+#[tauri::command]
+pub fn install_set_root(app: AppHandle, id: u64, root: String) -> CmdResult<()> {
+    parked(&app, id)?;
+    requeue(&app, id, Work::Root(root));
+    Ok(())
+}
+
+/// The FOMOD wizard of a job: the installer, its images and the first state.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FomodWizard {
+    outline: Outline,
+    /// `data:` URLs by installer path.
+    images: HashMap<String, String>,
+    /// The choice of the installed version this file replaces.
+    previous: Option<Selection>,
+    state: Evaluated,
+}
+
+fn fomod_of(app: &AppHandle, id: u64) -> CmdResult<(Arc<Parked>, Instance, String)> {
+    let p = parked(app, id)?;
+    if p.fomod.is_none() {
+        return Err("У этого архива нет установщика FOMOD".into());
+    }
+    let (inst, profile) = instance(&app.state::<AppState>())?;
+    Ok((p, inst, profile))
+}
+
+#[tauri::command]
+pub async fn nexus_fomod(app: AppHandle, id: u64) -> CmdResult<FomodWizard> {
+    let (p, inst, profile) = fomod_of(&app, id)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let fomod = p.fomod.as_ref().expect("checked");
+        // Images of a solid 7z need its stream read up to them: worth a log line, not a failure.
+        let images = fomod.images().unwrap_or_else(|e| {
+            log::warn!("FOMOD images: {e}");
+            HashMap::new()
+        });
+        let selection = fomod.previous.clone().unwrap_or_default();
+        let state = fomod.installer.evaluate(&selection, &mod_install::file_states(&inst, &profile));
+        FomodWizard { outline: fomod.installer.outline(), images, previous: fomod.previous.clone(), state }
+    })
+    .await
+    .map_err(err)
+}
+
+/// The wizard after a click: visible steps, plugin types and the selection
+/// with the installer's rules applied.
+#[tauri::command]
+pub fn nexus_fomod_eval(app: AppHandle, id: u64, selection: Selection) -> CmdResult<Evaluated> {
+    let (p, inst, profile) = fomod_of(&app, id)?;
+    Ok(p.fomod.as_ref().expect("checked").installer.evaluate(&selection, &mod_install::file_states(&inst, &profile)))
+}
+
+/// Puts the job back in the queue to install `selection`; with MO2 open it
+/// waits for MO2 to close.
+#[tauri::command]
+pub fn nexus_fomod_install(app: AppHandle, id: u64, selection: Selection) -> CmdResult<()> {
+    let (p, inst, profile) = fomod_of(&app, id)?;
+    let installer = &p.fomod.as_ref().expect("checked").installer;
+    let ev = installer.evaluate(&selection, &mod_install::file_states(&inst, &profile));
+    if let Some(step) = ev.valid.iter().position(|v| !v) {
+        return Err(format!("Шаг «{}»: выберите варианты", installer.steps[step].name));
+    }
+    requeue(&app, id, Work::Fomod(selection));
+    Ok(())
 }

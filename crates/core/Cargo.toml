@@ -24,6 +24,10 @@ tungstenite = { version = "0.30", features = ["rustls-tls-webpki-roots"] }
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "logging", "tls12"] }
 webpki-roots = "1"
 uuid = { version = "1", features = ["v4"] }
+# FOMOD installers (`fomod/ModuleConfig.xml`).
+roxmltree = "0.21"
+# RAR mod archives: RARLAB's UnRAR source, built with the C++ compiler the Tauri build already needs.
+unrar = "0.5"
 
 [target.'cfg(windows)'.dependencies]
 winreg = "0.55"

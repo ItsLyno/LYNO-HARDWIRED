@@ -209,6 +209,11 @@ impl Period {
 pub struct RateLimit {
     pub daily: Option<u64>,
     pub hourly: Option<u64>,
+    /// Allowances (`x-rl-*-limit`): 20 000 a day, 500 an hour at the time of writing.
+    #[serde(default)]
+    pub daily_limit: Option<u64>,
+    #[serde(default)]
+    pub hourly_limit: Option<u64>,
 }
 
 /// The Nexus Mods API with the player's key.
@@ -251,7 +256,12 @@ impl NexusApi {
             .call()
             .map_err(|e| Error::Download(format!("Nexus: {e}")))?;
         let header = |name: &str| resp.headers().get(name).and_then(|v| v.to_str().ok()).and_then(|v| v.trim().parse().ok());
-        let limit = RateLimit { daily: header("x-rl-daily-remaining"), hourly: header("x-rl-hourly-remaining") };
+        let limit = RateLimit {
+            daily: header("x-rl-daily-remaining"),
+            hourly: header("x-rl-hourly-remaining"),
+            daily_limit: header("x-rl-daily-limit"),
+            hourly_limit: header("x-rl-hourly-limit"),
+        };
         if limit != RateLimit::default() {
             *self.limit.lock().unwrap() = limit;
         }

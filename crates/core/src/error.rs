@@ -26,6 +26,9 @@ pub enum Error {
     /// The Nexus API answered with an error status.
     #[error("Nexus: HTTP {status} {message}")]
     Nexus { status: u16, message: String },
+    /// A FOMOD installer can't be installed as chosen.
+    #[error("FOMOD: {0}")]
+    Fomod(String),
     #[error(transparent)]
     Json(#[from] serde_json::Error),
 }
