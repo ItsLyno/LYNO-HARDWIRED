@@ -182,7 +182,7 @@ mod tests {
             last_update: None,
             mods: mods
                 .iter()
-                .map(|(id, folder, hash)| (id.to_string(), InstalledMod { folder: folder.to_string(), hash: hash.to_string(), damaged: false }))
+                .map(|(id, folder, hash)| (id.to_string(), InstalledMod { folder: folder.to_string(), hash: hash.to_string(), damaged: false, reset_settings: false }))
                 .collect(),
         }
     }

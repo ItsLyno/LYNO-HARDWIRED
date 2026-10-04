@@ -27,7 +27,7 @@ interface AppStore {
   startUpdate: () => Promise<void>;
   setModEnabled: (id: string, enabled: boolean) => Promise<void>;
   verify: () => Promise<void>;
-  startRepair: (ids: string[], base: boolean) => Promise<void>;
+  startRepair: (ids: string[], base: boolean, resetSettings: boolean) => Promise<void>;
   onUpdateEvent: (e: UpdateEvent) => void;
   onVerifyEvent: (e: UpdateEvent) => void;
   onUpdateFinished: (ok: boolean, error: string | null) => void;
@@ -105,10 +105,10 @@ export const useApp = create<AppStore>((set, get) => ({
     }
   },
   // Repair is an update of the marked mods; its progress shows where update progress does.
-  startRepair: async (ids, base) => {
+  startRepair: async (ids, base, resetSettings) => {
     set({ progress: { step: null, bytes: null } });
     try {
-      await api.startRepair(ids, base);
+      await api.startRepair(ids, base, resetSettings);
       set({ verifyReport: null, page: "updates" });
       await get().refreshStatus();
     } catch (e) {

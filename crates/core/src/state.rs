@@ -49,6 +49,10 @@ pub struct InstalledMod {
     /// update downloads the package again.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub damaged: bool,
+    /// With `damaged`: the repair also brings back the build's settings files
+    /// instead of keeping the player's (see [`crate::rules::is_settings`]).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub reset_settings: bool,
 }
 
 impl State {
@@ -99,7 +103,7 @@ mod tests {
         assert_eq!(State::load(&p).unwrap(), State::default());
 
         let mut s = State { build_version: Some("1.0".into()), ..Default::default() };
-        s.mods.insert("cet".into(), InstalledMod { folder: "CET".into(), hash: "h".into(), damaged: false });
+        s.mods.insert("cet".into(), InstalledMod { folder: "CET".into(), hash: "h".into(), damaged: false, reset_settings: false });
         s.save(&p).unwrap();
         assert_eq!(State::load(&p).unwrap(), s);
         assert!(s.is_managed_folder("CET"));

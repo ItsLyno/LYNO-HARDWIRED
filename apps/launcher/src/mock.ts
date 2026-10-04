@@ -113,12 +113,26 @@ async function simulateVerify(): Promise<VerifyReport | null> {
       verifyProgress?.({ kind: "bytes", done, total });
     }
   }
+  const files = (...sample: string[]) => ({ count: sample.length, sample });
   return {
     checked: installed.length,
     damaged: [
-      { id: null, folder: "", problem: { kind: "missingFiles", count: 2, files: ["ModOrganizer.exe", "dlls/QtCore.dll"] } },
-      { id: "cyber-engine-tweaks", folder: "Cyber Engine Tweaks", problem: { kind: "changed" } },
+      {
+        id: null,
+        folder: "",
+        problem: { kind: "files", missing: files("ModOrganizer.exe", "dlls/Qt6Core.dll"), changed: files(), added: files() },
+      },
+      {
+        id: "cyber-engine-tweaks",
+        folder: "Cyber Engine Tweaks",
+        problem: { kind: "files", missing: files("bin/x64/plugins/cyber_engine_tweaks.asi"), changed: files(), added: files() },
+      },
       { id: "nova-lut", folder: "Nova LUT", problem: { kind: "missingFolder" } },
+      { id: "ultra-plus", folder: "Ultra Plus", problem: { kind: "changed" } },
+    ],
+    customized: [
+      { id: "cyber-engine-tweaks", folder: "Cyber Engine Tweaks", files: files("bin/x64/plugins/cyber_engine_tweaks/bindings.json") },
+      { id: "mod-settings", folder: "Mod Settings", files: files("red4ext/plugins/mod_settings/user.ini") },
     ],
   };
 }
@@ -174,7 +188,7 @@ export const mock = {
   cancelVerify: async () => {
     verifyCancelled = true;
   },
-  startRepair: async (_ids: string[], _base: boolean) => {
+  startRepair: async (_ids: string[], _base: boolean, _resetSettings: boolean) => {
     cancelled = false;
     status = { ...status, updating: true };
     void simulateUpdate();

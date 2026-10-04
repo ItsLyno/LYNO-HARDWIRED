@@ -52,6 +52,7 @@ fn author_instance(root: &Path) {
     write(root, "mods/Core_separator/meta.ini", b"");
     write(root, "mods/CET/meta.ini", b"[General]\nmodid=107\nversion=1.35\ngameName=cyberpunk2077\n");
     write(root, "mods/CET/bin/x64/plugins/cyber_engine_tweaks.asi", &noise(300_000, 1));
+    write(root, "mods/CET/bin/x64/plugins/cyber_engine_tweaks/bindings.json", b"{\"overlay\": \"F1\"}");
     write(root, "mods/Archive Mod/meta.ini", b"[General]\nmodid=555\nversion=2.0\n[LYNO]\noptional=true\n");
     write(root, "mods/Archive Mod/archive/pc/mod/a.archive", &noise(200_000, 2));
     write(root, "mods/REDmod Thing/meta.ini", b"[General]\nmodid=777\n");
@@ -277,27 +278,42 @@ fn build_install_update() {
     assert!(!user_root.join(".lyno/cache").exists());
 
     // Integrity check: a fresh install is intact even after MO2 and the game
-    // touched it; then antivirus eats CET and an MO2 file, and repair downloads
-    // only those again without counting as an update.
+    // touched it. The player rebinds CET (a setting, not damage); antivirus eats
+    // CET's .asi and MO2's exe. Repair downloads only those again, keeps the
+    // binding and doesn't count as an update; a repair with reset brings back
+    // the build's binding.
     let check_integrity = || verify(&user, &State::load(&state_path(&user)).unwrap(), &AtomicBool::new(false), &mut |_| {}).unwrap();
+    let repair = |ids: &[&str], base: bool, reset: bool| {
+        let mut st = State::load(&state_path(&user)).unwrap();
+        mark(&mut st, &ids.iter().map(|s| s.to_string()).collect::<Vec<_>>(), base, reset);
+        st.save(&state_path(&user)).unwrap();
+        install(&user, &m2)
+    };
+    let bindings = user_root.join("mods/CET/bin/x64/plugins/cyber_engine_tweaks/bindings.json");
     write(&user_root, "mods/CET/meta.ini", b"[General]\nlastNexusQuery=2026-10-05\n");
     write(&user_root, "mods/CET/bin/x64/plugins/cyber_engine_tweaks/cyber_engine_tweaks.log", b"log");
-    assert_eq!(check_integrity().damaged, []);
+    let report = check_integrity();
+    assert_eq!((report.damaged.len(), report.customized.len()), (0, 0), "{report:?}");
+    std::fs::write(&bindings, b"{\"overlay\": \"F2\"}").unwrap();
     std::fs::remove_file(user_root.join("mods/CET/bin/x64/plugins/cyber_engine_tweaks.asi")).unwrap();
     std::fs::remove_file(user_root.join("ModOrganizer.exe")).unwrap();
     let report = check_integrity();
     assert_eq!(report.checked, 4);
     assert_eq!(report.damaged.len(), 2, "{report:?}");
-    assert_eq!(report.damaged[0].problem, Problem::MissingFiles { count: 1, files: vec!["ModOrganizer.exe".into()] });
-    assert_eq!((report.damaged[1].id.as_deref(), &report.damaged[1].problem), (Some("cet"), &Problem::Changed));
-    let mut st = State::load(&state_path(&user)).unwrap();
-    mark(&mut st, &["cet".into()], true);
-    st.save(&state_path(&user)).unwrap();
+    let Problem::Files { missing, .. } = &report.damaged[0].problem else { panic!("{report:?}") };
+    assert_eq!(missing.sample, ["ModOrganizer.exe"]);
+    let Problem::Files { missing, changed, added } = &report.damaged[1].problem else { panic!("{report:?}") };
+    assert_eq!(report.damaged[1].id.as_deref(), Some("cet"));
+    assert_eq!((missing.sample.as_slice(), changed.count, added.count), (&["bin/x64/plugins/cyber_engine_tweaks.asi".to_string()][..], 0, 0));
+    assert_eq!(report.customized[0].files.sample, ["bin/x64/plugins/cyber_engine_tweaks/bindings.json"]);
+
     requests.lock().unwrap().clear();
-    let actions = install(&user, &m2);
-    assert_eq!(actions, [Action::Base, Action::Repair { id: "cet".into(), from_folder: "CET".into() }]);
+    assert_eq!(repair(&["cet"], true, false), [Action::Base, Action::Repair { id: "cet".into(), from_folder: "CET".into() }]);
     assert!(requests.lock().unwrap().iter().all(|r| r.starts_with("cet-") || r.starts_with("base-")), "{requests:?}");
-    assert_eq!(check_integrity().damaged, []);
+    let report = check_integrity();
+    assert_eq!(report.damaged, []);
+    assert_eq!(report.customized.len(), 1, "the binding is still the player's");
+    assert_eq!(std::fs::read(&bindings).unwrap(), b"{\"overlay\": \"F2\"}");
     assert!(user_root.join("ModOrganizer.exe").exists());
     let st = State::load(&state_path(&user)).unwrap();
     assert!(!st.base_damaged && !st.mods["cet"].damaged);
@@ -305,6 +321,12 @@ fn build_install_update() {
     let list = ModList::load(&user.modlist_path("LYNO")).unwrap();
     assert_eq!(list.get("Archive Mod").unwrap().state, EntryState::Disabled, "player's choice survives a repair");
     assert!(user_root.join("mods/My Tweak/x.archive").exists());
+
+    assert_eq!(repair(&["cet"], false, true), [Action::Repair { id: "cet".into(), from_folder: "CET".into() }]);
+    assert_eq!(std::fs::read(&bindings).unwrap(), b"{\"overlay\": \"F1\"}");
+    let report = check_integrity();
+    assert_eq!((report.damaged.len(), report.customized.len()), (0, 0), "{report:?}");
+    assert!(!State::load(&state_path(&user)).unwrap().mods["cet"].reset_settings);
 
     // Before publishing: every part, including ones reused from 1.0.0, is
     // reachable with the right size; a missing or truncated asset is caught.

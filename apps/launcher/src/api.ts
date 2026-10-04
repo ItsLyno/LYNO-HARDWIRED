@@ -91,10 +91,17 @@ export interface UpdateFinished {
   error: string | null;
 }
 
+export interface Files {
+  count: number;
+  /** The first few paths. */
+  sample: string[];
+}
+
 export type Problem =
   | { kind: "missingFolder" }
+  /** Installed by an older launcher, no per-file record: changed settings can't be told from damage. */
   | { kind: "changed" }
-  | { kind: "missingFiles"; count: number; files: string[] };
+  | { kind: "files"; missing: Files; changed: Files; added: Files };
 
 export interface Damaged {
   /** Manifest mod id; null for MO2 and its config (the base package). */
@@ -103,9 +110,17 @@ export interface Damaged {
   problem: Problem;
 }
 
+export interface Customized {
+  id: string;
+  folder: string;
+  files: Files;
+}
+
 export interface VerifyReport {
   checked: number;
   damaged: Damaged[];
+  /** Mods with settings files the player changed: not damage, a repair keeps them. */
+  customized: Customized[];
 }
 
 export interface LauncherUpdate {
@@ -126,7 +141,8 @@ export const api = isTauri()
       /** Null when cancelled. */
       verifyBuild: () => invoke<VerifyReport | null>("verify_build"),
       cancelVerify: () => invoke<void>("cancel_verify"),
-      startRepair: (ids: string[], base: boolean) => invoke<void>("start_repair", { ids, base }),
+      startRepair: (ids: string[], base: boolean, resetSettings: boolean) =>
+        invoke<void>("start_repair", { ids, base, resetSettings }),
       setModEnabled: (id: string, enabled: boolean) => invoke<void>("set_mod_enabled", { id, enabled }),
       openModFolder: (id: string) => invoke<void>("open_mod_folder", { id }),
       openFolder: (folder: Folder) => invoke<void>("open_folder", { folder }),

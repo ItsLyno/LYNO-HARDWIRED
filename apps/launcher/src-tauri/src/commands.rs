@@ -404,7 +404,12 @@ pub async fn verify_build(app: AppHandle) -> CmdResult<Option<verify::Report>> {
     *state.verify.lock().unwrap() = None;
     match result.map_err(err)? {
         Ok(report) => {
-            log::info!("integrity check: {} mod(s) checked, damaged: {:?}", report.checked, report.damaged);
+            log::info!(
+                "integrity check: {} mod(s) checked, damaged: {:?}, changed settings: {:?}",
+                report.checked,
+                report.damaged,
+                report.customized
+            );
             Ok(Some(report))
         }
         Err(lyno_core::Error::Cancelled) => {
@@ -426,11 +431,11 @@ pub fn cancel_verify(state: TauriState<'_, AppState>) {
 }
 
 /// Marks the selected mods (manifest ids) and, with `base`, MO2 itself for
-/// download and starts an update that reinstalls them. A newer build, if
-/// there is one, is installed along the way: repair works with the latest
-/// manifest.
+/// download and starts an update that reinstalls them, keeping the player's
+/// settings files unless `reset_settings`. A newer build, if there is one,
+/// is installed along the way: repair works with the latest manifest.
 #[tauri::command]
-pub fn start_repair(app: AppHandle, ids: Vec<String>, base: bool) -> CmdResult<()> {
+pub fn start_repair(app: AppHandle, ids: Vec<String>, base: bool, reset_settings: bool) -> CmdResult<()> {
     let state = app.state::<AppState>();
     if state.manifest.lock().unwrap().is_none() {
         return Err("Нет связи с GitHub: файлы для починки негде скачать".into());
@@ -444,9 +449,9 @@ pub fn start_repair(app: AppHandle, ids: Vec<String>, base: bool) -> CmdResult<(
     let settings = state.settings.lock().unwrap().clone();
     let path = install::state_path(&Instance::new(&settings.instance_dir));
     let mut installed = State::load(&path).map_err(err)?;
-    verify::mark(&mut installed, &ids, base);
+    verify::mark(&mut installed, &ids, base, reset_settings);
     installed.save(&path).map_err(err)?;
-    log::info!("repair: mods {ids:?}, base {base}");
+    log::info!("repair: mods {ids:?}, base {base}, reset settings {reset_settings}");
     start_update(app)
 }
 

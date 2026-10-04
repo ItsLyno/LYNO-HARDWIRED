@@ -9,6 +9,7 @@ use std::sync::atomic::AtomicBool;
 use serde::Serialize;
 
 use crate::download::Downloader;
+use crate::files::{self, FileList};
 use crate::manifest::{Manifest, ModEntry, ModSpec, Package};
 use crate::mo2::Instance;
 use crate::modlist::Entry;
@@ -16,7 +17,7 @@ use crate::package;
 use crate::rules;
 use crate::plan::{Action, UpdatePlan};
 use crate::state::{InstalledMod, State};
-use crate::tree;
+use crate::tree::{self, FileEntry};
 use crate::{Error, Result};
 
 #[derive(Debug, Clone, Serialize)]
@@ -64,25 +65,36 @@ impl Installer<'_> {
                     let pkg = &self.manifest.base;
                     let dest = staging.join("base");
                     self.fetch_and_unpack(pkg, "base", &cache, &dest, &mut done_bytes, total_bytes, on)?;
-                    let files: Vec<String> = tree::list_files(&dest)?.into_iter().map(|f| f.path).collect();
+                    let base_files: Vec<String> = tree::list_files(&dest)?.into_iter().map(|f| f.path).collect();
                     package::merge_into(&dest, self.inst.root())?;
-                    remove_stale_base_files(self.inst.root(), &state.base_files, &files)?;
+                    remove_stale_base_files(self.inst.root(), &state.base_files, &base_files)?;
                     state.base_hash = Some(pkg.hash.clone());
-                    state.base_files = files;
+                    state.base_files = base_files;
                     state.base_damaged = false;
                 }
                 Action::Install { id } | Action::Update { id, .. } | Action::Repair { id, .. } => {
                     let spec = self.spec(id)?;
                     let dest = staging.join(&spec.id);
-                    self.fetch_and_unpack(&spec.package, &spec.id, &cache, &dest, &mut done_bytes, total_bytes, on)?;
+                    let hashes = self.fetch_and_unpack(&spec.package, &spec.id, &cache, &dest, &mut done_bytes, total_bytes, on)?;
+                    if let Action::Repair { from_folder, .. } = action {
+                        if !state.mods.get(id).is_some_and(|m| m.reset_settings) {
+                            keep_settings(&mods_dir.join(from_folder), &dest, &hashes)?;
+                        }
+                    }
                     package::swap_folder(&dest, &mods_dir.join(&spec.name))?;
+                    files::save(self.inst, &FileList::new(&spec.id, &spec.package.hash, &hashes))?;
                     move_shadowing_files(&self.inst.overwrite_dir(), &mods_dir.join(&spec.name), &backup)?;
                     if let Action::Update { from_folder, .. } | Action::Repair { from_folder, .. } = action {
                         if *from_folder != spec.name {
                             remove_dir(&mods_dir.join(from_folder))?;
                         }
                     }
-                    let installed = InstalledMod { folder: spec.name.clone(), hash: spec.package.hash.clone(), damaged: false };
+                    let installed = InstalledMod {
+                        folder: spec.name.clone(),
+                        hash: spec.package.hash.clone(),
+                        damaged: false,
+                        reset_settings: false,
+                    };
                     state.mods.insert(spec.id.clone(), installed);
                     // A repaired mod is the same version: no "updated" mark.
                     if !matches!(action, Action::Repair { .. }) {
@@ -105,6 +117,7 @@ impl Installer<'_> {
                 }
                 Action::Remove { id, folder } => {
                     remove_dir(&mods_dir.join(folder))?;
+                    files::remove(self.inst, id)?;
                     state.mods.remove(id);
                     let record = state.begin_update(&self.manifest.build_version);
                     record.added.retain(|a| a != id);
@@ -148,7 +161,7 @@ impl Installer<'_> {
         done: &mut u64,
         total: u64,
         on: &mut dyn FnMut(Event),
-    ) -> Result<()> {
+    ) -> Result<Vec<(FileEntry, String)>> {
         let mut paths = Vec::with_capacity(pkg.parts.len());
         for (i, part) in pkg.parts.iter().enumerate() {
             let path = cache.join(format!("{name}-{}.{:03}", &pkg.hash[..pkg.hash.len().min(16)], i + 1));
@@ -161,11 +174,11 @@ impl Installer<'_> {
             *done = start + part.size;
             paths.push(path);
         }
-        package::unpack(&paths, dest, &pkg.hash)?;
+        let hashes = package::unpack(&paths, dest, &pkg.hash)?;
         for p in &paths {
             let _ = std::fs::remove_file(p);
         }
-        Ok(())
+        Ok(hashes)
     }
 
     fn spec(&self, id: &str) -> Result<&ModSpec> {
@@ -211,6 +224,21 @@ fn remove_stale_base_files(root: &Path, old: &[String], new: &[String]) -> Resul
 pub(crate) fn is_player_file(rel: &str) -> bool {
     let mut parts = rel.splitn(3, '/');
     matches!((parts.next(), parts.next(), parts.next()), (Some("profiles"), Some(_), Some(file)) if rules::is_private_profile_file(file))
+}
+
+/// A repair downloads the whole mod, but the player's settings inside it (see
+/// [`rules::is_settings`]) are what makes it theirs: copies them from the
+/// damaged folder over the fresh package. Only paths the package ships, so a
+/// stray file doesn't come back.
+fn keep_settings(old: &Path, staging: &Path, files: &[(FileEntry, String)]) -> Result<()> {
+    for (f, _) in files.iter().filter(|(f, _)| rules::is_settings(&f.path)) {
+        let from = tree::from_slash(old, &f.path);
+        if from.is_file() {
+            let to = tree::from_slash(staging, &f.path);
+            std::fs::copy(&from, &to).map_err(|e| Error::io(&from, e))?;
+        }
+    }
+    Ok(())
 }
 
 /// MO2 gives `overwrite/` the highest priority. A file the player's game
