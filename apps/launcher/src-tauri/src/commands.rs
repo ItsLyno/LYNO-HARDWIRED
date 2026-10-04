@@ -235,7 +235,8 @@ pub async fn fetch_build(app: AppHandle) -> CmdResult<BuildInfo> {
                     id: m.id.clone(),
                     name: m.name.clone(),
                     title: m.title.clone(),
-                    version: m.version.clone(),
+                    // Builds published before `meta::display_version` carry MO2's padded `1.35.0`.
+                    version: m.version.as_deref().map(lyno_core::meta::display_version),
                     author: m.author.clone(),
                     nexus_url: m.nexus.as_ref().map(|n| n.url()),
                     enabled: plan::is_enabled(m, &installed, &current),
