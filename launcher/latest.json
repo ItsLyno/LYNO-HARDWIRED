@@ -1,11 +1,11 @@
 {
-  "version": "0.6.0",
-  "notes": "",
-  "pub_date": "2026-10-04T22:13:35Z",
+  "version": "0.7.0",
+  "notes": "Добавлена возможность скачивать с Nexus и обновлять сборку своими модами",
+  "pub_date": "2026-10-04T23:01:16Z",
   "platforms": {
     "windows-x86_64": {
-      "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/launcher-v0.6.0/LYNO-HARDWIRED_0.6.0_x64-setup.exe",
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUejR0VmZ4WmllZk5NKzg5eW5Cc2Y5NllpNE1LcjlwakROc09QQmw4UEcwd0s3YUtldHlFOEV0VEoxK29GeCtwdmZpZjNIMHdsaHVUM0FSTWdWWDN5bGd6ZkZ5S1huaGcwPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkxMTUyMDE0CWZpbGU6TFlOTyBIQVJEV0lSRURfMC42LjBfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjAuNi4wClhZQjhXREdRekY1bHZORHkxU3h0U0FxNVRhc3J4S1NDaHpVWC9HaUpuSHVGU1RBWGxHWCs2WHgwcFNsaUxPUmQ3eWtZclF2SG1kcGw5ckNud2JXbENRPT0K"
+      "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/launcher-v0.7.0/LYNO-HARDWIRED_0.7.0_x64-setup.exe",
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUejR0VmZ4WmllZkEwcVNPK1V1OWltQ2pVWWRpZENUNTJ6RjdEWVhRUUkyN0p3OUd2b0pCNjJQY3AxUStIYnBtL0xQTGNpdGMrYXhzeGV5eXM4dlBJTVIwaTQ0cTdZY3dNPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkxMTU0ODc1CWZpbGU6TFlOTyBIQVJEV0lSRURfMC43LjBfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjAuNy4wCnNycWdyY3IyUkV3S09oNVhrc21hNDhyRm5zZHMvbVBSLy9kZ29TamdraG9hUmtFaUNIWm00aVFjSzkwcVFndlpRNm9TSE4xZlAzbEZ6UU0wRWsybkN3PT0K"
     }
   }
 }
