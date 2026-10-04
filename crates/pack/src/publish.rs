@@ -31,7 +31,7 @@ pub fn run(args: &PublishArgs) -> Result<(), String> {
     let tag = format!("build-{version}");
 
     let assets = new_assets(&manifest, &args.out, &args.repo, &tag)?;
-    let root = git_preflight(&args.repo, version)?;
+    let root = git_preflight(&args.repo, version, text.as_bytes())?;
     tool_check("gh", &["--version"])?;
 
     if assets.is_empty() {
@@ -98,7 +98,7 @@ fn new_assets(manifest: &Manifest, out: &Path, repo: &str, tag: &str) -> Result<
 
 /// The commit must go straight on top of what players see now: on `main`,
 /// in sync with `origin/main`, with a pushable origin for `repo`.
-fn git_preflight(repo: &str, version: &str) -> Result<PathBuf, String> {
+fn git_preflight(repo: &str, version: &str, ours: &[u8]) -> Result<PathBuf, String> {
     tool_check("git", &["--version"])?;
     let root = PathBuf::from(git(Path::new("."), &["rev-parse", "--show-toplevel"]).map_err(|e| {
         format!("{e}\nRun `lyno-pack publish` inside the LYNO-HARDWIRED repository clone")
@@ -117,8 +117,23 @@ fn git_preflight(repo: &str, version: &str) -> Result<PathBuf, String> {
     if head != remote {
         return Err(format!("local {BRANCH} differs from origin/{BRANCH}: run `git pull`, push or drop local commits"));
     }
-    if !git(&root, &["status", "--porcelain", "--", PUBLISHED_MANIFEST])?.is_empty() {
-        return Err(format!("{PUBLISHED_MANIFEST} has local changes: revert them (`git checkout -- {PUBLISHED_MANIFEST}`)"));
+    // Checked up front: on a fresh machine `git commit` fails only after the
+    // upload, leaving a copy of the manifest behind.
+    for key in ["user.name", "user.email"] {
+        if git(&root, &["config", key]).map_or(true, |v| v.is_empty()) {
+            return Err(format!("git {key} is not set, the manifest commit would fail: `git config --global {key} \"...\"`"));
+        }
+    }
+    let status = git(&root, &["status", "--porcelain", "--", PUBLISHED_MANIFEST])?;
+    // A copy left by an earlier run that stopped at `git commit` is this very manifest.
+    let leftover_is_ours = std::fs::read(root.join(PUBLISHED_MANIFEST)).is_ok_and(|d| d == ours);
+    if !status.is_empty() && !leftover_is_ours {
+        let fix = if status.starts_with("??") {
+            "it is not in git yet, delete this one file by hand".to_owned()
+        } else {
+            format!("revert them (`git checkout -- {PUBLISHED_MANIFEST}`)")
+        };
+        return Err(format!("{PUBLISHED_MANIFEST} has local changes: {fix}"));
     }
     // Read from git, not raw.githubusercontent.com, which serves a cached copy.
     if let Ok(text) = git(&root, &["show", &format!("origin/{BRANCH}:{PUBLISHED_MANIFEST}")]) {
