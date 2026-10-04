@@ -16,6 +16,7 @@ pub mod modlist;
 pub mod package;
 pub mod plan;
 pub mod publish;
+pub mod report;
 pub mod rules;
 pub mod state;
 pub mod tree;

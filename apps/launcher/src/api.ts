@@ -1,3 +1,4 @@
+import { getVersion } from "@tauri-apps/api/app";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { openUrl as tauriOpenUrl } from "@tauri-apps/plugin-opener";
@@ -71,6 +72,12 @@ export interface UpdateFinished {
   error: string | null;
 }
 
+export interface LauncherUpdate {
+  version: string;
+  currentVersion: string;
+  notes: string | null;
+}
+
 export const api = isTauri()
   ? {
       getSettings: () => invoke<Settings>("get_settings"),
@@ -82,6 +89,11 @@ export const api = isTauri()
       cancelUpdate: () => invoke<void>("cancel_update"),
       launchGame: () => invoke<void>("launch_game"),
       openMo2: () => invoke<void>("open_mo2"),
+      /** Path of the zip written to the desktop. */
+      exportReport: () => invoke<string>("export_report"),
+      launcherVersion: () => getVersion(),
+      checkLauncherUpdate: () => invoke<LauncherUpdate | null>("check_launcher_update"),
+      installLauncherUpdate: () => invoke<void>("install_launcher_update"),
       openUrl: (url: string) => tauriOpenUrl(url),
       onUpdate: (
         progress: (e: UpdateEvent) => void,

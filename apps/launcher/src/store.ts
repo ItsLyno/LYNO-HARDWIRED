@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { api, type BuildInfo, type Settings, type Status, type UpdateEvent } from "./api";
+import { api, type BuildInfo, type LauncherUpdate, type Settings, type Status, type UpdateEvent } from "./api";
 
 export type Page = "home" | "mods" | "updates" | "settings";
 
@@ -16,6 +16,7 @@ interface AppStore {
   buildError: string | null;
   progress: Progress | null;
   error: string | null;
+  launcherUpdate: LauncherUpdate | null;
   setPage: (page: Page) => void;
   refreshStatus: () => Promise<void>;
   refreshBuild: () => Promise<void>;
@@ -24,6 +25,7 @@ interface AppStore {
   onUpdateEvent: (e: UpdateEvent) => void;
   onUpdateFinished: (ok: boolean, error: string | null) => void;
   run: (action: () => Promise<void>) => Promise<void>;
+  checkLauncherUpdate: () => Promise<void>;
   clearError: () => void;
 }
 
@@ -35,6 +37,7 @@ export const useApp = create<AppStore>((set, get) => ({
   buildError: null,
   progress: null,
   error: null,
+  launcherUpdate: null,
   setPage: (page) => set({ page }),
   refreshStatus: async () => {
     try {
@@ -85,6 +88,14 @@ export const useApp = create<AppStore>((set, get) => ({
       await action();
     } catch (e) {
       set({ error: String(e) });
+    }
+  },
+  // Silent: an unreachable update server must not greet the player with an error.
+  checkLauncherUpdate: async () => {
+    try {
+      set({ launcherUpdate: await api.checkLauncherUpdate() });
+    } catch {
+      set({ launcherUpdate: null });
     }
   },
   clearError: () => set({ error: null }),

@@ -143,7 +143,8 @@ fn upload(repo: &str, tag: &str, manifest: &Manifest, out: &Path, assets: &[(Str
                 .map(|c| c.notes.iter().map(|n| format!("- {n}\n")).collect::<String>())
                 .unwrap_or_default();
             let title = format!("Build {}", manifest.build_version);
-            gh(&["release", "create", tag, "--repo", repo, "--title", &title, "--notes", &notes])?;
+            // "Latest release" stays the launcher installer, the page players download from.
+            gh(&["release", "create", tag, "--repo", repo, "--title", &title, "--notes", &notes, "--latest=false"])?;
             eprintln!("created release {tag}");
             HashMap::new()
         }
