@@ -12,8 +12,9 @@ use crate::hash_cache::HashCache;
 use crate::manifest::{ChangelogEntry, Manifest, ModEntry, ModSpec, NexusRef, Package, Part, SCHEMA_VERSION};
 use crate::meta::ModMeta;
 use crate::mo2::Instance;
-use crate::modlist::{EntryState, ModList};
+use crate::modlist::{Entry, EntryState, ModList};
 use crate::package::{self, PackOptions, PackedPart};
+use crate::plan::USER_SEPARATOR;
 use crate::tree::FileEntry;
 use crate::{rules, tree};
 use crate::{Error, Result};
@@ -75,7 +76,17 @@ pub fn build(
     let mut warnings = Vec::new();
     let cache = if opts.hash_cache { HashCache::load(root.join(".lyno").join("pack-cache.json")) } else { HashCache::disabled() };
     let mut packer = Packer { opts, cache, assets: Vec::new(), repacked: Vec::new() };
-    let steps = 1 + list.entries.iter().filter(|e| e.state != EntryState::Unmanaged && e.separator_title().is_none()).count();
+    // The author plays in a launcher instance like any player: what sits under
+    // `LYNO USER MODS` is theirs (tests, personal tweaks), not the build's. A mod
+    // goes into the build once it is moved above the separator.
+    let user_section = list.entries.iter().position(|e| e.separator_title() == Some(USER_SEPARATOR));
+    let (entries, personal) = list.entries.split_at(user_section.unwrap_or(list.entries.len()));
+    let is_mod = |e: &&Entry| e.state != EntryState::Unmanaged && e.separator_title().is_none();
+    let personal: Vec<&str> = personal.iter().filter(is_mod).map(|e| e.name.as_str()).collect();
+    if !personal.is_empty() {
+        warnings.push(format!("{} mod(s) under {USER_SEPARATOR} are not shipped: {}", personal.len(), personal.join(", ")));
+    }
+    let steps = 1 + entries.iter().filter(is_mod).count();
 
     let profile = opts.profile.clone();
     // Never pack our own output if it sits inside the instance.
@@ -114,7 +125,7 @@ pub fn build(
     let mut step = 1;
     // `[LYNO] core=true` of the separator the current mod sits under.
     let mut core_section = false;
-    for entry in &list.entries {
+    for entry in entries {
         if entry.state == EntryState::Unmanaged {
             continue;
         }

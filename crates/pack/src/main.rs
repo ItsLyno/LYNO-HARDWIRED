@@ -14,6 +14,7 @@ use lyno_core::manifest::{ChangelogEntry, Manifest};
 use lyno_core::meta::ModMeta;
 use lyno_core::package::PackOptions;
 use lyno_core::publish::{build, BuildOptions, ModInfo};
+use lyno_core::release::{github_download_root, release_tag, PUBLISHED_MANIFEST};
 
 #[derive(Parser)]
 #[command(version, about)]
@@ -126,14 +127,13 @@ fn build_cmd(command: Command) -> ExitCode {
         changelog.extend(prev.changelog.iter().filter(|e| e.version != build_version).cloned());
     }
 
-    let tag = format!("build-{build_version}");
     let opts = BuildOptions {
         name: "LYNO//HARDWIRED".into(),
         profile,
         build_version: build_version.clone(),
         game_version,
         mo2_version,
-        base_url: format!("https://github.com/{repo}/releases/download/{tag}"),
+        base_url: format!("{}/{}", github_download_root(&repo), release_tag(&build_version)),
         out_dir: out.clone(),
         previous,
         changelog,
@@ -188,8 +188,6 @@ fn build_cmd(command: Command) -> ExitCode {
     eprintln!("  lyno-pack publish --out {} --repo {repo}", out.display());
     ExitCode::SUCCESS
 }
-
-pub(crate) const PUBLISHED_MANIFEST: &str = "build/manifest.json";
 
 /// `--previous` file, else the manifest published on `main`, else nothing
 /// (first release, or `--fresh`).

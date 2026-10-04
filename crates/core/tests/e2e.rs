@@ -15,6 +15,7 @@ use lyno_core::modlist::{EntryState, ModList};
 use lyno_core::package::PackOptions;
 use lyno_core::plan::{plan, set_enabled, Action};
 use lyno_core::publish::{build, check_published, BuildOptions, ModInfo};
+use lyno_core::release::{publish, release_tag, Host, PublishOptions};
 use lyno_core::state::State;
 use lyno_core::tree::tree_hash;
 use lyno_core::verify::{mark, verify, Problem};
@@ -455,4 +456,107 @@ fn build_install_update() {
     assert!(next.assets.is_empty(), "{:?}", next.assets);
     assert!(logs.is_empty(), "nothing read or packed: {logs:?}");
     assert!(std::fs::read_dir(&out3).unwrap().all(|e| !e.unwrap().file_name().to_string_lossy().contains(".tar.zst.")));
+}
+
+/// Stands in for GitHub: releases are folders under the served directory, the
+/// published manifest is a string. `lose` names an asset whose upload
+/// "succeeds" without the file arriving.
+struct FakeHost {
+    releases: PathBuf,
+    published: Option<String>,
+    uploads: Vec<String>,
+    lose: Option<String>,
+}
+
+impl Host for FakeHost {
+    fn published_manifest(&mut self) -> lyno_core::Result<Option<String>> {
+        Ok(self.published.clone())
+    }
+
+    fn release_assets(&mut self, tag: &str) -> lyno_core::Result<Option<std::collections::HashMap<String, u64>>> {
+        let Ok(entries) = std::fs::read_dir(self.releases.join(tag)) else { return Ok(None) };
+        Ok(Some(entries.map(|e| e.unwrap()).map(|e| (e.file_name().to_string_lossy().into_owned(), e.metadata().unwrap().len())).collect()))
+    }
+
+    fn create_release(&mut self, tag: &str, _title: &str, _notes: &str) -> lyno_core::Result<()> {
+        std::fs::create_dir_all(self.releases.join(tag)).unwrap();
+        Ok(())
+    }
+
+    fn upload_asset(&mut self, tag: &str, path: &Path) -> lyno_core::Result<()> {
+        let name = path.file_name().unwrap().to_string_lossy().into_owned();
+        self.uploads.push(name.clone());
+        if self.lose.as_ref() != Some(&name) {
+            std::fs::copy(path, self.releases.join(tag).join(&name)).unwrap();
+        }
+        Ok(())
+    }
+
+    fn push_manifest(&mut self, _version: &str, path: &Path) -> lyno_core::Result<()> {
+        self.published = Some(std::fs::read_to_string(path).unwrap());
+        Ok(())
+    }
+}
+
+/// The author plays in their own launcher instance: mods under `LYNO USER
+/// MODS` are theirs and stay out of the build. Publishing uploads what is
+/// missing and makes the manifest live only once every part downloads and the
+/// author confirms; a re-run after a failure uploads only what is still missing.
+#[test]
+fn personal_mods_stay_out_and_publish_goes_live_last() {
+    let tmp = tempfile::tempdir().unwrap();
+    let author = tmp.path().join("author");
+    let releases = tmp.path().join("releases");
+    let out = tmp.path().join("out");
+    author_instance(&author);
+    std::fs::create_dir_all(author.join("mods/LYNO USER MODS_separator")).unwrap();
+    write(&author, "mods/My Test/archive/pc/mod/test.archive", b"experiment");
+    let mut list = ModList::load(&author.join("profiles/LYNO/modlist.txt")).unwrap();
+    list.entries.push(lyno_core::modlist::Entry::separator("LYNO USER MODS"));
+    list.entries.push(lyno_core::modlist::Entry::enabled("My Test"));
+    list.save(&author.join("profiles/LYNO/modlist.txt")).unwrap();
+
+    let (root, _) = serve(releases.clone());
+    let base_url = format!("{root}/{}", release_tag("1.0.0"));
+    let mut no_info = |_: &ModMeta| ModInfo::default();
+    let built = build(&author, &options("1.0.0", &base_url, &out, None), &mut no_info, &mut |_| {}).unwrap();
+    assert_eq!(built.manifest.mod_specs().map(|m| m.name.as_str()).collect::<Vec<_>>(), ["CET", "Archive Mod", "REDmod Thing"]);
+    let titles: Vec<_> = built
+        .manifest
+        .mods
+        .iter()
+        .filter_map(|e| match e {
+            lyno_core::manifest::ModEntry::Separator { title, .. } => Some(title.as_str()),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(titles, ["Core", "Extras"]);
+    assert_eq!(built.warnings, ["1 mod(s) under LYNO USER MODS are not shipped: My Test"]);
+    std::fs::write(out.join("manifest.json"), serde_json::to_string(&built.manifest).unwrap()).unwrap();
+
+    let lost = built.assets[0].file_name.clone();
+    let mut host = FakeHost { releases: releases.clone(), published: None, uploads: vec![], lose: Some(lost.clone()) };
+    let opts = PublishOptions { out: &out, download_root: &root };
+    let no = AtomicBool::new(false);
+    let run = |host: &mut FakeHost, answer: bool| publish(host, &opts, &Downloader::new(), &no, &mut |_| answer, &|_| {});
+
+    let err = run(&mut host, true).unwrap_err().to_string();
+    assert!(err.starts_with("1 part(s) are not downloadable") && err.contains(&lost), "{err}");
+    assert_eq!(host.published, None, "nothing goes live while a part is missing");
+    assert_eq!(host.uploads.len(), built.assets.len());
+
+    host.lose = None;
+    host.uploads.clear();
+    assert!(matches!(run(&mut host, false), Err(lyno_core::Error::Cancelled)));
+    assert_eq!(host.uploads, [lost], "only the missing asset is uploaded again");
+    assert_eq!(host.published, None, "not confirmed");
+
+    host.uploads.clear();
+    let live = run(&mut host, true).unwrap();
+    assert_eq!(live.build_version, "1.0.0");
+    assert!(host.uploads.is_empty());
+    assert_eq!(Manifest::from_json(host.published.as_ref().unwrap()).unwrap(), built.manifest);
+
+    let err = run(&mut host, true).unwrap_err().to_string();
+    assert_eq!(err, "build 1.0.0 is already published");
 }

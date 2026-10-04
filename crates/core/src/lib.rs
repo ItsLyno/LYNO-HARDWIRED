@@ -19,6 +19,7 @@ pub mod package;
 pub mod plan;
 pub mod prefetch;
 pub mod publish;
+pub mod release;
 pub mod report;
 pub mod rules;
 pub mod state;
