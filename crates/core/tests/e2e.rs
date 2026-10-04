@@ -200,6 +200,8 @@ fn build_install_update() {
     let new_assets: std::collections::BTreeSet<_> =
         out2.assets.iter().map(|a| a.file_name.split('-').next().unwrap().to_owned()).collect();
     assert_eq!(new_assets, ["archive", "base", "lyno"].map(String::from).into(), "{:?}", out2.assets);
+    let repacked: Vec<_> = out2.repacked.iter().map(|r| (r.name.as_str(), r.changed)).collect();
+    assert_eq!(repacked, [("base", true), ("Archive Mod", true), ("LYNO Settings", false)]);
     assert_eq!(out2.warnings.len(), 3, "{:?}", out2.warnings);
     assert!(out2.warnings.iter().any(|w| w.contains("\"CET\": 2 generated file(s)")), "{:?}", out2.warnings);
     assert!(out2.warnings.iter().any(|w| w.starts_with("overwrite/ has 1 file(s)")), "{:?}", out2.warnings);
