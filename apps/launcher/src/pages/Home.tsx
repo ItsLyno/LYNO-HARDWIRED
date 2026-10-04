@@ -1,17 +1,18 @@
-import { ArrowRight, FolderCog, Loader2, Play, Download, RefreshCw, Settings2 } from "lucide-react";
+import { ArrowRight, Download, FolderCog, FolderSearch, Loader2, Play, RefreshCw } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { api } from "../api";
 import { Button } from "../components/Button";
 import { Changelog } from "../components/Changelog";
 import { Section } from "../components/Section";
 import { StatusDot, type Tone } from "../components/StatusDot";
-import { primaryAction, useApp } from "../store";
+import { UpdateProgress } from "../components/UpdateProgress";
+import { formatBytes } from "../format";
+import { primaryAction, useApp, type PrimaryAction } from "../store";
 
 export function Home() {
-  const { status, settings, build, run, setPage } = useApp();
+  const { status, build, buildError, progress, run, setPage, startUpdate } = useApp();
   const [launching, setLaunching] = useState(false);
-  const action = primaryAction(status, build);
-  const updateAvailable = action === "update";
+  const action = primaryAction(status, build, !!progress);
 
   const onPrimary = async () => {
     switch (action) {
@@ -23,11 +24,13 @@ export function Home() {
         return;
       case "install":
       case "update":
-        return setPage("build");
-      case "setup":
+        return startUpdate();
+      case "game":
         return setPage("settings");
     }
   };
+
+  const showUpdateBanner = action === "update" && build;
 
   return (
     <div className="grid h-full grid-cols-[1fr_380px] gap-6">
@@ -37,57 +40,65 @@ export function Home() {
           LYNO<span className="text-faint">//</span>HARDWIRED
         </h1>
         <div className="mt-2 flex gap-4 text-[13px] text-muted tabular-nums">
-          <span>Версия {build?.installedVersion ?? "—"}</span>
+          <span>{status?.installedVersion ? `Версия ${status.installedVersion}` : "Не установлена"}</span>
           {build && <span>Патч игры {build.gameVersion}</span>}
         </div>
 
-        {updateAvailable && build && (
+        {showUpdateBanner && (
           <button
-            onClick={() => setPage("build")}
+            onClick={() => setPage("updates")}
             className="mt-6 flex items-center gap-3 rounded-lg border border-line bg-surface px-4 py-3 text-left transition-colors hover:bg-raised"
           >
             <StatusDot tone="warn" />
             <span className="flex-1">
               Доступна версия <span className="font-semibold tabular-nums">{build.latestVersion}</span>
-              <span className="text-muted"> — {build.changelog[0]?.notes.length ?? 0} изменения</span>
+              <span className="text-muted"> · {formatBytes(build.downloadSize)} к загрузке</span>
             </span>
             <ArrowRight size={16} className="text-muted" />
           </button>
         )}
+        {buildError && !build && (
+          <div className="mt-6 flex items-center gap-3 rounded-lg border border-line bg-surface px-4 py-3 text-[13px]">
+            <StatusDot tone="bad" />
+            <span className="flex-1 text-muted">{buildError}</span>
+          </div>
+        )}
 
         <dl className="mt-6 divide-y divide-line rounded-lg border border-line bg-surface">
-          <Row label="Mod Organizer 2" {...mo2Row(status)} />
           <Row
-            label="Профиль"
-            tone={!status ? "idle" : status.profileExists ? "ok" : "warn"}
-            value={settings ? (status?.profileExists ? settings.profile : `${settings.profile} — не найден`) : "—"}
+            label="Сборка"
+            tone={!status ? "idle" : status.installedVersion ? "ok" : "warn"}
+            value={!status ? "—" : status.installedVersion ? `Установлена, ${status.modsEnabled} из ${status.modsTotal} модов включено` : "Не установлена"}
           />
           <Row
-            label="Моды"
-            tone={status && status.modsTotal > 0 ? "ok" : "idle"}
-            value={status ? `${status.modsEnabled} из ${status.modsTotal} включено` : "—"}
+            label="Cyberpunk 2077"
+            tone={!status ? "idle" : status.gameFound ? "ok" : "bad"}
+            value={!status ? "—" : status.gameFound ? (status.gameDir ?? "") : "Папка игры не найдена"}
           />
           <Row
-            label="Игра"
+            label="Состояние"
             tone={status?.gameRunning ? "ok" : "idle"}
-            value={status?.gameRunning ? "Запущена" : "Не запущена"}
+            value={status?.gameRunning ? "Игра запущена" : status?.mo2Running ? "Открыт Mod Organizer 2" : "Готово к запуску"}
           />
         </dl>
 
-        <div className="mt-auto flex items-center gap-3 pt-6">
-          <Button
-            variant="primary"
-            size="lg"
-            className="min-w-52"
-            disabled={action === "loading" || action === "running" || launching}
-            onClick={onPrimary}
-          >
-            {primaryLabel(action, launching, build?.latestVersion)}
-          </Button>
-          <Button size="lg" disabled={!status?.mo2Installed} onClick={() => run(api.openMo2)}>
-            <FolderCog size={17} />
-            Открыть MO2
-          </Button>
+        <div className="mt-auto space-y-4 pt-6">
+          {progress && <UpdateProgress progress={progress} />}
+          <div className="flex items-center gap-3">
+            <Button
+              variant="primary"
+              size="lg"
+              className="min-w-52"
+              disabled={action === "loading" || action === "running" || action === "updating" || launching}
+              onClick={onPrimary}
+            >
+              {primaryLabel(action, launching, build?.latestVersion)}
+            </Button>
+            <Button size="lg" disabled={!status?.mo2Installed || !!progress} onClick={() => run(api.openMo2)}>
+              <FolderCog size={17} />
+              Открыть MO2
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -96,9 +107,7 @@ export function Home() {
           {build ? (
             <Changelog entries={build.changelog} installed={build.installedVersion} />
           ) : (
-            <p className="px-5 py-4 text-[13px] text-muted">
-              Список изменений появится, когда лаунчер загрузит манифест сборки.
-            </p>
+            <p className="px-5 py-4 text-[13px] text-muted">{buildError ? "Нет данных о сборке." : "Загрузка…"}</p>
           )}
         </div>
       </Section>
@@ -106,15 +115,17 @@ export function Home() {
   );
 }
 
-function primaryLabel(action: ReturnType<typeof primaryAction>, launching: boolean, latest?: string): ReactNode {
+function primaryLabel(action: PrimaryAction, launching: boolean, latest?: string): ReactNode {
   if (launching) return <><Loader2 size={18} className="animate-spin" />Запуск…</>;
   switch (action) {
     case "loading":
       return <Loader2 size={18} className="animate-spin" />;
+    case "updating":
+      return <><Loader2 size={18} className="animate-spin" />Обновление…</>;
     case "running":
       return "Игра запущена";
-    case "setup":
-      return <><Settings2 size={18} />Настроить</>;
+    case "game":
+      return <><FolderSearch size={18} />Указать папку игры</>;
     case "install":
       return <><Download size={18} />Установить сборку</>;
     case "update":
@@ -124,19 +135,14 @@ function primaryLabel(action: ReturnType<typeof primaryAction>, launching: boole
   }
 }
 
-function mo2Row(status: ReturnType<typeof useApp.getState>["status"]): { tone: Tone; value: string } {
-  if (!status) return { tone: "idle", value: "—" };
-  if (!status.mo2Installed) return { tone: "bad", value: "Не найден" };
-  if (!status.portable) return { tone: "warn", value: "Найден, но не портативный" };
-  return { tone: "ok", value: status.mo2Running ? "Открыт" : "Готов" };
-}
-
 function Row({ label, value, tone }: { label: string; value: string; tone: Tone }) {
   return (
     <div className="flex h-11 items-center gap-3 px-4">
       <StatusDot tone={tone} />
-      <dt className="w-40 text-muted">{label}</dt>
-      <dd className="truncate">{value}</dd>
+      <dt className="w-36 shrink-0 text-muted">{label}</dt>
+      <dd className="truncate" title={value}>
+        {value}
+      </dd>
     </div>
   );
 }

@@ -1,30 +1,37 @@
 import { X } from "lucide-react";
 import { useEffect } from "react";
+import { api } from "./api";
 import { Header } from "./components/Header";
-import { Build } from "./pages/Build";
-import { Diagnostics } from "./pages/Diagnostics";
 import { Home } from "./pages/Home";
+import { Mods } from "./pages/Mods";
 import { Settings } from "./pages/Settings";
+import { Updates } from "./pages/Updates";
 import { useApp, type Page } from "./store";
 
 const STATUS_POLL_MS = 3000;
 
 const pages: Record<Page, () => React.JSX.Element | null> = {
   home: Home,
-  build: Build,
-  diagnostics: Diagnostics,
+  mods: Mods,
+  updates: Updates,
   settings: Settings,
 };
 
 export default function App() {
-  const { page, refresh, error, clearError } = useApp();
+  const { page, error, clearError } = useApp();
   const PageView = pages[page];
 
   useEffect(() => {
-    refresh();
-    const id = setInterval(refresh, STATUS_POLL_MS);
-    return () => clearInterval(id);
-  }, [refresh]);
+    const { refreshStatus, refreshBuild, onUpdateEvent, onUpdateFinished } = useApp.getState();
+    void refreshStatus();
+    void refreshBuild();
+    const poll = setInterval(refreshStatus, STATUS_POLL_MS);
+    const unlisten = api.onUpdate(onUpdateEvent, (f) => onUpdateFinished(f.ok, f.error));
+    return () => {
+      clearInterval(poll);
+      void unlisten.then((f) => f());
+    };
+  }, []);
 
   return (
     <div className="flex h-full flex-col">
@@ -34,7 +41,7 @@ export default function App() {
         {error && (
           <div
             role="alert"
-            className="absolute right-6 bottom-6 flex max-w-md items-start gap-3 rounded-lg border border-line border-l-bad border-l-2 bg-raised px-4 py-3 shadow-xl"
+            className="absolute right-6 bottom-6 flex max-w-md items-start gap-3 rounded-lg border border-line border-l-2 border-l-bad bg-raised px-4 py-3 shadow-xl"
           >
             <div className="flex-1 text-[13px]">{error}</div>
             <button onClick={clearError} aria-label="Закрыть" className="text-muted hover:text-fg">

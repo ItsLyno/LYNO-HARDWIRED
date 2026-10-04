@@ -6,14 +6,15 @@ import { useApp, type Page } from "../store";
 
 const tabs: { id: Page; label: string }[] = [
   { id: "home", label: "Главная" },
-  { id: "build", label: "Сборка" },
-  { id: "diagnostics", label: "Диагностика" },
+  { id: "mods", label: "Моды" },
+  { id: "updates", label: "Обновления" },
   { id: "settings", label: "Настройки" },
 ];
 
 // The window is frameless: this bar is the title bar, navigation and window controls.
 export function Header() {
-  const { page, setPage } = useApp();
+  const { page, setPage, build } = useApp();
+  const updateAvailable = !!build && !build.upToDate && build.online;
   const win = isTauri() ? getCurrentWindow() : null;
 
   return (
@@ -31,6 +32,9 @@ export function Header() {
             }`}
           >
             {t.label}
+            {t.id === "updates" && updateAvailable && (
+              <span className="absolute top-3 right-1.5 size-1.5 rounded-full bg-accent" aria-label="есть обновление" />
+            )}
             {page === t.id && <span className="absolute inset-x-3 bottom-0 h-0.5 rounded-full bg-fg" />}
           </button>
         ))}

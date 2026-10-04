@@ -187,7 +187,7 @@ impl Write for SplitWriter {
 
 /// Reads several files back to back as one stream.
 struct ChainReader {
-    files: std::vec::IntoIter<PathBuf>,
+    files: std::collections::VecDeque<PathBuf>,
     current: Option<BufReader<File>>,
 }
 
@@ -198,7 +198,7 @@ impl ChainReader {
                 return Err(Error::io(p, io::Error::new(io::ErrorKind::NotFound, "package part missing")));
             }
         }
-        Ok(Self { files: parts.to_vec().into_iter(), current: None })
+        Ok(Self { files: parts.iter().cloned().collect(), current: None })
     }
 }
 
@@ -206,7 +206,7 @@ impl Read for ChainReader {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         loop {
             if self.current.is_none() {
-                match self.files.next() {
+                match self.files.pop_front() {
                     Some(p) => self.current = Some(BufReader::with_capacity(1 << 20, File::open(p)?)),
                     None => return Ok(0),
                 }

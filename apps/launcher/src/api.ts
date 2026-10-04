@@ -1,19 +1,24 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
+import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { openUrl as tauriOpenUrl } from "@tauri-apps/plugin-opener";
+import { mock } from "./mock";
 
 export interface Settings {
   instanceDir: string;
-  profile: string;
+  gameDir: string | null;
   manifestUrl: string;
 }
 
 export interface Status {
   mo2Installed: boolean;
-  portable: boolean;
-  profileExists: boolean;
+  gameDir: string | null;
+  gameFound: boolean;
+  installedVersion: string | null;
   modsTotal: number;
   modsEnabled: number;
   gameRunning: boolean;
   mo2Running: boolean;
+  updating: boolean;
 }
 
 export interface ChangelogEntry {
@@ -22,77 +27,71 @@ export interface ChangelogEntry {
   notes: string[];
 }
 
+export type ModRow =
+  | { kind: "separator"; title: string }
+  | {
+      kind: "mod";
+      id: string;
+      name: string;
+      title: string | null;
+      version: string | null;
+      author: string | null;
+      nexusUrl: string | null;
+      enabled: boolean;
+      size: number;
+      outdated: boolean;
+      installed: boolean;
+    };
+
 export interface BuildInfo {
   name: string;
-  installedVersion: string | null;
   latestVersion: string;
+  installedVersion: string | null;
   gameVersion: string;
-  modCount: number;
   changelog: ChangelogEntry[];
+  mods: ModRow[];
+  upToDate: boolean;
+  changes: number;
+  downloadSize: number;
+  online: boolean;
 }
 
-// In a plain browser (`pnpm dev` without Tauri) the UI runs against mocks
-// so screens can be designed and screenshotted without Windows/MO2.
-const mock = {
-  settings: {
-    instanceDir: "C:\\Users\\V\\AppData\\Local\\dev.lyno.hardwired\\instance",
-    profile: "LYNO",
-    manifestUrl: "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/latest/download/manifest.json",
-  } satisfies Settings,
-  status: {
-    mo2Installed: true,
-    portable: true,
-    profileExists: true,
-    modsTotal: 184,
-    modsEnabled: 179,
-    gameRunning: false,
-    mo2Running: false,
-  } satisfies Status,
-  build: {
-    name: "LYNO//HARDWIRED",
-    installedVersion: "1.3.2",
-    latestVersion: "1.4.0",
-    gameVersion: "2.31",
-    modCount: 186,
-    changelog: [
-      {
-        version: "1.4.0",
-        date: "2026-10-02",
-        notes: [
-          "Обновлены Cyber Engine Tweaks и RED4ext под патч 2.31",
-          "Добавлен Better Vehicle Handling",
-          "Удалён Immersive Traffic — конфликтовал с новым трафиком",
-        ],
-      },
-      {
-        version: "1.3.2",
-        date: "2026-09-18",
-        notes: ["Исправлен порядок загрузки архивов освещения", "Обновлён Nova LUT"],
-      },
-      {
-        version: "1.3.0",
-        date: "2026-09-01",
-        notes: ["Новый пресет ReShade", "Добавлены 6 модов на одежду", "Обновлён ArchiveXL"],
-      },
-    ],
-  } satisfies BuildInfo,
-};
-
-async function call<T>(cmd: string, args?: Record<string, unknown>, fallback?: () => T): Promise<T> {
-  if (isTauri()) return invoke<T>(cmd, args);
-  await new Promise((r) => setTimeout(r, 150));
-  return fallback ? fallback() : (undefined as T);
+export interface GameInstall {
+  path: string;
+  store: string;
 }
 
-export const api = {
-  getSettings: () => call<Settings>("get_settings", undefined, () => mock.settings),
-  saveSettings: (settings: Settings) =>
-    call<void>("save_settings", { settings }, () => {
-      mock.settings = settings;
-    }),
-  getStatus: () => call<Status>("get_status", undefined, () => mock.status),
-  // Manifest fetching lands with the updater; until then the real app has no build info.
-  getBuildInfo: async (): Promise<BuildInfo | null> => (isTauri() ? null : mock.build),
-  launchGame: () => call<void>("launch_game"),
-  openMo2: () => call<void>("open_mo2"),
-};
+export type UpdateEvent =
+  | { kind: "step"; index: number; total: number; label: string }
+  | { kind: "bytes"; done: number; total: number }
+  | { kind: "done" };
+
+export interface UpdateFinished {
+  ok: boolean;
+  error: string | null;
+}
+
+export const api = isTauri()
+  ? {
+      getSettings: () => invoke<Settings>("get_settings"),
+      saveSettings: (settings: Settings) => invoke<void>("save_settings", { settings }),
+      detectGames: () => invoke<GameInstall[]>("detect_games"),
+      getStatus: () => invoke<Status>("get_status"),
+      fetchBuild: () => invoke<BuildInfo>("fetch_build"),
+      startUpdate: () => invoke<void>("start_update"),
+      cancelUpdate: () => invoke<void>("cancel_update"),
+      launchGame: () => invoke<void>("launch_game"),
+      openMo2: () => invoke<void>("open_mo2"),
+      openUrl: (url: string) => tauriOpenUrl(url),
+      onUpdate: (
+        progress: (e: UpdateEvent) => void,
+        finished: (f: UpdateFinished) => void,
+      ): Promise<UnlistenFn> =>
+        Promise.all([
+          listen<UpdateEvent>("update-progress", (e) => progress(e.payload)),
+          listen<UpdateFinished>("update-finished", (e) => finished(e.payload)),
+        ]).then((fns) => () => fns.forEach((f) => f())),
+    }
+  : mock;
+
+export type Api = typeof api;
