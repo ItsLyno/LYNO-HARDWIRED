@@ -187,7 +187,8 @@ struct Diff {
 fn compare(record: &FileList, current: &[(FileEntry, String)]) -> Diff {
     let mut diff = Diff::default();
     let now: BTreeMap<&str, &str> = current.iter().map(|(f, h)| (f.path.as_str(), h.as_str())).collect();
-    for (path, want) in &record.files {
+    // Records of packages built before a file counted as generated still list it.
+    for (path, want) in record.files.iter().filter(|(p, _)| !rules::is_generated(p)) {
         match now.get(path.as_str()) {
             None => diff.missing.push(path.clone()),
             Some(h) if *h == want.blake3 => {}
@@ -333,6 +334,24 @@ mod tests {
 
         let cancelled = verify(&inst, &state, &AtomicBool::new(true), &mut |_| {});
         assert!(matches!(cancelled, Err(Error::Cancelled)));
+    }
+
+    #[test]
+    fn files_shipped_before_they_counted_as_generated_are_no_damage() {
+        let dir = tempfile::tempdir().unwrap();
+        let inst = Instance::new(dir.path());
+        let acr = "Settings/bin/x64/plugins/AdvancedCrashReporter";
+        write(&inst.mods_dir(), "Settings/red4ext/plugins/mod_settings/user.ini", "x");
+        write(&inst.mods_dir(), &format!("{acr}/engine-names.cache"), "old");
+        write(&inst.mods_dir(), &format!("{acr}/reports/watch/watch-00.txt"), "old");
+        let mut state = State::default();
+        state.mods.insert("settings".into(), installed(&inst, "settings", "Settings", true));
+
+        // The game rewrote one and the reporter rotated the other away.
+        write(&inst.mods_dir(), &format!("{acr}/engine-names.cache"), "new");
+        std::fs::remove_file(inst.mods_dir().join(format!("{acr}/reports/watch/watch-00.txt"))).unwrap();
+        let report = verify(&inst, &state, &AtomicBool::new(false), &mut |_| {}).unwrap();
+        assert_eq!(report.damaged, []);
     }
 
     #[test]
