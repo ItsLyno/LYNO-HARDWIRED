@@ -20,3 +20,7 @@ thiserror.workspace = true
 tauri = { version = "2", features = [] }
 tauri-plugin-opener = "2"
 sysinfo = { version = "0.37", default-features = false, features = ["system"] }
+tauri-plugin-log = "2"
+tauri-plugin-updater = "2"
+log = "0.4"
+time = { version = "0.3", features = ["formatting", "macros"] }

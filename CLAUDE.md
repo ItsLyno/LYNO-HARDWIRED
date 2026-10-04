@@ -10,12 +10,12 @@ installs and updates the build, sets the game path, starts the game through MO2.
 | Path | What |
 |---|---|
 | `crates/core` (`lyno-core`) | Everything that matters: manifest, packages, download, install, update plan, MO2 files, game detection |
-| `crates/pack` (`lyno-pack`) | Author CLI: MO2 instance → `out/manifest.json` + `tar.zst` parts |
+| `crates/pack` (`lyno-pack`) | Author CLI: `build` (MO2 instance → `out/manifest.json` + `tar.zst` parts), `publish` (upload, HTTP-check every part, push the manifest) |
 | `apps/launcher` | Tauri 2 + React + TypeScript + Tailwind. `src-tauri/src/commands.rs` is the IPC layer over `lyno-core` |
 | `docs/` | Reference: [Cyberpunk under MO2](docs/cyberpunk-mo2.md), [MO2 instance format](docs/mo2-instance.md), [release process](docs/release-process.md), vendored MO2 Cyberpunk plugin in `docs/reference/` |
 
 Core modules: `publish.rs` (author side: build manifest, reuse unchanged packages),
-`plan.rs` (manifest + state → actions + new `modlist.txt`), `install.rs` (apply plan),
+`plan.rs` (manifest + state → actions + new `modlist.txt`), `install.rs` (apply plan), `report.rs` (diagnostic zip),
 `package.rs` (tar.zst split into ≤1.9 GB parts), `tree.rs` (tree hash), `rules.rs`
 (which files ship and which are hashed), `mo2.rs`, `modlist.rs`, `meta.rs`, `state.rs`.
 
@@ -34,6 +34,9 @@ libsoup-3.0-dev` and an existing `apps/launcher/dist/` folder.
 
 CI (`.github/workflows/ci.yml`): core tests + frontend build on Ubuntu, then
 `pnpm tauri build` on Windows (artifact `lyno-hardwired-setup`).
+`launcher-release.yml` (manual, from main) builds a signed installer, releases
+`launcher-v<version>` and commits `launcher/latest.json`, which the launcher's
+updater reads. Launcher logs go through `log::` macros to `tauri-plugin-log`.
 
 ## Invariants — don't break these
 
@@ -48,6 +51,9 @@ CI (`.github/workflows/ci.yml`): core tests + frontend build on Ubuntu, then
   `saves/`, `UserSettings.json`, `modlist.txt` (`rules::is_private_profile_file`).
   New generated files from frameworks go into `rules.rs` with a test. Background
   in `docs/cyberpunk-mo2.md`.
+- **The manifest goes live last**: `lyno-pack publish` pushes `build/manifest.json`
+  only after every part answers over HTTP; same for `launcher/latest.json` in
+  `launcher-release.yml`.
 - **Reused packages keep URLs into older releases.** Old `build-*` releases must
   never be deleted; nothing in code may assume all assets are in the latest release.
 - **Player mods are untouchable**: anything not in `state.json` stays under the
@@ -69,4 +75,4 @@ CI (`.github/workflows/ci.yml`): core tests + frontend build on Ubuntu, then
 - Doc comments explain *why* (MO2 / Cyberpunk behavior), not what the code does.
 - Behavior changes to build/install/update get covered in `crates/core/tests/e2e.rs`.
 - The README «Статус» checklist tracks open features (integrity repair, free-space
-  check, diagnostics / game version check, launcher self-update).
+  check, game version check).

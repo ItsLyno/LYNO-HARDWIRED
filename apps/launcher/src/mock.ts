@@ -1,7 +1,7 @@
 // Browser-only stand-in for the Tauri backend (`pnpm dev` without Tauri),
 // so screens can be built and screenshotted without Windows or MO2.
 // The data is illustrative, not the real build.
-import type { BuildInfo, GameInstall, ModRow, Settings, Status, UpdateEvent, UpdateFinished } from "./api";
+import type { BuildInfo, GameInstall, LauncherUpdate, ModRow, Settings, Status, UpdateEvent, UpdateFinished } from "./api";
 
 const GB = 1024 ** 3;
 const MB = 1024 ** 2;
@@ -140,6 +140,19 @@ export const mock = {
   },
   launchGame: async () => {},
   openMo2: async () => {},
+  exportReport: async () => {
+    await delay(600);
+    return "C:\\Users\\V\\Desktop\\LYNO-report-2026-10-04_18-20-00.zip";
+  },
+  launcherVersion: async () => "0.1.0",
+  checkLauncherUpdate: async (): Promise<LauncherUpdate | null> => ({
+    version: "0.2.0",
+    currentVersion: "0.1.0",
+    notes: "Отчёт для автора сборки, автообновление лаунчера",
+  }),
+  installLauncherUpdate: async () => {
+    await delay(1500);
+  },
   openUrl: async (url: string) => {
     window.open(url, "_blank");
   },

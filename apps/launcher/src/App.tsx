@@ -2,6 +2,7 @@ import { X } from "lucide-react";
 import { useEffect } from "react";
 import { api } from "./api";
 import { Header } from "./components/Header";
+import { LauncherUpdateBar } from "./components/LauncherUpdateBar";
 import { Home } from "./pages/Home";
 import { Mods } from "./pages/Mods";
 import { Settings } from "./pages/Settings";
@@ -22,9 +23,10 @@ export default function App() {
   const PageView = pages[page];
 
   useEffect(() => {
-    const { refreshStatus, refreshBuild, onUpdateEvent, onUpdateFinished } = useApp.getState();
+    const { refreshStatus, refreshBuild, checkLauncherUpdate, onUpdateEvent, onUpdateFinished } = useApp.getState();
     void refreshStatus();
     void refreshBuild();
+    void checkLauncherUpdate();
     const poll = setInterval(refreshStatus, STATUS_POLL_MS);
     const unlisten = api.onUpdate(onUpdateEvent, (f) => onUpdateFinished(f.ok, f.error));
     return () => {
@@ -36,6 +38,7 @@ export default function App() {
   return (
     <div className="flex h-full flex-col">
       <Header />
+      <LauncherUpdateBar />
       <main className="relative min-h-0 flex-1 overflow-y-auto p-8">
         <PageView />
         {error && (
