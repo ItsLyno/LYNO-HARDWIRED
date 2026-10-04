@@ -89,6 +89,7 @@ copy out\manifest.json build\manifest.json   # закоммитить и зап�
 | `crates/core` | `lyno-core`: манифест, пакеты, загрузка, установка, план обновления, MO2, поиск игры |
 | `crates/pack` | `lyno-pack`: упаковка инстанса в релиз |
 | `apps/launcher` | Лаунчер: Tauri 2 + React + TypeScript + Tailwind |
+| `docs/` | [Выпуск сборки и лаунчера](docs/release-process.md), справка для разработки: [Cyberpunk под MO2](docs/cyberpunk-mo2.md), [формат инстанса MO2](docs/mo2-instance.md) |
 
 ## Разработка
 

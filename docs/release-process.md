@@ -1,0 +1,90 @@
+# Выпуск сборки и лаунчера
+
+Пошаговая инструкция для автора сборки. Как устроена раздача, описано в
+[README](../README.md#как-устроена-раздача).
+
+## Права на моды
+
+Сборка перезаливает чужие моды в публичные GitHub Releases. Многие авторы на
+Nexus это запрещают: смотрите вкладку **Permissions → Upload permission** на
+странице мода. Моды без разрешения не включайте в сборку или спросите автора.
+Лаунчер это никак не проверяет.
+
+## Один раз: подготовка
+
+1. **Портативный инстанс MO2** вне папки игры: `ModOrganizer.exe`,
+   `portable.txt`, `ModOrganizer.ini`, `mods\` и `profiles\` в одной папке.
+   Если инстанс глобальный, поставьте MO2 заново как Portable и скопируйте
+   туда `mods\`, `profiles\` и `overwrite\`.
+2. **Профиль сборки** (по умолчанию `LYNO`, другое имя задаётся через
+   `--profile`). В настройках профиля выключите локальные сохранения и
+   профильные настройки игры.
+3. **Инструменты:** Rust (<https://rustup.rs>, с Visual Studio C++ Build Tools),
+   Git, GitHub CLI (`gh auth login`).
+4. **Сборка утилиты:**
+   ```powershell
+   git clone https://github.com/ItsLyno/LYNO-HARDWIRED.git
+   cd LYNO-HARDWIRED
+   cargo build --release -p lyno-pack
+   ```
+
+## Перед каждым выпуском
+
+1. Запустите игру, всё настройте и закройте игру и MO2.
+2. Перенесите настройки из **Overwrite** в мод `LYNO Settings` (ПКМ по
+   Overwrite → Create Mod или перетаскивание). Мод должен стоять последним среди
+   модов сборки, в `meta.ini` у него должно быть `[LYNO]` `id=lyno-settings`.
+   Подробнее: [README → Настройки модов](../README.md#настройки-модов).
+3. Узнайте версию игры: свойства `bin\x64\Cyberpunk2077.exe` → Подробно.
+
+## Выпуск
+
+```powershell
+git pull
+.\target\release\lyno-pack.exe build "D:\Modding\MO2" --profile "LYNO" `
+  --version 1.1.0 --game-version 2.31 --note "Что изменилось" --out out
+```
+
+- Прошлую версию утилита берёт из опубликованного `build/manifest.json`.
+  Загружаются только новые и изменённые моды, их список печатается в конце
+  (`To upload`). Если там мод, который вы не трогали, значит внутри него
+  изменился файл (обычно конфиг). Разберитесь до загрузки.
+- Прочитайте все строки `warning:`.
+- Ключ Nexus (`$env:NEXUS_API_KEY`) нужен, чтобы в лаунчере были авторы модов.
+
+Затем выполните напечатанные команды **в этом порядке**:
+
+```powershell
+gh release create build-1.1.0 --repo ItsLyno/LYNO-HARDWIRED --title "Build 1.1.0" --notes ""
+gh release upload build-1.1.0 --repo ItsLyno/LYNO-HARDWIRED out\*.tar.zst.*
+copy out\manifest.json build\manifest.json
+git add build\manifest.json
+git commit -m "Build 1.1.0"
+git push
+```
+
+Манифест пушится последним: как только он появится в `main`, лаунчеры начнут
+скачивать новую версию. raw.githubusercontent.com кэширует файл на несколько
+минут.
+
+Если `upload` оборвался, повторите его с `--clobber`.
+
+## Нельзя
+
+- Удалять старые релизы `build-*`: неизменённые моды скачиваются из них.
+- Переименовывать папку мода без `[LYNO] id=`: для лаунчера это новый мод.
+- Пушить манифест до окончания загрузки файлов.
+
+## Лаунчер
+
+Автообновления лаунчера пока нет. Выпуск вручную:
+
+1. Поднимите версию в `apps/launcher/src-tauri/tauri.conf.json`,
+   `apps/launcher/package.json` и `[workspace.package]` корневого `Cargo.toml`.
+2. Запушьте в `main` и дождитесь зелёного CI.
+3. Скачайте артефакт `lyno-hardwired-setup` из Actions и выложите его:
+   `gh release create launcher-v0.2.0 --title "Лаунчер 0.2.0" LYNO*.exe`.
+
+Если меняется схема манифеста (`SCHEMA_VERSION`), сначала выпустите лаунчер и
+дайте игрокам обновиться, и только потом публикуйте сборку в новом формате:
+лаунчер принимает только свою версию схемы.
