@@ -78,6 +78,7 @@ pub fn run() {
             author::author_changes,
             author::author_adopt,
             author::author_secrets,
+            author::author_enable,
             author::author_set_secret,
             author::author_built,
             author::author_build,

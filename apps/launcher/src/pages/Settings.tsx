@@ -23,6 +23,15 @@ export function Settings() {
   if (!draft) return null;
 
   const dirty = JSON.stringify(draft) !== JSON.stringify(settings);
+  // Applied at once, not through the Save button; the draft follows so a later save doesn't undo it.
+  const disableAuthorMode = () =>
+    run(async () => {
+      if (settings && (await saveSettings({ ...settings, authorMode: false }))) setDraft({ ...draft, authorMode: false });
+    });
+  const authorEnabled = () => {
+    setDraft({ ...draft, authorMode: true });
+    setPage("release");
+  };
   const update = (patch: Partial<SettingsT>) => {
     setDraft({ ...draft, ...patch });
     setSaved(false);
@@ -70,22 +79,14 @@ export function Settings() {
         <Field label="Манифест сборки" hint="Адрес файла с описанием актуальной версии сборки на GitHub.">
           <Input value={draft.manifestUrl} onChange={(v) => update({ manifestUrl: v })} />
         </Field>
-        <Field
-          label="Режим автора"
-          hint="Для автора сборки, который выпускает версии из этой папки. Ваши правки модов считаются следующим выпуском, а не повреждением: обновление и починка выключаются, чтобы их не откатить. Появляется вкладка «Выпуск»."
-        >
-          <label className="flex cursor-pointer items-center gap-2.5 text-sm">
-            <input
-              type="checkbox"
-              checked={draft.authorMode}
-              onChange={(e) => update({ authorMode: e.target.checked })}
-              className="accent-[var(--color-accent)]"
-            />
-            Я выпускаю сборку из этой папки
-          </label>
-        </Field>
-        {draft.authorMode && (
+        {settings?.authorMode && (
           <>
+            <Field
+              label="Режим автора"
+              hint="Вы выпускаете сборку из этой папки: правки модов считаются следующим выпуском, обновление и починка выключены. Выключите, чтобы снова получать опубликованные версии как игрок."
+            >
+              <Button onClick={disableAuthorMode}>Выключить режим автора</Button>
+            </Field>
             <Field label="Репозиторий сборки" hint="Куда публикуются выпуски: владелец/репозиторий на GitHub.">
               <Input value={draft.authorRepo} onChange={(v) => update({ authorRepo: v })} />
             </Field>
@@ -168,6 +169,7 @@ export function Settings() {
       <p className="pt-4 font-mono text-[11px] text-faint">
         LYNO//HARDWIRED {version ?? ""} · Моды принадлежат их авторам.
       </p>
+      {!settings?.authorMode && <AuthorUnlock repo={settings?.authorRepo ?? ""} onEnabled={authorEnabled} />}
     </div>
   );
 }
@@ -197,5 +199,64 @@ function Input({ value, onChange }: { value: string; onChange: (v: string) => vo
       onChange={(e) => onChange(e.target.value)}
       className="h-9 w-full rounded-full bg-raised px-4 font-mono text-[13px] outline-none focus:ring-1 focus:ring-neon/50"
     />
+  );
+}
+
+/**
+ * Author mode is for whoever can push to the build's repository, and GitHub decides that: players get no switch
+ * that would quietly stop their updates.
+ */
+function AuthorUnlock({ repo, onEnabled }: { repo: string; onEnabled: () => void }) {
+  const { run, refreshStatus } = useApp();
+  const [open, setOpen] = useState(false);
+  const [token, setToken] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  if (!open) {
+    return (
+      <button onClick={() => setOpen(true)} className="text-[11px] text-faint underline-offset-2 hover:text-muted hover:underline">
+        Я автор сборки
+      </button>
+    );
+  }
+  const enable = () =>
+    run(async () => {
+      setBusy(true);
+      try {
+        await api.authorEnable(token.trim() || null);
+        await refreshStatus();
+        onEnabled();
+      } finally {
+        setBusy(false);
+      }
+    });
+
+  return (
+    <div className="panel px-5 py-5">
+      <div className="text-sm font-medium">Режим автора</div>
+      <div className="mt-0.5 text-[13px] text-muted">
+        Для того, кто выпускает сборку: правки модов в этой папке становятся следующим выпуском, обновление и починка
+        выключаются, появляется вкладка «Выпуск». Включается токеном GitHub с правом записи в {repo || "репозиторий сборки"}{" "}
+        (fine-grained token, Contents: Read and write). Токен сохранится в диспетчере учётных данных Windows.
+      </div>
+      <div className="mt-3 flex gap-2">
+        <input
+          type="password"
+          value={token}
+          spellCheck={false}
+          autoComplete="off"
+          placeholder="github_pat_…"
+          onChange={(e) => setToken(e.target.value)}
+          className="h-9 min-w-0 flex-1 rounded-full bg-raised px-4 font-mono text-[13px] outline-none focus:ring-1 focus:ring-neon/50"
+        />
+        <Button variant="primary" onClick={enable} disabled={busy || !token.trim()}>
+          {busy && <Loader2 size={15} className="animate-spin" />}
+          Включить
+        </Button>
+        <Button variant="ghost" onClick={() => setOpen(false)}>
+          Отмена
+        </Button>
+      </div>
+    </div>
   );
 }

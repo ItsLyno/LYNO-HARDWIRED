@@ -263,6 +263,7 @@ async function simulateUpdate() {
 export const mock = {
   getSettings: async () => settings,
   saveSettings: async (s: Settings) => {
+    if (s.authorMode && !settings.authorMode) throw new Error("Режим автора включается по токену GitHub: «Я автор сборки» внизу настроек");
     settings = s;
     status = { ...status, gameDir: s.gameDir, gameFound: !!s.gameDir };
   },
@@ -304,6 +305,14 @@ export const mock = {
     await delay(300);
     status = { ...status, installedVersion: build.latestVersion };
     build = { ...build, installedVersion: build.latestVersion, upToDate: true, changes: 0, downloadSize: 0 };
+  },
+  authorEnable: async (token: string | null) => {
+    await delay(400);
+    if (!token?.startsWith("github_pat_")) {
+      throw new Error("Токен не подходит: repository ItsLyno/LYNO-HARDWIRED: GitHub answered 401: Bad credentials (the token is wrong or expired)");
+    }
+    secrets.github = true;
+    settings = { ...settings, authorMode: true };
   },
   authorSecrets: async () => ({ ...secrets }),
   authorSetSecret: async (secret: Secret, value: string | null) => {

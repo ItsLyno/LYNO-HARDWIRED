@@ -156,6 +156,32 @@ pub async fn author_set_secret(app: AppHandle, secret: Secret, value: Option<Str
     secrets::set(secret, &value).map_err(|e| format!("Не удалось сохранить в диспетчер учётных данных Windows: {e}"))
 }
 
+/// Turns author mode on for whoever can push to the build's repository: the
+/// token (`None`: the saved one) must have write access, which GitHub decides.
+/// Players see no switch to flip by accident; author mode would stop their
+/// updates. Editing `settings.json` by hand still works and still can't
+/// publish anything without such a token.
+#[tauri::command]
+pub async fn author_enable(app: AppHandle, token: Option<String>) -> CmdResult<()> {
+    let state = app.state::<AppState>();
+    let token = token.map(|t| t.trim().to_owned()).filter(|t| !t.is_empty());
+    let check = token.clone().or_else(|| secrets::get(Secret::GithubToken)).ok_or("Вставьте токен GitHub")?;
+    let repo = state.settings.lock().unwrap().author_repo.clone();
+    tauri::async_runtime::spawn_blocking(move || GitHub::new(&repo, &check).check_access())
+        .await
+        .map_err(err)?
+        .map_err(|e| format!("Токен не подходит: {e}"))?;
+    if let Some(t) = &token {
+        secrets::set(Secret::GithubToken, t).map_err(|e| format!("Не удалось сохранить в диспетчер учётных данных Windows: {e}"))?;
+    }
+    let mut settings = state.settings.lock().unwrap().clone();
+    settings.author_mode = true;
+    settings.save(&state.settings_path).map_err(err)?;
+    *state.settings.lock().unwrap() = settings;
+    log::info!("author mode on");
+    Ok(())
+}
+
 /// The build waiting to be published: from this session, or read back from
 /// `out/manifest.json` if it is newer than the installed build.
 #[tauri::command]

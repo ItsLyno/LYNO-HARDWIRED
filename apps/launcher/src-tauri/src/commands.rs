@@ -53,6 +53,10 @@ pub fn get_settings(state: TauriState<'_, AppState>) -> Settings {
 
 #[tauri::command]
 pub fn save_settings(state: TauriState<'_, AppState>, settings: Settings) -> CmdResult<()> {
+    // Turning author mode on goes through `author_enable`, which checks the token.
+    if settings.author_mode && !state.settings.lock().unwrap().author_mode {
+        return Err("Режим автора включается по токену GitHub: «Я автор сборки» внизу настроек".into());
+    }
     if let Some(dir) = &settings.game_dir {
         if !game::is_game_dir(dir) {
             return Err(format!("В папке нет bin\\x64\\Cyberpunk2077.exe: {}", dir.display()));

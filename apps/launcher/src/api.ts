@@ -198,6 +198,8 @@ export const api = isTauri()
       authorChanges: () => invoke<Pending>("author_changes"),
       /** Records the published build as installed: the author has just released it from this instance. */
       authorAdopt: () => invoke<void>("author_adopt"),
+      /** Checks the token (null: the saved one) for push access, then turns author mode on. */
+      authorEnable: (token: string | null) => invoke<void>("author_enable", { token }),
       authorSecrets: () => invoke<SecretsStatus>("author_secrets"),
       /** null forgets the secret. A GitHub token is checked before it is saved. */
       authorSetSecret: (secret: Secret, value: string | null) => invoke<void>("author_set_secret", { secret, value }),
