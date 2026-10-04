@@ -10,6 +10,9 @@ use crate::hash::blake3_file;
 use crate::manifest::Part;
 use crate::{Error, Result};
 
+const CHECK_ATTEMPTS: u32 = 4;
+const CHECK_RETRY_DELAY: Duration = Duration::from_millis(500);
+
 pub struct Downloader {
     agent: ureq::Agent,
 }
@@ -45,8 +48,24 @@ impl Downloader {
     /// Checks that `part` is downloadable and has the expected size without
     /// fetching it: a HEAD request follows the GitHub redirect to the storage
     /// host, which reports the asset's Content-Length.
+    ///
+    /// Connection failures are retried: hundreds of HEAD requests in a row
+    /// regularly hit one connect timeout, and a single one must not stop a
+    /// publish. An HTTP status or a wrong size is an answer and is not retried.
     pub fn check_part(&self, part: &Part) -> Result<()> {
-        let resp = self.agent.head(&part.url).call().map_err(|e| Error::Download(format!("{}: {e}", part.url)))?;
+        let mut attempt = 0;
+        let resp = loop {
+            match self.agent.head(&part.url).call() {
+                Ok(resp) => break resp,
+                Err(_) if attempt + 1 < CHECK_ATTEMPTS => {
+                    attempt += 1;
+                    std::thread::sleep(CHECK_RETRY_DELAY * attempt);
+                }
+                Err(e) => {
+                    return Err(Error::Download(format!("{}: {e} (after {CHECK_ATTEMPTS} attempts)", part.url)));
+                }
+            }
+        };
         if !resp.status().is_success() {
             return Err(Error::Download(format!("{}: HTTP {}", part.url, resp.status())));
         }
@@ -200,6 +219,32 @@ mod tests {
 
         // Already complete: no request needed (server accepted only one).
         Downloader::new().fetch_part(&part, &dest, &AtomicBool::new(false), &mut |_| {}).unwrap();
+    }
+
+    #[test]
+    fn check_retries_dropped_connections_but_not_answers() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        std::thread::spawn(move || {
+            for (i, stream) in listener.incoming().enumerate() {
+                let mut stream = stream.unwrap();
+                if i < 2 {
+                    continue; // dropped without an answer
+                }
+                let mut line = String::new();
+                let mut reader = BufReader::new(stream.try_clone().unwrap());
+                while reader.read_line(&mut line).unwrap() > 2 {
+                    line.clear();
+                }
+                let len = if i == 2 { 1000 } else { 999 };
+                write!(stream, "HTTP/1.1 200 OK\r\nContent-Length: {len}\r\nConnection: close\r\n\r\n").unwrap();
+            }
+        });
+        let part = Part { url: format!("http://{addr}/part"), size: 1000, blake3: String::new() };
+        Downloader::new().check_part(&part).unwrap();
+        // A wrong size is an answer: reported at once, not retried into success.
+        let err = Downloader::new().check_part(&part).unwrap_err();
+        assert!(err.to_string().contains("999 bytes, expected 1000"), "{err}");
     }
 
     #[test]

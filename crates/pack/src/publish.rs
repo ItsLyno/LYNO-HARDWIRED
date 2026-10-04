@@ -51,8 +51,9 @@ pub fn run(args: &PublishArgs) -> Result<(), String> {
             eprintln!("  broken: {e}");
         }
         return Err(format!(
-            "{} part(s) are not downloadable, the manifest was not pushed. Re-run `lyno-pack publish` \
-             to upload missing assets; a part in an older release means that release was changed or deleted",
+            "{} part(s) are not downloadable, the manifest was not pushed. Re-run `lyno-pack publish`: \
+             uploaded assets are skipped. A timeout or connection error is the network, not the file; \
+             HTTP 404 or a wrong size in an older release means that release was changed or deleted",
             errors.len()
         ));
     }
