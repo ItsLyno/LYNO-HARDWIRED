@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{Error, Result};
 
-pub const SCHEMA_VERSION: u32 = 2;
+pub const SCHEMA_VERSION: u32 = 3;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -26,6 +26,11 @@ pub struct Manifest {
     pub mo2_version: String,
     /// MO2 profile the build lives in.
     pub profile: String,
+    /// The build has REDmod mods (`mods/<name>/info.json`): the game must be
+    /// started with `-modded` so MO2 deploys them, and the free REDmod DLC
+    /// must be installed.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub redmod: bool,
     #[serde(default)]
     pub changelog: Vec<ChangelogEntry>,
     /// Portable MO2 and instance config, unpacked into the instance root.
@@ -86,7 +91,8 @@ impl NexusRef {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Package {
-    /// Tree hash of the unpacked folder (see [`crate::tree`]).
+    /// Tree hash of the unpacked folder (see [`crate::tree`]), without
+    /// `meta.ini` (see [`crate::rules::is_hashed`]).
     pub hash: String,
     /// Unpacked size in bytes.
     pub size: u64,
@@ -194,6 +200,7 @@ pub(crate) mod tests {
             game_version: "2.31".into(),
             mo2_version: "2.5.2".into(),
             profile: "LYNO".into(),
+            redmod: false,
             changelog: vec![],
             base: package("base"),
             mods,

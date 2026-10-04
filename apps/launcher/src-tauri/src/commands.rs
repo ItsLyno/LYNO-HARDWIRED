@@ -290,11 +290,19 @@ pub fn launch_game(state: TauriState<'_, AppState>) -> CmdResult<()> {
     if running_processes().0 {
         return Err("Cyberpunk 2077 уже запущен".into());
     }
-    if !settings.game_dir.as_deref().is_some_and(game::is_game_dir) {
+    let Some(game_dir) = settings.game_dir.as_deref().filter(|d| game::is_game_dir(d)) else {
         return Err("Не найдена папка Cyberpunk 2077. Укажите её в настройках.".into());
-    }
+    };
     let inst = Instance::new(&settings.instance_dir);
-    spawn_mo2(&inst, &mo2::run_args(&profile(&inst), mo2::GAME_EXECUTABLE))
+    let manifest = installed_manifest(&inst);
+    let redmod = manifest.as_ref().is_some_and(|m| m.redmod);
+    if redmod && !game::has_redmod(game_dir) {
+        return Err("В сборке есть REDmod-моды, а REDmod не установлен. \
+                    Установите бесплатное DLC REDmod в Steam, GOG или Epic."
+            .into());
+    }
+    let profile = manifest.map_or_else(|| DEFAULT_PROFILE.to_owned(), |m| m.profile);
+    spawn_mo2(&inst, &mo2::run_args(&profile, mo2::game_executable(redmod)))
 }
 
 #[tauri::command]

@@ -7,8 +7,19 @@ use crate::meta::ModMeta;
 use crate::{Error, Result};
 
 pub const EXE_NAME: &str = "ModOrganizer.exe";
-/// Name of the executable entry MO2's Cyberpunk plugin registers.
+/// Executable entries MO2's Cyberpunk plugin registers. The REDmod one adds
+/// `-modded` and deploys REDmod mods before the game starts.
 pub const GAME_EXECUTABLE: &str = "Cyberpunk 2077";
+pub const GAME_EXECUTABLE_REDMOD: &str = "Cyberpunk 2077 (REDmod)";
+
+/// The MO2 executable entry to start the build with.
+pub fn game_executable(redmod: bool) -> &'static str {
+    if redmod {
+        GAME_EXECUTABLE_REDMOD
+    } else {
+        GAME_EXECUTABLE
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct Instance {

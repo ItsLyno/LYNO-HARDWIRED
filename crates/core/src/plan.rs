@@ -138,6 +138,7 @@ mod tests {
         State {
             build_version: None,
             base_hash: base.map(Into::into),
+            base_files: vec![],
             mods: mods
                 .iter()
                 .map(|(id, folder, hash)| (id.to_string(), InstalledMod { folder: folder.to_string(), hash: hash.to_string() }))
