@@ -12,6 +12,12 @@ pub enum Error {
     },
     #[error("failed to parse {path}: {message}")]
     Parse { path: PathBuf, message: String },
+    #[error("integrity check failed: {0}")]
+    Integrity(String),
+    #[error("download failed: {0}")]
+    Download(String),
+    #[error("cancelled")]
+    Cancelled,
     #[error("invalid manifest: {0}")]
     Manifest(String),
     #[error(transparent)]

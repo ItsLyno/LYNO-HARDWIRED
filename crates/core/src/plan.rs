@@ -1,102 +1,89 @@
-//! Turns "what the manifest wants" + "what is in the instance" into a list
-//! of concrete actions and the resulting `modlist.txt`.
+//! Turns "what the manifest wants" + "what is installed" into concrete
+//! actions and the resulting `modlist.txt`.
 
-use std::collections::{BTreeMap, HashSet};
+use std::collections::HashSet;
 
 use serde::Serialize;
 
 use crate::manifest::{Manifest, ModEntry, ModSpec};
-use crate::meta::ModMeta;
 use crate::modlist::{Entry, EntryState, ModList};
+use crate::state::State;
 
-/// Separator placed above mods the user added by hand; they always stay
-/// at the bottom (highest priority) and are never touched by updates.
+/// Separator placed above mods the user added by hand; they stay at the
+/// bottom (highest priority) and updates never touch them.
 pub const USER_SEPARATOR: &str = "LYNO USER MODS";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(tag = "action", rename_all = "camelCase")]
 pub enum Action {
+    /// Download and unpack the base package (MO2 + instance config).
+    Base,
     /// Download and install a mod that isn't present.
-    Install { id: String, name: String },
-    /// Replace an installed mod with a different Nexus file.
-    Update { id: String, from_folder: String, name: String, from_file_id: Option<u64>, to_file_id: u64 },
-    /// Same file, new folder name.
-    Rename { id: String, from_folder: String, name: String },
+    Install { id: String },
+    /// Content changed: download the new package and replace the folder.
+    Update { id: String, from_folder: String },
+    /// Same content, new folder name.
+    Rename { id: String, from_folder: String },
     /// Managed mod no longer in the build.
-    Remove { folder: String },
+    Remove { id: String, folder: String },
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UpdatePlan {
     pub actions: Vec<Action>,
-    #[serde(skip)]
     pub modlist: ModList,
-    /// True when only the load order / enabled flags change.
     pub modlist_changed: bool,
+    /// Bytes to download.
+    pub download_size: u64,
 }
 
 impl UpdatePlan {
     pub fn is_up_to_date(&self) -> bool {
         self.actions.is_empty() && !self.modlist_changed
     }
-
-    pub fn downloads(&self) -> impl Iterator<Item = &str> {
-        self.actions.iter().filter_map(|a| match a {
-            Action::Install { id, .. } | Action::Update { id, .. } => Some(id.as_str()),
-            _ => None,
-        })
-    }
 }
 
-pub fn plan(manifest: &Manifest, installed: &BTreeMap<String, ModMeta>, current: &ModList) -> UpdatePlan {
-    let by_lyno_id: BTreeMap<&str, (&str, &ModMeta)> = installed
-        .iter()
-        .filter_map(|(folder, meta)| meta.lyno_id.as_deref().map(|id| (id, (folder.as_str(), meta))))
-        .collect();
-
+pub fn plan(manifest: &Manifest, state: &State, current: &ModList) -> UpdatePlan {
     let mut actions = Vec::new();
-    for spec in manifest.mod_specs() {
-        actions.extend(action_for(spec, by_lyno_id.get(spec.id.as_str()).copied()));
+    let mut download_size = 0;
+
+    if state.base_hash.as_deref() != Some(manifest.base.hash.as_str()) {
+        actions.push(Action::Base);
+        download_size += manifest.base.download_size();
     }
 
-    let wanted: HashSet<&str> = manifest.mod_specs().map(|m| m.id.as_str()).collect();
-    for (id, (folder, _)) in &by_lyno_id {
-        if !wanted.contains(id) {
-            actions.push(Action::Remove { folder: (*folder).to_owned() });
+    for spec in manifest.mod_specs() {
+        if let Some(a) = action_for(spec, state) {
+            if matches!(a, Action::Install { .. } | Action::Update { .. }) {
+                download_size += spec.package.download_size();
+            }
+            actions.push(a);
         }
     }
 
-    let modlist = target_modlist(manifest, installed, current);
-    let modlist_changed = modlist != *current;
-    UpdatePlan { actions, modlist, modlist_changed }
-}
-
-fn action_for(spec: &ModSpec, installed: Option<(&str, &ModMeta)>) -> Option<Action> {
-    let Some((folder, meta)) = installed else {
-        return Some(Action::Install { id: spec.id.clone(), name: spec.name.clone() });
-    };
-    if meta.file_id != Some(spec.nexus.file_id) {
-        return Some(Action::Update {
-            id: spec.id.clone(),
-            from_folder: folder.to_owned(),
-            name: spec.name.clone(),
-            from_file_id: meta.file_id,
-            to_file_id: spec.nexus.file_id,
-        });
+    let wanted: HashSet<&str> = manifest.mod_specs().map(|m| m.id.as_str()).collect();
+    for (id, installed) in &state.mods {
+        if !wanted.contains(id.as_str()) {
+            actions.push(Action::Remove { id: id.clone(), folder: installed.folder.clone() });
+        }
     }
-    (folder != spec.name).then(|| Action::Rename {
-        id: spec.id.clone(),
-        from_folder: folder.to_owned(),
-        name: spec.name.clone(),
-    })
+
+    let modlist = target_modlist(manifest, state, current);
+    let modlist_changed = modlist != *current;
+    UpdatePlan { actions, modlist, modlist_changed, download_size }
 }
 
-fn target_modlist(manifest: &Manifest, installed: &BTreeMap<String, ModMeta>, current: &ModList) -> ModList {
-    let managed: HashSet<&str> = installed
-        .iter()
-        .filter(|(_, m)| m.is_managed())
-        .map(|(f, _)| f.as_str())
-        .collect();
+fn action_for(spec: &ModSpec, state: &State) -> Option<Action> {
+    let Some(installed) = state.mods.get(&spec.id) else {
+        return Some(Action::Install { id: spec.id.clone() });
+    };
+    if installed.hash != spec.package.hash {
+        return Some(Action::Update { id: spec.id.clone(), from_folder: installed.folder.clone() });
+    }
+    (installed.folder != spec.name).then(|| Action::Rename { id: spec.id.clone(), from_folder: installed.folder.clone() })
+}
+
+fn target_modlist(manifest: &Manifest, state: &State, current: &ModList) -> ModList {
     let build_separators: HashSet<String> = manifest
         .mods
         .iter()
@@ -105,6 +92,7 @@ fn target_modlist(manifest: &Manifest, installed: &BTreeMap<String, ModMeta>, cu
             ModEntry::Mod(_) => None,
         })
         .collect();
+    let build_folders: HashSet<&str> = manifest.mod_specs().map(|m| m.name.as_str()).collect();
     let user_sep = Entry::separator(USER_SEPARATOR);
 
     let mut entries: Vec<Entry> = current
@@ -125,7 +113,8 @@ fn target_modlist(manifest: &Manifest, installed: &BTreeMap<String, ModMeta>, cu
         .iter()
         .filter(|e| {
             e.state != EntryState::Unmanaged
-                && !managed.contains(e.name.as_str())
+                && !state.is_managed_folder(&e.name)
+                && !build_folders.contains(e.name.as_str())
                 && !build_separators.contains(&e.name)
                 && e.name != user_sep.name
         })
@@ -142,73 +131,48 @@ fn target_modlist(manifest: &Manifest, installed: &BTreeMap<String, ModMeta>, cu
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::manifest::{NexusSource, SCHEMA_VERSION};
+    use crate::manifest::tests::{manifest, spec};
+    use crate::state::InstalledMod;
 
-    fn spec(id: &str, file_id: u64) -> ModSpec {
-        ModSpec {
-            id: id.into(),
-            name: format!("{id} folder"),
-            enabled: true,
-            version: None,
-            author: None,
-            nexus: NexusSource {
-                game: "cyberpunk2077".into(),
-                mod_id: 1,
-                file_id,
-                file_name: String::new(),
-                size: 0,
-                md5: None,
-            },
-            recipe: vec![],
+    fn state(base: Option<&str>, mods: &[(&str, &str, &str)]) -> State {
+        State {
+            build_version: None,
+            base_hash: base.map(Into::into),
+            mods: mods
+                .iter()
+                .map(|(id, folder, hash)| (id.to_string(), InstalledMod { folder: folder.to_string(), hash: hash.to_string() }))
+                .collect(),
         }
-    }
-
-    fn manifest(mods: Vec<ModEntry>) -> Manifest {
-        Manifest {
-            schema: SCHEMA_VERSION,
-            name: "LYNO".into(),
-            build_version: "1".into(),
-            game_version: "2.21".into(),
-            mo2_version: "2.5.3".into(),
-            profile: "LYNO".into(),
-            changelog: vec![],
-            mods,
-            own_files: vec![],
-        }
-    }
-
-    fn managed(id: &str, file_id: u64) -> ModMeta {
-        ModMeta { lyno_id: Some(id.into()), file_id: Some(file_id), ..Default::default() }
     }
 
     #[test]
     fn fresh_install_installs_everything() {
         let m = manifest(vec![
             ModEntry::Separator { title: "Core".into() },
-            ModEntry::Mod(spec("cet", 10)),
-            ModEntry::Mod(spec("r4x", 20)),
+            ModEntry::Mod(spec("cet", "h1")),
+            ModEntry::Mod(spec("r4x", "h2")),
         ]);
-        let p = plan(&m, &BTreeMap::new(), &ModList::default());
-        assert_eq!(p.downloads().collect::<Vec<_>>(), ["cet", "r4x"]);
+        let p = plan(&m, &State::default(), &ModList::default());
+        assert_eq!(
+            p.actions,
+            [Action::Base, Action::Install { id: "cet".into() }, Action::Install { id: "r4x".into() }]
+        );
+        assert_eq!(p.download_size, 15);
         let names: Vec<_> = p.modlist.entries.iter().map(|e| e.name.as_str()).collect();
         assert_eq!(names, ["Core_separator", "cet folder", "r4x folder"]);
-        assert!(p.modlist_changed);
     }
 
     #[test]
     fn diff_update_rename_remove_and_keep_user_mods() {
         let m = manifest(vec![
-            ModEntry::Mod(spec("cet", 11)),
-            ModEntry::Mod(spec("r4x", 20)),
-            ModEntry::Mod(spec("keep", 30)),
+            ModEntry::Mod(spec("cet", "new")),
+            ModEntry::Mod(spec("r4x", "same")),
+            ModEntry::Mod(spec("keep", "k")),
         ]);
-        let installed = BTreeMap::from([
-            ("cet folder".to_owned(), managed("cet", 10)),
-            ("old r4x".to_owned(), managed("r4x", 20)),
-            ("keep folder".to_owned(), managed("keep", 30)),
-            ("gone".to_owned(), managed("gone", 1)),
-            ("My Tweak".to_owned(), ModMeta::default()),
-        ]);
+        let st = state(
+            Some("base"),
+            &[("cet", "cet folder", "old"), ("r4x", "old r4x", "same"), ("keep", "keep folder", "k"), ("gone", "gone", "g")],
+        );
         let current = ModList {
             entries: vec![
                 Entry { name: "DLC: EP1".into(), state: EntryState::Unmanaged },
@@ -220,21 +184,16 @@ mod tests {
             ],
         };
 
-        let p = plan(&m, &installed, &current);
+        let p = plan(&m, &st, &current);
         assert_eq!(
             p.actions,
             [
-                Action::Update {
-                    id: "cet".into(),
-                    from_folder: "cet folder".into(),
-                    name: "cet folder".into(),
-                    from_file_id: Some(10),
-                    to_file_id: 11
-                },
-                Action::Rename { id: "r4x".into(), from_folder: "old r4x".into(), name: "r4x folder".into() },
-                Action::Remove { folder: "gone".into() },
+                Action::Update { id: "cet".into(), from_folder: "cet folder".into() },
+                Action::Rename { id: "r4x".into(), from_folder: "old r4x".into() },
+                Action::Remove { id: "gone".into(), folder: "gone".into() },
             ]
         );
+        assert_eq!(p.download_size, 5);
         let names: Vec<_> = p.modlist.entries.iter().map(|e| e.name.as_str()).collect();
         assert_eq!(
             names,
@@ -245,10 +204,10 @@ mod tests {
 
     #[test]
     fn up_to_date_is_stable() {
-        let m = manifest(vec![ModEntry::Mod(spec("cet", 10))]);
-        let installed = BTreeMap::from([("cet folder".to_owned(), managed("cet", 10))]);
-        let first = plan(&m, &installed, &ModList::default());
-        let second = plan(&m, &installed, &first.modlist);
+        let m = manifest(vec![ModEntry::Mod(spec("cet", "h"))]);
+        let st = state(Some("base"), &[("cet", "cet folder", "h")]);
+        let first = plan(&m, &st, &ModList::default());
+        let second = plan(&m, &st, &first.modlist);
         assert!(second.is_up_to_date(), "{second:?}");
     }
 }

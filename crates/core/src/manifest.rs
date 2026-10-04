@@ -1,8 +1,9 @@
-//! The build manifest published by the build author (`manifest.json`).
+//! The build manifest (`build/manifest.json` in the repository).
 //!
-//! It never contains third-party mod files: mods are referenced by Nexus
-//! ids, and `recipe` describes how files from the downloaded archive are
-//! laid out inside the MO2 mod folder.
+//! The whole build is distributed through GitHub Releases: a base package
+//! (portable MO2 + instance config) and one package per mod. Packages are
+//! content-addressed by their tree hash, so an unchanged mod keeps pointing
+//! at the asset uploaded with an older release.
 
 use std::collections::HashSet;
 use std::path::{Component, Path};
@@ -11,7 +12,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{Error, Result};
 
-pub const SCHEMA_VERSION: u32 = 1;
+pub const SCHEMA_VERSION: u32 = 2;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -20,25 +21,25 @@ pub struct Manifest {
     pub name: String,
     /// Build version shown to users, e.g. "1.4.0".
     pub build_version: String,
-    /// Required `Cyberpunk2077.exe` file version, e.g. "3.0.78.57301".
+    /// Required `Cyberpunk2077.exe` version, e.g. "2.31".
     pub game_version: String,
-    /// Minimum MO2 version, e.g. "2.5.3".
     pub mo2_version: String,
-    /// MO2 profile the launcher manages.
+    /// MO2 profile the build lives in.
     pub profile: String,
     #[serde(default)]
     pub changelog: Vec<ChangelogEntry>,
+    /// Portable MO2 and instance config, unpacked into the instance root.
+    pub base: Package,
     /// In MO2 UI order (lowest priority first).
     pub mods: Vec<ModEntry>,
-    /// Author-owned files (configs, ini, plugin settings) hosted by the author.
-    #[serde(default)]
-    pub own_files: Vec<OwnFile>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ChangelogEntry {
     pub version: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub date: Option<String>,
     pub notes: Vec<String>,
 }
 
@@ -52,54 +53,59 @@ pub enum ModEntry {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ModSpec {
-    /// Stable id across build versions (survives renames).
+    /// Stable id across build versions (survives folder renames).
     pub id: String,
     /// Folder name under `mods/`.
     pub name: String,
     pub enabled: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub version: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub author: Option<String>,
-    pub nexus: NexusSource,
-    #[serde(default)]
-    pub recipe: Vec<RecipeItem>,
+    /// Title on Nexus, when it differs from the folder name.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub nexus: Option<NexusRef>,
+    pub package: Package,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct NexusSource {
+pub struct NexusRef {
     pub game: String,
     pub mod_id: u64,
-    pub file_id: u64,
-    pub file_name: String,
-    pub size: u64,
-    pub md5: Option<String>,
 }
 
-impl NexusSource {
-    pub fn page_url(&self) -> String {
+impl NexusRef {
+    pub fn url(&self) -> String {
         format!("https://www.nexusmods.com/{}/mods/{}", self.game, self.mod_id)
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct RecipeItem {
-    /// Path inside the archive (forward slashes).
-    pub from: String,
-    /// Path inside the MO2 mod folder (forward slashes).
-    pub to: String,
-    pub blake3: String,
+pub struct Package {
+    /// Tree hash of the unpacked folder (see [`crate::tree`]).
+    pub hash: String,
+    /// Unpacked size in bytes.
     pub size: u64,
+    /// `tar.zst` stream split into release assets, in order.
+    pub parts: Vec<Part>,
+}
+
+impl Package {
+    pub fn download_size(&self) -> u64 {
+        self.parts.iter().map(|p| p.size).sum()
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct OwnFile {
-    /// Path relative to the MO2 instance root.
-    pub path: String,
+pub struct Part {
     pub url: String,
-    pub blake3: String,
     pub size: u64,
+    pub blake3: String,
 }
 
 impl Manifest {
@@ -132,78 +138,71 @@ impl Manifest {
             if !names.insert(m.name.to_lowercase()) {
                 return Err(Error::Manifest(format!("duplicate mod folder {:?}", m.name)));
             }
-            if !is_safe_relative(&m.name) || m.name.contains(['/', '\\']) {
+            if !is_safe_folder_name(&m.name) {
                 return Err(Error::Manifest(format!("bad mod folder name {:?}", m.name)));
             }
-            for r in &m.recipe {
-                if !is_safe_relative(&r.to) {
-                    return Err(Error::Manifest(format!("mod {:?}: unsafe path {:?}", m.id, r.to)));
-                }
-            }
         }
-        for f in &self.own_files {
-            if !is_safe_relative(&f.path) {
-                return Err(Error::Manifest(format!("unsafe own file path {:?}", f.path)));
+        for e in &self.mods {
+            if let ModEntry::Separator { title } = e {
+                if !is_safe_folder_name(title) {
+                    return Err(Error::Manifest(format!("bad separator title {:?}", title)));
+                }
             }
         }
         Ok(())
     }
 }
 
-/// Rejects absolute paths and `..` so a manifest can't write outside the instance.
-fn is_safe_relative(p: &str) -> bool {
-    let normalized = p.replace('\\', "/");
-    if normalized.is_empty() || normalized.contains(':') {
-        return false;
-    }
-    Path::new(&normalized)
-        .components()
-        .all(|c| matches!(c, Component::Normal(_)))
+/// A single path component: no separators, no `..`, no drive letters.
+fn is_safe_folder_name(name: &str) -> bool {
+    !name.is_empty()
+        && !name.contains(['/', '\\', ':'])
+        && matches!(Path::new(name).components().next(), Some(Component::Normal(_)))
+        && Path::new(name).components().count() == 1
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
 
-    fn spec(id: &str, file_id: u64) -> ModSpec {
-        ModSpec {
-            id: id.into(),
-            name: id.into(),
-            enabled: true,
-            version: Some("1.0".into()),
-            author: None,
-            nexus: NexusSource {
-                game: "cyberpunk2077".into(),
-                mod_id: 1,
-                file_id,
-                file_name: format!("{id}.zip"),
-                size: 10,
-                md5: None,
-            },
-            recipe: vec![],
+    pub fn package(hash: &str) -> Package {
+        Package {
+            hash: hash.into(),
+            size: 10,
+            parts: vec![Part { url: format!("https://example.invalid/{hash}"), size: 5, blake3: "x".into() }],
         }
     }
 
-    fn manifest(mods: Vec<ModEntry>) -> Manifest {
+    pub fn spec(id: &str, hash: &str) -> ModSpec {
+        ModSpec {
+            id: id.into(),
+            name: format!("{id} folder"),
+            enabled: true,
+            version: Some("1.0".into()),
+            author: Some("someone".into()),
+            title: None,
+            nexus: Some(NexusRef { game: "cyberpunk2077".into(), mod_id: 107 }),
+            package: package(hash),
+        }
+    }
+
+    pub fn manifest(mods: Vec<ModEntry>) -> Manifest {
         Manifest {
             schema: SCHEMA_VERSION,
             name: "LYNO".into(),
             build_version: "1.0.0".into(),
-            game_version: "2.21".into(),
-            mo2_version: "2.5.3".into(),
+            game_version: "2.31".into(),
+            mo2_version: "2.5.2".into(),
             profile: "LYNO".into(),
             changelog: vec![],
+            base: package("base"),
             mods,
-            own_files: vec![],
         }
     }
 
     #[test]
     fn json_roundtrip() {
-        let m = manifest(vec![
-            ModEntry::Separator { title: "Core".into() },
-            ModEntry::Mod(spec("cet", 1)),
-        ]);
+        let m = manifest(vec![ModEntry::Separator { title: "Core".into() }, ModEntry::Mod(spec("cet", "h1"))]);
         let json = serde_json::to_string_pretty(&m).unwrap();
         assert!(json.contains("\"kind\": \"separator\""));
         assert_eq!(Manifest::from_json(&json).unwrap(), m);
@@ -211,20 +210,22 @@ mod tests {
 
     #[test]
     fn rejects_duplicates_and_traversal() {
-        let dup = manifest(vec![ModEntry::Mod(spec("a", 1)), ModEntry::Mod(spec("a", 2))]);
+        let dup = manifest(vec![ModEntry::Mod(spec("a", "1")), ModEntry::Mod(spec("a", "2"))]);
         assert!(dup.validate().is_err());
 
-        let mut bad = spec("b", 1);
-        bad.recipe.push(RecipeItem {
-            from: "x".into(),
-            to: "../../evil.dll".into(),
-            blake3: String::new(),
-            size: 0,
-        });
+        let mut bad = spec("b", "1");
+        bad.name = "../evil".into();
         assert!(manifest(vec![ModEntry::Mod(bad)]).validate().is_err());
 
-        assert!(!is_safe_relative("C:/Windows"));
-        assert!(!is_safe_relative("/etc"));
-        assert!(is_safe_relative("archive/pc/mod/x.archive"));
+        assert!(!is_safe_folder_name(".."));
+        assert!(!is_safe_folder_name("C:"));
+        assert!(!is_safe_folder_name("a/b"));
+        assert!(is_safe_folder_name("Cyber Engine Tweaks"));
+    }
+
+    #[test]
+    fn nexus_url() {
+        let n = NexusRef { game: "cyberpunk2077".into(), mod_id: 107 };
+        assert_eq!(n.url(), "https://www.nexusmods.com/cyberpunk2077/mods/107");
     }
 }

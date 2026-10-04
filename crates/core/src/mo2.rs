@@ -79,6 +79,59 @@ impl Instance {
     }
 }
 
+impl Instance {
+    pub fn ini_path(&self) -> PathBuf {
+        self.root.join("ModOrganizer.ini")
+    }
+
+    /// Points the instance at the user's game folder.
+    ///
+    /// `ModOrganizer.ini` comes from the author's machine: besides
+    /// `gamePath` it holds absolute paths in executables, so every
+    /// occurrence of the old game path is rewritten.
+    pub fn set_game_path(&self, game_dir: &Path) -> Result<()> {
+        let path = self.ini_path();
+        let text = std::fs::read_to_string(&path).map_err(|e| Error::io(&path, e))?;
+        let new = game_dir.to_string_lossy().replace('\\', "/").trim_end_matches('/').to_owned();
+        let updated = rewrite_game_path(&text, &new);
+        if updated != text {
+            std::fs::write(&path, updated).map_err(|e| Error::io(&path, e))?;
+        }
+        Ok(())
+    }
+}
+
+fn rewrite_game_path(ini: &str, new: &str) -> String {
+    let old = ini.lines().find_map(|l| {
+        l.trim()
+            .strip_prefix("gamePath=")
+            .map(|v| v.trim_start_matches("@ByteArray(").trim_end_matches(')').trim_end_matches('/').to_owned())
+    });
+    let new_line = format!("gamePath=@ByteArray({new})");
+    let mut out = match old.as_deref() {
+        Some(old) if !old.is_empty() => {
+            let old_fwd = old.replace('\\', "/");
+            // Qt ini escapes backslashes, so paths may appear as C:\\Games\\...
+            let old_bs = old_fwd.replace('/', "\\");
+            let old_bs2 = old_fwd.replace('/', "\\\\");
+            let new_bs = new.replace('/', "\\");
+            let new_bs2 = new.replace('/', "\\\\");
+            ini.replace(&old_bs2, &new_bs2).replace(&old_bs, &new_bs).replace(&old_fwd, new)
+        }
+        _ => ini.to_owned(),
+    };
+    // Normalize the gamePath line itself.
+    out = out
+        .lines()
+        .map(|l| if l.trim_start().starts_with("gamePath=") { new_line.clone() } else { l.to_owned() })
+        .collect::<Vec<_>>()
+        .join("\r\n");
+    if !out.contains("gamePath=") {
+        out = out.replacen("[General]", &format!("[General]\r\n{new_line}"), 1);
+    }
+    out + "\r\n"
+}
+
 /// Arguments for `ModOrganizer.exe` to start a configured executable
 /// inside MO2's virtual file system.
 ///
@@ -96,6 +149,24 @@ pub fn open_args(profile: &str) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn rewrites_game_paths() {
+        let ini = "[General]\r\ngamePath=@ByteArray(D:/SteamLibrary/steamapps/common/Cyberpunk 2077)\r\n\
+            [customExecutables]\r\n1\\binary=D:/SteamLibrary/steamapps/common/Cyberpunk 2077/bin/x64/Cyberpunk2077.exe\r\n\
+            2\\workingDirectory=D:\\\\SteamLibrary\\\\steamapps\\\\common\\\\Cyberpunk 2077\r\n";
+        let out = rewrite_game_path(ini, "C:/Games/Cyberpunk 2077");
+        assert!(out.contains("gamePath=@ByteArray(C:/Games/Cyberpunk 2077)\r\n"), "{out}");
+        assert!(out.contains("1\\binary=C:/Games/Cyberpunk 2077/bin/x64/Cyberpunk2077.exe"), "{out}");
+        assert!(out.contains("2\\workingDirectory=C:\\\\Games\\\\Cyberpunk 2077"), "{out}");
+        assert!(!out.contains("SteamLibrary"));
+    }
+
+    #[test]
+    fn adds_missing_game_path() {
+        let out = rewrite_game_path("[General]\r\nversion=2.5.2\r\n", "C:/G");
+        assert!(out.starts_with("[General]\r\ngamePath=@ByteArray(C:/G)\r\nversion=2.5.2"), "{out}");
+    }
 
     #[test]
     fn builds_run_args() {

@@ -16,3 +16,7 @@ thiserror = "2"
 rust-ini = "0.21"
 blake3 = "1"
 tempfile = "3"
+walkdir = "2"
+tar = "0.4"
+zstd = { version = "0.13", features = ["zstdmt"] }
+ureq = { version = "3", features = ["json"] }
