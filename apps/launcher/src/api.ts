@@ -40,7 +40,7 @@ export type ModRow =
       nexusUrl: string | null;
       /** For an installed optional mod, the player's choice. */
       enabled: boolean;
-      /** The player may switch it on or off. */
+      /** The player may switch it on or off; false for core mods (frameworks, libraries). */
       optional: boolean;
       size: number;
       outdated: boolean;

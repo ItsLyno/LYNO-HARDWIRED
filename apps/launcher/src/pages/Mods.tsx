@@ -1,4 +1,4 @@
-import { ChevronRight, ExternalLink, FolderOpen, Search } from "lucide-react";
+import { ChevronRight, ExternalLink, FolderOpen, Lock, Search } from "lucide-react";
 import { useState, type CSSProperties } from "react";
 import { api, type ModRow } from "../api";
 import { PageTitle } from "../components/PageTitle";
@@ -7,7 +7,7 @@ import { useApp } from "../store";
 
 type Mod = Extract<ModRow, { kind: "mod" }>;
 type Group = { title: string | null; color: string | null; mods: Mod[] };
-type Filter = "all" | "optional" | "changes";
+type Filter = "all" | "off" | "changes";
 
 export function Mods() {
   const { build, buildError, status, progress, run, setModEnabled } = useApp();
@@ -22,12 +22,12 @@ export function Mods() {
   };
 
   const isChange = (m: Mod) => !!m.recent || m.outdated || m.damaged || (!m.installed && !!build?.installedVersion);
-  const keep = (m: Mod) => filter === "all" || (filter === "optional" ? m.optional : isChange(m));
+  const keep = (m: Mod) => filter === "all" || (filter === "off" ? !m.enabled : isChange(m));
   const groups = groupMods(build?.mods ?? [], query, keep);
   const all = (build?.mods ?? []).filter((m): m is Mod => m.kind === "mod");
   const shown = groups.reduce((n, g) => n + g.mods.length, 0);
   const totalSize = all.reduce((n, m) => n + m.size, 0);
-  const optionalCount = all.filter((m) => m.optional).length;
+  const offCount = all.filter((m) => !m.enabled).length;
   const changeCount = all.filter(isChange).length;
   // MO2 rewrites modlist.txt on exit, so switching mods while it runs would be lost.
   const locked = !!progress || !!status?.gameRunning || !!status?.mo2Running;
@@ -60,14 +60,14 @@ export function Mods() {
         </label>
       </div>
 
-      {(optionalCount > 0 || changeCount > 0) && (
+      {(offCount > 0 || changeCount > 0) && (
         <div className="mt-4 flex items-center gap-1.5">
           <Chip active={filter === "all"} onClick={() => setFilter("all")}>
             Все
           </Chip>
-          {optionalCount > 0 && (
-            <Chip active={filter === "optional"} onClick={() => setFilter("optional")} count={optionalCount}>
-              Опциональные
+          {offCount > 0 && (
+            <Chip active={filter === "off"} onClick={() => setFilter("off")} count={offCount}>
+              Выключенные
             </Chip>
           )}
           {changeCount > 0 && (
@@ -77,10 +77,10 @@ export function Mods() {
           )}
         </div>
       )}
-      {filter === "optional" && (
+      {filter === "off" && (
         <p className="mt-3 text-[13px] text-muted">
-          Эти моды можно включать и выключать: выбор сохранится при обновлениях сборки. Выключенный мод остаётся
-          установленным.
+          Выбор сохраняется при обновлениях сборки. Выключенный мод остаётся установленным. Если от мода зависят
+          другие, выключите и их: лаунчер зависимостей не проверяет.
         </p>
       )}
       {filter === "changes" && last && last.removed.length > 0 && (
@@ -149,6 +149,14 @@ export function Mods() {
                           title={locked ? lockReason : m.enabled ? "Выключить мод" : "Включить мод"}
                           onChange={(v) => setModEnabled(m.id, v)}
                         />
+                      )}
+                      {m.installed && !m.optional && (
+                        <span
+                          className="mr-1 inline-flex h-[18px] w-8 items-center justify-center text-faint"
+                          title="Основа сборки: от этого мода зависят другие, выключить его нельзя"
+                        >
+                          <Lock size={13} />
+                        </span>
                       )}
                       {m.installed && (
                         <button

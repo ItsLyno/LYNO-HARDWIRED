@@ -70,8 +70,8 @@ pub struct ModSpec {
     pub enabled: bool,
     /// The player may switch the mod on or off; `enabled` is only the default.
     /// The choice lives in the player's `modlist.txt` and survives updates
-    /// (see [`crate::plan::is_enabled`]). Set by `[LYNO] optional=true` in
-    /// the author's `meta.ini`.
+    /// (see [`crate::plan::is_enabled`]). False only for core mods: `[LYNO]
+    /// core=true` on the mod or on its separator in the author's MO2.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub optional: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]

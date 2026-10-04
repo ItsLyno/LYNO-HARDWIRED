@@ -92,8 +92,8 @@ fn action_for(spec: &ModSpec, state: &State) -> Option<Action> {
 
 /// Whether a build mod ends up enabled. An installed optional mod keeps its
 /// current state in `modlist.txt`, whether the player set it in the launcher
-/// or in MO2. Every other mod follows the manifest, so a framework switched
-/// off by accident comes back with the next update.
+/// or in MO2. Core mods follow the manifest, so a framework switched off by
+/// accident comes back with the next update.
 pub fn is_enabled(spec: &ModSpec, state: &State, current: &ModList) -> bool {
     let chosen = || {
         let folder = &state.mods.get(&spec.id)?.folder;

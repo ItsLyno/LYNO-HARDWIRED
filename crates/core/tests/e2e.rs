@@ -46,14 +46,17 @@ fn author_instance(root: &Path) {
     write(root, "profiles/LYNO/settings.ini", b"[General]\r\nLocalSettings=false\r\n");
     write(root, "profiles/LYNO/UserSettings.json", b"author's graphics");
     write(root, "profiles/LYNO/saves/ManualSave-1/sav.dat", b"author's save");
-    write(root, "profiles/LYNO/modlist.txt", b"# x\r\n+REDmod Thing\r\n+Archive Mod\r\n+CET\r\n-Core_separator\r\n*DLC: EP1\r\n");
+    write(root, "profiles/LYNO/modlist.txt", b"# x\r\n+REDmod Thing\r\n-Extras_separator\r\n+Archive Mod\r\n+CET\r\n-Core_separator\r\n*DLC: EP1\r\n");
     write(root, "profiles/Private/modlist.txt", b"+Secret\r\n");
     write(root, "downloads/cet.zip", b"not shipped");
     write(root, "overwrite/r6/cache/x", b"not shipped");
     // The separator color as MO2 writes it: #0393e1.
     write(root, "mods/Core_separator/meta.ini", br"[General]
 color=@Variant(\0\0\0\x43\x1\xff\xff\x3\x3\x93\x93\xe1\xe1\0\0)
+[LYNO]
+core=true
 ");
+    std::fs::create_dir_all(root.join("mods/Extras_separator")).unwrap();
     write(root, "mods/CET/meta.ini", b"[General]\nmodid=107\nversion=1.35\ngameName=cyberpunk2077\n");
     write(root, "mods/CET/bin/x64/plugins/cyber_engine_tweaks.asi", &noise(300_000, 1));
     write(root, "mods/CET/bin/x64/plugins/cyber_engine_tweaks/bindings.json", b"{\"overlay\": \"F1\"}");
@@ -243,8 +246,10 @@ fn build_install_update() {
     assert!(cet.package.parts.len() > 1, "CET should be split into parts");
     assert_eq!(cet.nexus.as_ref().unwrap().url(), "https://www.nexusmods.com/cyberpunk2077/mods/107");
     assert_eq!(cet.author.as_deref(), Some("psiberx"));
+    // Core_separator is `[LYNO] core=true`; the archive mod under it is `optional=true`.
     assert!(!cet.optional);
     assert!(m1.mod_specs().find(|m| m.id == "archive-mod").unwrap().optional);
+    assert!(m1.mod_specs().find(|m| m.id == "redmod-thing").unwrap().optional, "outside the core section");
 
     let user = Instance::new(&user_root);
     let actions = install(&user, &m1);
@@ -282,7 +287,7 @@ fn build_install_update() {
     let st = State::load(&state_path(&user)).unwrap();
     assert_eq!(st.last_update.as_ref().unwrap().from, None, "first install");
 
-    // The player switches the optional mod off in the launcher; required mods can't be.
+    // The player switches the optional mod off in the launcher; core mods can't be.
     let mut list = ModList::load(&user.modlist_path("LYNO")).unwrap();
     set_enabled(&m1, &st, &mut list, "archive-mod", false).unwrap();
     assert!(set_enabled(&m1, &st, &mut list, "cet", false).is_err());

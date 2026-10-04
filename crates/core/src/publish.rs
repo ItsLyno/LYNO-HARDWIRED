@@ -112,12 +112,15 @@ pub fn build(
     let mut mods = Vec::new();
     let mut redmod = false;
     let mut step = 1;
+    // `[LYNO] core=true` of the separator the current mod sits under.
+    let mut core_section = false;
     for entry in &list.entries {
         if entry.state == EntryState::Unmanaged {
             continue;
         }
         if let Some(title) = entry.separator_title() {
             let color = metas.get(&entry.name).and_then(|m| m.color.clone());
+            core_section = metas.get(&entry.name).is_some_and(|m| m.lyno_core);
             mods.push(ModEntry::Separator { title: title.to_owned(), color });
             continue;
         }
@@ -159,7 +162,7 @@ pub fn build(
             id,
             name: entry.name.clone(),
             enabled: entry.state == EntryState::Enabled,
-            optional: meta.lyno_optional,
+            optional: is_optional(&meta, core_section),
             version: meta.version.clone(),
             author: extra.author,
             title: extra.title.filter(|t| *t != entry.name),
@@ -168,6 +171,11 @@ pub fn build(
         }));
     }
 
+    // Most likely a forgotten flag rather than a build without frameworks.
+    let specs = || mods.iter().filter_map(|e| if let ModEntry::Mod(m) = e { Some(m) } else { None });
+    if specs().next().is_some() && specs().all(|m| m.optional) {
+        warnings.push("no core mods ([LYNO] core=true on a separator or a mod): players can switch off every mod".into());
+    }
     warnings.extend(overwrite_warning(&inst.overwrite_dir())?);
     packer.cache.save()?;
     let Packer { assets, repacked, .. } = packer;
@@ -223,6 +231,14 @@ const CHECK_THREADS: usize = 8;
 /// everything in the instance root outside `BASE_EXCLUDED`, so a stray folder
 /// there (a game copy, old output, backups) silently becomes gigabytes to read
 /// and upload on every build.
+/// Players may switch off every build mod except the core: frameworks and
+/// libraries other mods need, without which the game crashes or scripts fail
+/// to compile. `optional=true` lets a mod inside a core section be switched
+/// off anyway (an add-on the author ships disabled, say).
+fn is_optional(meta: &ModMeta, core_section: bool) -> bool {
+    meta.lyno_optional || !(meta.lyno_core || core_section)
+}
+
 fn base_breakdown(files: &[FileEntry]) -> String {
     let mut sizes: std::collections::BTreeMap<&str, u64> = std::collections::BTreeMap::new();
     for f in files {
@@ -489,5 +505,14 @@ mod tests {
     fn slugs() {
         assert_eq!(slug("Cyber Engine Tweaks (CET)"), "cyber-engine-tweaks-cet");
         assert_eq!(slug("Мой мод").len(), 12);
+    }
+
+    #[test]
+    fn everything_outside_core_is_optional() {
+        let meta = |optional, core| ModMeta { lyno_optional: optional, lyno_core: core, ..Default::default() };
+        assert!(is_optional(&meta(false, false), false));
+        assert!(!is_optional(&meta(false, false), true), "a mod under a core separator");
+        assert!(!is_optional(&meta(false, true), false), "a core mod outside a core section");
+        assert!(is_optional(&meta(true, false), true), "optional=true wins over the section");
     }
 }
