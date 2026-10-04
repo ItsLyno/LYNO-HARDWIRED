@@ -10,7 +10,13 @@ type Group = { title: string | null; color: string | null; mods: Mod[] };
 type Filter = "all" | "off" | "changes";
 
 export function Mods() {
-  const { build, buildError, status, progress, run, setModEnabled } = useApp();
+  const { build, buildError, status, progress, run, setModEnabled, settings, nexusUpdates } = useApp();
+  // The author takes Nexus updates of build mods into the next release (tab «Nexus»).
+  const nexusUpdate = new Map(
+    settings?.authorMode
+      ? (nexusUpdates?.mods ?? []).flatMap((m) => (m.status.kind === "update" ? [[m.folder, m.status.version] as const] : []))
+      : [],
+  );
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const [collapsed, setCollapsed] = useState<Set<string>>(loadCollapsed);
@@ -136,6 +142,11 @@ export function Mods() {
                       </Badge>
                     )}
                     {!m.installed && build.installedVersion && <Badge tone="warn">новый</Badge>}
+                    {nexusUpdate.has(m.name) && (
+                      <Badge tone="ok" title={`На Nexus: ${nexusUpdate.get(m.name) ?? "новая версия"}. Обновить — на вкладке «Nexus»`}>
+                        обновление на Nexus
+                      </Badge>
+                    )}
                   </td>
                   <td className="truncate text-muted">{m.author ?? "—"}</td>
                   <td className="truncate font-mono text-xs text-muted tabular-nums">{m.version ?? "—"}</td>

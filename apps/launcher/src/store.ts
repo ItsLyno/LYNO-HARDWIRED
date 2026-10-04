@@ -6,13 +6,16 @@ import {
   type BuildInfo,
   type BuiltRelease,
   type LauncherUpdate,
+  type NexusJob,
+  type NexusStatus,
   type Settings,
   type Status,
   type UpdateEvent,
+  type UpdatesView,
   type VerifyReport,
 } from "./api";
 
-export type Page = "home" | "mods" | "updates" | "release" | "settings";
+export type Page = "home" | "mods" | "updates" | "nexus" | "release" | "settings";
 
 export interface Progress {
   step: { index: number; total: number; label: string } | null;
@@ -49,6 +52,13 @@ interface AppStore {
   built: BuiltRelease | null;
   /** Version published in this session, for the success note. */
   published: string | null;
+  nexus: NexusStatus | null;
+  /** Version tracking of mods from Nexus; null until loaded or without an installed build. */
+  nexusUpdates: UpdatesView | null;
+  /** Update check in progress: pages asked of all to ask. */
+  nexusChecking: { done: number; total: number } | null;
+  /** Downloads from nxm links and Premium updates, oldest first. */
+  nexusJobs: NexusJob[];
   setPage: (page: Page) => void;
   refreshStatus: () => Promise<void>;
   refreshBuild: () => Promise<void>;
@@ -65,6 +75,9 @@ interface AppStore {
   refreshBuilt: () => Promise<void>;
   startAuthorJob: (job: AuthorJob, start: () => Promise<void>) => Promise<void>;
   onAuthorEvent: (e: AuthorEvent) => void;
+  refreshNexus: () => Promise<void>;
+  checkNexus: (force: boolean) => Promise<void>;
+  onNexusJob: (job: NexusJob) => void;
   clearError: () => void;
 }
 
@@ -82,6 +95,10 @@ export const useApp = create<AppStore>((set, get) => ({
   authorRun: null,
   built: null,
   published: null,
+  nexus: null,
+  nexusUpdates: null,
+  nexusChecking: null,
+  nexusJobs: [],
   setPage: (page) => set({ page }),
   refreshStatus: async () => {
     try {
@@ -215,8 +232,42 @@ export const useApp = create<AppStore>((set, get) => ({
     if (e.kind === "bytes") set({ authorRun: { ...run, progress: { ...run.progress, bytes: e } } });
     if (e.kind === "log") set({ authorRun: { ...run, log: [...run.log, e.line].slice(-AUTHOR_LOG_LINES) } });
   },
+  // Local only: the account check and what the last update check knew. Asking Nexus is `checkNexus`.
+  refreshNexus: async () => {
+    try {
+      const [nexus, jobs] = await Promise.all([api.nexusStatus(), api.nexusJobs()]);
+      set({ nexus, nexusJobs: jobs });
+    } catch (e) {
+      set({ error: String(e) });
+    }
+    try {
+      set({ nexusUpdates: await api.nexusUpdates() });
+    } catch {
+      // No installed build yet: nothing to track.
+      set({ nexusUpdates: null });
+    }
+  },
+  checkNexus: async (force) => {
+    set({ nexusChecking: { done: 0, total: 0 } });
+    try {
+      const view = await api.nexusCheck(force);
+      if (view) set({ nexusUpdates: view });
+    } catch (e) {
+      set({ error: String(e) });
+    } finally {
+      set({ nexusChecking: null });
+    }
+  },
+  onNexusJob: (job) => {
+    const jobs = get().nexusJobs;
+    set({ nexusJobs: jobs.some((j) => j.id === job.id) ? jobs.map((j) => (j.id === job.id ? job : j)) : [...jobs, job] });
+  },
   clearError: () => set({ error: null }),
 }));
+
+export function isJobActive(job: NexusJob): boolean {
+  return !["done", "failed", "cancelled"].includes(job.state.kind);
+}
 
 /** The pending update only downloads damaged files again, the version stays the same. */
 export function isRepairOnly(build: BuildInfo | null): boolean {

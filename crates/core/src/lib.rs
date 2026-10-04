@@ -4,6 +4,7 @@
 //! from packages published on GitHub Releases, keeps it updated, and
 //! drives `ModOrganizer.exe` through its command line.
 
+pub mod archive;
 pub mod author;
 pub mod download;
 pub mod error;
@@ -16,8 +17,11 @@ pub mod install;
 pub mod manifest;
 pub mod meta;
 pub mod mo2;
-pub mod nexus;
+pub mod mod_install;
 pub mod modlist;
+pub mod nexus;
+pub mod nexus_sso;
+pub mod nxm;
 pub mod package;
 pub mod plan;
 pub mod prefetch;
@@ -26,6 +30,7 @@ pub mod release;
 pub mod report;
 pub mod rules;
 pub mod state;
+pub mod tracking;
 pub mod tree;
 pub mod verify;
 

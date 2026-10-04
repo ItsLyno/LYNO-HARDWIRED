@@ -127,20 +127,53 @@ impl Downloader {
             on(PartEvent::Bytes(part.size));
             return Ok(());
         }
-        if let Some(dir) = dest.parent() {
+        let partial = partial_path(dest);
+        self.fetch_partial(&part.url, part.size, &partial, cancel, on)?;
+        let hash = blake3_file(&partial)?;
+        if hash != part.blake3 {
+            let _ = std::fs::remove_file(&partial);
+            return Err(Error::Integrity(format!("{}: hash mismatch, file removed", part.url)));
+        }
+        std::fs::rename(&partial, dest).map_err(|e| Error::io(dest, e))
+    }
+
+    /// Downloads `size` bytes from `url` to `dest` with the same resume and
+    /// retries as [`Self::fetch_part`], checking only the size: Nexus gives no
+    /// hash the launcher could check.
+    pub fn fetch_file(
+        &self,
+        url: &str,
+        size: u64,
+        dest: &Path,
+        cancel: &dyn Fn() -> bool,
+        on: &mut dyn FnMut(PartEvent),
+    ) -> Result<()> {
+        let partial = partial_path(dest);
+        self.fetch_partial(url, size, &partial, cancel, on)?;
+        std::fs::rename(&partial, dest).map_err(|e| Error::io(dest, e))
+    }
+
+    /// Fills `partial` with the `size` bytes of `url`.
+    fn fetch_partial(
+        &self,
+        url: &str,
+        size: u64,
+        partial: &Path,
+        cancel: &dyn Fn() -> bool,
+        on: &mut dyn FnMut(PartEvent),
+    ) -> Result<()> {
+        if let Some(dir) = partial.parent() {
             std::fs::create_dir_all(dir).map_err(|e| Error::io(dir, e))?;
         }
-        let partial = partial_path(dest);
-
         let mut failures = 0;
         loop {
-            let before = file_len(&partial);
-            match self.fetch_range(part, &partial, cancel, on) {
+            let before = file_len(partial);
+            match self.fetch_range(url, size, partial, cancel, on) {
                 Ok(()) => break,
                 Err(Attempt::Fatal(e)) => return Err(e),
                 // A window ran out or the connection broke after some data:
                 // continue at once, it is not a failure of the network.
-                Err(Attempt::Transient(_)) if file_len(&partial) > before => failures = 0,
+                Err(Attempt::Transient(_)) if file_len(partial) > before => failures = 0,
                 Err(Attempt::Transient(e)) => {
                     failures += 1;
                     if failures >= FETCH_ATTEMPTS {
@@ -153,42 +186,38 @@ impl Downloader {
             }
         }
 
-        let got = file_len(&partial);
-        if got != part.size {
-            return Err(Error::Download(format!("{}: got {got} bytes, expected {}", part.url, part.size)));
+        let got = file_len(partial);
+        if got != size {
+            return Err(Error::Download(format!("{url}: got {got} bytes, expected {size}")));
         }
-        let hash = blake3_file(&partial)?;
-        if hash != part.blake3 {
-            let _ = std::fs::remove_file(&partial);
-            return Err(Error::Integrity(format!("{}: hash mismatch, file removed", part.url)));
-        }
-        std::fs::rename(&partial, dest).map_err(|e| Error::io(dest, e))
+        Ok(())
     }
 
     /// One GET appending to `partial` until the part is complete, the
     /// connection fails or [`REQUEST_WINDOW`] runs out.
     fn fetch_range(
         &self,
-        part: &Part,
+        url: &str,
+        size: u64,
         partial: &Path,
         cancel: &dyn Fn() -> bool,
         on: &mut dyn FnMut(PartEvent),
     ) -> Result<(), Attempt> {
-        let transient = |e: &dyn std::fmt::Display| Attempt::Transient(Error::Download(format!("{}: {e}", part.url)));
+        let transient = |e: &dyn std::fmt::Display| Attempt::Transient(Error::Download(format!("{url}: {e}")));
         let mut have = file_len(partial);
-        if have > part.size {
+        if have > size {
             std::fs::remove_file(partial).map_err(|e| Attempt::Fatal(Error::io(partial, e)))?;
             have = 0;
         }
         on(PartEvent::Bytes(have));
-        if have == part.size {
+        if have == size {
             return Ok(());
         }
         if cancel() {
             return Err(Attempt::Fatal(Error::Cancelled));
         }
 
-        let mut req = self.agent.get(&part.url);
+        let mut req = self.agent.get(url);
         if have > 0 {
             req = req.header("Range", format!("bytes={have}-"));
         }
@@ -212,7 +241,7 @@ impl Downloader {
                 File::create(partial)
             }
             408 | 429 | 500..=599 => return Err(transient(&format!("HTTP {status}"))),
-            _ => return Err(Attempt::Fatal(Error::Download(format!("{}: HTTP {status}", part.url)))),
+            _ => return Err(Attempt::Fatal(Error::Download(format!("{url}: HTTP {status}")))),
         };
         let mut file = file.map_err(|e| Attempt::Fatal(Error::io(partial, e)))?;
 
@@ -236,9 +265,9 @@ impl Downloader {
         };
         file.flush().map_err(|e| Attempt::Fatal(Error::io(partial, e)))?;
         result?;
-        if have < part.size {
+        if have < size {
             // The server closed the body early.
-            return Err(transient(&format!("connection closed at {have} of {} bytes", part.size)));
+            return Err(transient(&format!("connection closed at {have} of {size} bytes")));
         }
         Ok(())
     }
