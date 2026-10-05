@@ -2,12 +2,13 @@ import { Check, FileArchive, FolderOpen, Loader2, Search } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api, type Folder, type Settings as SettingsT } from "../api";
 import { Button } from "../components/Button";
+import { InstanceSetup } from "../components/InstanceSetup";
 import { Integrity } from "../components/Integrity";
 import { PageTitle } from "../components/PageTitle";
-import { useApp } from "../store";
+import { activeInstance, useApp } from "../store";
 
 export function Settings() {
-  const { settings, saveSettings, run, setPage } = useApp();
+  const { settings, saveSettings, run, setPage, switchInstance, progress } = useApp();
   const [draft, setDraft] = useState<SettingsT | null>(settings);
   const [saved, setSaved] = useState(false);
   const [detectNote, setDetectNote] = useState<string | null>(null);
@@ -22,7 +23,10 @@ export function Settings() {
   }, []);
   if (!draft) return null;
 
-  const dirty = JSON.stringify(draft) !== JSON.stringify(settings);
+  // Instances change through their own calls, not the Save button.
+  const editable = (s: SettingsT | null) => s && { ...s, instanceDir: null, instances: null };
+  const dirty = JSON.stringify(editable(draft)) !== JSON.stringify(editable(settings));
+  const isBuild = !!activeInstance(settings)?.build;
   // Applied at once, not through the Save button; the draft follows so a later save doesn't undo it.
   const disableAuthorMode = () =>
     run(async () => {
@@ -73,12 +77,11 @@ export function Settings() {
           </div>
           {detectNote && <div className="mt-2 text-[13px] text-muted">{detectNote}</div>}
         </Field>
-        <Field label="Папка сборки" hint="Сюда устанавливаются Mod Organizer 2 и моды. Нужно около 1,2× размера сборки свободного места.">
-          <Input value={draft.instanceDir} onChange={(v) => update({ instanceDir: v })} />
-        </Field>
-        <Field label="Манифест сборки" hint="Адрес файла с описанием актуальной версии сборки на GitHub.">
-          <Input value={draft.manifestUrl} onChange={(v) => update({ manifestUrl: v })} />
-        </Field>
+        {isBuild && (
+          <Field label="Манифест сборки" hint="Адрес файла с описанием актуальной версии сборки на GitHub.">
+            <Input value={draft.manifestUrl} onChange={(v) => update({ manifestUrl: v })} />
+          </Field>
+        )}
         {settings?.authorMode && (
           <>
             <Field
@@ -116,6 +119,29 @@ export function Settings() {
           </span>
         )}
       </div>
+      <h2 className="pt-4 text-base font-semibold">Mod Organizer 2</h2>
+      <div className="panel divide-y divide-line/60">
+        {(settings?.instances ?? []).map((i) => (
+          <label key={i.dir} className="flex cursor-pointer items-center gap-3 px-5 py-4">
+            <input
+              type="radio"
+              name="instance"
+              className="accent-neon"
+              checked={i.dir === settings?.instanceDir}
+              disabled={!!progress}
+              onChange={() => switchInstance(() => api.instanceSelect(i.dir))}
+            />
+            <span className="min-w-0 flex-1">
+              <span className="text-sm font-medium">{i.name}</span>
+              <span className="ml-2 text-[13px] text-muted">{i.build ? "сборка" : "ваш MO2"}</span>
+              <span className="block truncate font-mono text-[12px] text-faint" title={i.dir}>
+                {i.dir}
+              </span>
+            </span>
+          </label>
+        ))}
+        <InstanceSetup build={!settings?.instances.some((i) => i.build)} />
+      </div>
       <h2 className="pt-4 text-base font-semibold">Папки</h2>
       <div className="panel">
         <Field
@@ -134,7 +160,7 @@ export function Settings() {
       </div>
       <h2 className="pt-4 text-base font-semibold">Диагностика</h2>
       <div className="panel divide-y divide-line/60">
-        {settings?.authorMode ? (
+        {!isBuild ? null : settings?.authorMode ? (
           <Field
             label="Проверка целостности"
             hint="В режиме автора починка выключена: изменённые файлы — это ваши правки. Посмотреть их можно на вкладке «Выпуск»."
@@ -176,7 +202,7 @@ export function Settings() {
 
 const folders: [Folder, string][] = [
   ["saves", "Сохранения"],
-  ["instance", "Сборка"],
+  ["instance", "Mod Organizer 2"],
   ["game", "Игра"],
   ["logs", "Логи лаунчера"],
 ];

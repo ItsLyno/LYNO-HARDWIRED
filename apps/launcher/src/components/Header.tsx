@@ -3,14 +3,15 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Minus, Square, X } from "lucide-react";
 import type { ReactNode } from "react";
 import logo from "../assets/logo.webp";
-import { useApp, type Page } from "../store";
+import { activeInstance, useApp, type Page } from "../store";
 
-const tabs: { id: Page; label: string; author?: boolean }[] = [
+/** `build`: only with the build's instance. */
+const tabs: { id: Page; label: string; author?: boolean; build?: boolean }[] = [
   { id: "home", label: "Главная" },
   { id: "mods", label: "Моды" },
-  { id: "updates", label: "Обновления" },
+  { id: "updates", label: "Обновления", build: true },
   { id: "nexus", label: "Nexus" },
-  { id: "release", label: "Выпуск", author: true },
+  { id: "release", label: "Выпуск", author: true, build: true },
   { id: "settings", label: "Настройки" },
 ];
 
@@ -18,6 +19,7 @@ const tabs: { id: Page; label: string; author?: boolean }[] = [
 export function Header() {
   const { page, setPage, build, settings } = useApp();
   const authorMode = !!settings?.authorMode;
+  const isBuild = !!activeInstance(settings)?.build;
   const updateAvailable = !!build && !build.upToDate && build.online && !authorMode;
   const win = isTauri() ? getCurrentWindow() : null;
 
@@ -28,7 +30,7 @@ export function Header() {
         <img src={logo} alt="LYNO//HARDWIRED" draggable={false} className="pointer-events-none h-5 w-auto" />
       </div>
       <nav className="flex items-center gap-0.5 rounded-full bg-surface/80 p-1">
-        {tabs.filter((t) => !t.author || authorMode).map((t) => (
+        {tabs.filter((t) => (!t.author || authorMode) && (!t.build || isBuild)).map((t) => (
           <button
             key={t.id}
             onClick={() => setPage(t.id)}

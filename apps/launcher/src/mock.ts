@@ -8,6 +8,7 @@ import type {
   BuiltRelease,
   Folder,
   GameInstall,
+  InstanceEntry,
   LauncherUpdate,
   ModRow,
   ModUpdateRow,
@@ -77,8 +78,11 @@ const mods: ModRow[] = [
   mod("Appearance Menu Mod", "MxOrcinus", "2.6.3", 420 * MB, 790),
 ];
 
+const BUILD_DIR = "C:\\Users\\V\\AppData\\Local\\dev.lyno.hardwired\\instance";
+
 let settings: Settings = {
-  instanceDir: "C:\\Users\\V\\AppData\\Local\\dev.lyno.hardwired\\instance",
+  instanceDir: BUILD_DIR,
+  instances: [{ name: "LYNO//HARDWIRED", dir: BUILD_DIR, build: true }],
   gameDir: "D:\\SteamLibrary\\steamapps\\common\\Cyberpunk 2077",
   manifestUrl: "https://raw.githubusercontent.com/ItsLyno/LYNO-HARDWIRED/main/build/manifest.json",
   authorMode: false,
@@ -450,9 +454,8 @@ async function simulateDownload(job: NexusJob, fomod = false) {
     emit({ state: { kind: "choosing" } });
     return;
   }
-  emit({ state: { kind: "installing" } });
-  await delay(500);
-  emit({ state: { kind: "done", outcome: { kind: "installed", folder: "Better Lightning" } } });
+  // A new version of an installed mod only lands in the downloads.
+  emit({ state: { kind: "done", outcome: { kind: "downloaded", replaces: "Better Lightning" } } });
   nexusHandlers?.changed();
 }
 
@@ -468,18 +471,24 @@ async function simulateFomodInstall(id: number) {
   nexusHandlers?.changed();
 }
 
+function useInstance(entry: InstanceEntry) {
+  const instances = settings.instances.some((i) => i.dir === entry.dir) ? settings.instances : [...settings.instances, entry];
+  settings = { ...settings, instanceDir: entry.dir, instances };
+  status = { ...status, mo2Installed: true, installedVersion: entry.build ? build.installedVersion : null };
+}
+
 export const mock = {
   getSettings: async () => settings,
   saveSettings: async (s: Settings) => {
     if (s.authorMode && !settings.authorMode) throw new Error("Режим автора включается по токену GitHub: «Я автор сборки» внизу настроек");
-    settings = s;
+    settings = { ...s, instanceDir: settings.instanceDir, instances: settings.instances };
     status = { ...status, gameDir: s.gameDir, gameFound: !!s.gameDir };
   },
   detectGames: async (): Promise<GameInstall[]> => [{ path: "D:\\SteamLibrary\\steamapps\\common\\Cyberpunk 2077", store: "Steam" }],
   getStatus: async () => status,
   fetchBuild: async () => {
     await delay(200);
-    return build;
+    return settings.instances.find((i) => i.dir === settings.instanceDir)?.build ? build : null;
   },
   startUpdate: async () => {
     if (settings.authorMode) throw new Error(AUTHOR_MODE_NO_UPDATE);
@@ -668,6 +677,13 @@ export const mock = {
     userMods = userMods.map((r) => (r.kind === "mod" && r.name === folder ? { ...r, enabled } : r));
   },
   openUserModFolder: async (_folder: string) => {},
+  instanceSelect: async (dir: string) => useInstance(settings.instances.find((i) => i.dir === dir)!),
+  instanceAdd: async (dir: string) => useInstance({ name: dir.split("\\").pop() ?? dir, dir, build: false }),
+  instanceAddBuild: async () => useInstance({ name: "LYNO//HARDWIRED", dir: BUILD_DIR, build: true }),
+  startMo2Setup: async () => {
+    await delay(800);
+    useInstance({ name: "Mod Organizer 2", dir: "C:\\Users\\V\\AppData\\Local\\dev.lyno.hardwired\\mo2", build: false });
+  },
   // No Explorer in a browser.
   onFileDrop: async (_h: FileDropHandlers) => () => {},
   nexusFomod: async (_id: number): Promise<FomodWizard> => {

@@ -67,7 +67,8 @@ pub fn tracked_mods(inst: &Instance, profile: &str) -> Result<(Vec<Tracked>, Vec
     let (build, personal) = split_user_section(&list);
     let mut tracked = Vec::new();
     let mut untracked = Vec::new();
-    let sections = [(build, false), (personal, true)];
+    // Without the build nothing is above the player's section: it is all theirs.
+    let sections = [(build, state.build_version.is_none()), (personal, true)];
     for (entries, personal) in sections {
         for e in entries.iter().filter(|e| e.state != EntryState::Unmanaged && !e.is_separator()) {
             let meta = metas.get(&e.name).cloned().unwrap_or_default();
@@ -352,9 +353,14 @@ pub fn target<'a>(mods: &'a [Tracked], files: &ModFiles, game: &str, mod_id: u64
     if let Some(t) = same_page.iter().find(|t| t.file_id.is_some_and(|f| replaced.contains(&f))) {
         return Some(t);
     }
-    // Installed without a file record: the only folder of the page is the one to update.
+    // Installed without a file record: the only folder of the page is the one to update,
+    // unless the new file is an addon, which goes next to the main mod.
+    let addon = files
+        .files
+        .iter()
+        .any(|f| f.file_id == file_id && matches!(f.category_name.as_deref(), Some("OPTIONAL" | "MISCELLANEOUS")));
     match same_page.as_slice() {
-        [only] if only.file_id.is_none() => Some(only),
+        [only] if only.file_id.is_none() && !addon => Some(only),
         _ => None,
     }
 }
@@ -462,6 +468,8 @@ mod tests {
 
         let unknown = [Tracked { folder: "Hand".into(), ..tracked(None, "1") }];
         assert_eq!(target(&unknown, &c.files, "cyberpunk2077", 1, 2).map(|t| t.folder.as_str()), Some("Hand"));
+        // An addon never replaces the main mod installed without a file id.
+        assert_eq!(target(&unknown, &c.files, "cyberpunk2077", 1, 7), None);
     }
 
     #[test]

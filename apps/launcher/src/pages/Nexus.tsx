@@ -175,6 +175,8 @@ function outcomeText(o: Outcome): string {
   switch (o.kind) {
     case "installed":
       return `Установлен: «${o.folder}»`;
+    case "downloaded":
+      return `Скачан в загрузки: перетащите его в список модов, чтобы заменить «${o.replaces}»`;
     case "mo2":
       return "Это не архив zip, 7z или rar: файл оставлен в папке загрузок.";
     case "deferred":
@@ -248,7 +250,7 @@ function JobRow({ job }: { job: NexusJob }) {
       line = "Поставится сам, когда закроются Mod Organizer 2 и игра: MO2 перезаписывает список модов при выходе";
       break;
     case "done":
-      line = <span className={s.outcome.kind === "installed" ? "text-ok" : "text-warn"}>{outcomeText(s.outcome)}</span>;
+      line = <span className={s.outcome.kind === "installed" || s.outcome.kind === "downloaded" ? "text-ok" : "text-warn"}>{outcomeText(s.outcome)}</span>;
       break;
     case "failed":
       line = <span className="text-bad">{s.error}</span>;
@@ -257,7 +259,7 @@ function JobRow({ job }: { job: NexusJob }) {
       line = "Отменено";
       break;
   }
-  const showMo2 = s.kind === "done" && s.outcome.kind !== "installed";
+  const showMo2 = s.kind === "done" && s.outcome.kind !== "installed" && s.outcome.kind !== "downloaded";
 
   return (
     <li className="px-5 py-3.5">

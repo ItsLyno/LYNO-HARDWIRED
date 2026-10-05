@@ -268,10 +268,6 @@ fn view(state: &AppState, tracked: Vec<Tracked>, untracked: Vec<String>, cache: 
         .iter()
         .map(|t| {
             let status = tracking::status(t, cache.get(&t.game, t.mod_id));
-            let new_file = match &status {
-                Status::Update { file: Some(f), .. } => Some(f.file_id),
-                _ => None,
-            };
             ModUpdateRow {
                 folder: t.folder.clone(),
                 game: t.game.clone(),
@@ -280,7 +276,7 @@ fn view(state: &AppState, tracked: Vec<Tracked>, untracked: Vec<String>, cache: 
                 personal: t.personal,
                 managed: t.managed,
                 can_update: t.personal || author,
-                page_url: nxm::file_page(&t.game, t.mod_id, new_file),
+                page_url: nxm::file_page(&t.game, t.mod_id),
                 status,
             }
         })
@@ -297,7 +293,7 @@ fn instance(state: &AppState) -> CmdResult<(Instance, String)> {
     let inst = Instance::new(&state.settings.lock().unwrap().instance_dir);
     let profile = profile(&inst);
     if !inst.modlist_path(&profile).is_file() {
-        return Err("Сборка не установлена".into());
+        return Err("Mod Organizer 2 не установлен".into());
     }
     Ok((inst, profile))
 }
@@ -623,7 +619,7 @@ fn job_error(e: &lyno_core::Error) -> String {
     }
 }
 
-fn busy(state: &AppState) -> bool {
+pub(crate) fn busy(state: &AppState) -> bool {
     state.update.lock().unwrap().is_some() || state.verify.lock().unwrap().is_some() || state.author_job.lock().unwrap().is_some()
 }
 
@@ -633,7 +629,7 @@ fn run_job(app: &AppHandle, job: &Job) -> lyno_core::Result<Result<Next, BuildMo
     let settings = state.settings.lock().unwrap().clone();
     let inst = Instance::new(&settings.instance_dir);
     if !inst.is_installed() {
-        return Err(lyno_core::Error::Manifest("Сначала установите сборку".into()));
+        return Err(lyno_core::Error::Manifest("Сначала установите Mod Organizer 2".into()));
     }
     let cancel = job.cancel.clone();
     let cancelled = || cancel.load(Ordering::Relaxed);

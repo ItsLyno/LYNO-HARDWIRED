@@ -6,11 +6,26 @@ pub const DEFAULT_REPO: &str = "ItsLyno/LYNO-HARDWIRED";
 pub const DEFAULT_MANIFEST_URL: &str =
     "https://raw.githubusercontent.com/ItsLyno/LYNO-HARDWIRED/main/build/manifest.json";
 
+/// A portable MO2 instance the launcher knows.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InstanceEntry {
+    pub name: String,
+    pub dir: PathBuf,
+    /// Installed and updated from `Settings::manifest_url`. Otherwise the
+    /// player's own MO2: the launcher never installs the build over it.
+    #[serde(default)]
+    pub build: bool,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Settings {
-    /// Portable MO2 instance the launcher installs and manages.
+    /// The instance the launcher works with, one of `instances`; none of them
+    /// on a first start, until the player sets one up.
     pub instance_dir: PathBuf,
+    #[serde(default)]
+    pub instances: Vec<InstanceEntry>,
     /// Cyberpunk 2077 folder; detected automatically when empty.
     #[serde(default)]
     pub game_dir: Option<PathBuf>,
@@ -31,6 +46,13 @@ pub struct Settings {
     pub author_out_dir: Option<PathBuf>,
 }
 
+pub const BUILD_NAME: &str = "LYNO//HARDWIRED";
+
+/// Where the build is installed by default; launchers before 0.8 had it there too.
+pub fn build_dir(data_dir: &Path) -> PathBuf {
+    data_dir.join("instance")
+}
+
 fn default_repo() -> String {
     DEFAULT_REPO.into()
 }
@@ -42,7 +64,8 @@ fn default_manifest_url() -> String {
 impl Settings {
     fn defaults(data_dir: &Path) -> Self {
         Self {
-            instance_dir: data_dir.join("instance"),
+            instance_dir: build_dir(data_dir),
+            instances: Vec::new(),
             game_dir: None,
             manifest_url: default_manifest_url(),
             author_mode: false,
@@ -52,14 +75,29 @@ impl Settings {
     }
 
     pub fn load_or_default(path: &Path, data_dir: &Path) -> Self {
-        let mut s: Self = std::fs::read_to_string(path)
-            .ok()
-            .and_then(|text| serde_json::from_str(&text).ok())
-            .unwrap_or_else(|| Self::defaults(data_dir));
+        let loaded: Option<Self> = std::fs::read_to_string(path).ok().and_then(|text| serde_json::from_str(&text).ok());
+        let mut s = match loaded {
+            // Launchers before 0.8 knew only the build's instance.
+            Some(mut s) if s.instances.is_empty() => {
+                s.instances.push(InstanceEntry { name: BUILD_NAME.into(), dir: s.instance_dir.clone(), build: true });
+                s
+            }
+            Some(s) => s,
+            None => Self::defaults(data_dir),
+        };
         if s.game_dir.is_none() {
             s.game_dir = lyno_core::game::detect().into_iter().next().map(|g| g.path);
         }
         s
+    }
+
+    /// The active instance is the build's.
+    pub fn build(&self) -> bool {
+        self.active().is_some_and(|i| i.build)
+    }
+
+    pub fn active(&self) -> Option<&InstanceEntry> {
+        self.instances.iter().find(|i| i.dir == self.instance_dir)
     }
 
     pub fn save(&self, path: &Path) -> std::io::Result<()> {

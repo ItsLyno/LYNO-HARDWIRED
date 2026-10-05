@@ -9,7 +9,9 @@
 //! [`open_fomod`], [`install_fomod`]) or a layout no rule recognizes
 //! ([`Outcome::Manual`], [`install_root`], MO2's manual installer). With MO2
 //! or the game running the install waits for them to close
-//! ([`Outcome::Deferred`]).
+//! ([`Outcome::Deferred`]). A new version of an installed mod only goes to
+//! `downloads/` ([`Outcome::Downloaded`]): it replaces the folder once the
+//! player drags it onto the list and confirms.
 //!
 //! An archive the player brings from disk ([`Download::from_file`]) is
 //! installed from where it is: it is theirs, not MO2's download.
@@ -54,6 +56,19 @@ pub struct Download {
 }
 
 impl Download {
+    /// Folder of a new mod. A page often has a main file and addons; by the page
+    /// title alone they all land in `Name`, `Name (2)`, … and can't be told apart.
+    pub fn folder(&self) -> String {
+        let title = self.file_title.trim();
+        if title.is_empty() || title.eq_ignore_ascii_case(self.mod_name.trim()) {
+            self.mod_name.clone()
+        } else if title.to_lowercase().contains(&self.mod_name.trim().to_lowercase()) {
+            title.to_owned()
+        } else {
+            format!("{} - {title}", self.mod_name.trim())
+        }
+    }
+
     /// An archive from disk. Nexus names its files `Name-modid-version-timestamp`;
     /// like MO2, the mod page and version are taken from such a name.
     pub fn from_file(path: &Path) -> Self {
@@ -103,6 +118,9 @@ pub enum Target {
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum Outcome {
     Installed { folder: String },
+    /// A new version of the installed `replaces`: in MO2's downloads, the
+    /// player drags it onto the list to install it over the folder.
+    Downloaded { replaces: String },
     /// In MO2's downloads: the player installs it there.
     Mo2 { reason: archive::Mo2Reason },
     /// MO2 or the game is running, and MO2 would overwrite `modlist.txt` on
@@ -162,7 +180,8 @@ pub struct Context<'a> {
 pub struct BuildMod(pub String);
 
 /// Downloads the file of an nxm link (or of a Premium update, `link.key`
-/// empty) and installs it over the mod it replaces or as a new one.
+/// empty) and installs it as a new mod; a file of an installed mod only goes
+/// to `downloads/`, replacing a folder is the player's call.
 pub fn fetch_and_install(
     api: &NexusApi,
     downloader: &Downloader,
@@ -221,11 +240,13 @@ pub fn fetch_and_install(
     })?;
 
     on(Progress::Installing);
-    let outcome = if ctx.mo2_running {
-        let archive = to_downloads(ctx.inst, &scratch, &dl, false)?;
-        Outcome::Deferred { archive, target }
-    } else {
-        install(ctx.inst, ctx.profile, &scratch, &dl, &target)?
+    let outcome = match target {
+        Target::Replace(folder) => {
+            to_downloads(ctx.inst, &scratch, &dl, false)?;
+            Outcome::Downloaded { replaces: folder }
+        }
+        target if ctx.mo2_running => Outcome::Deferred { archive: to_downloads(ctx.inst, &scratch, &dl, false)?, target },
+        target => install(ctx.inst, ctx.profile, &scratch, &dl, &target)?,
     };
     // The page was just read: its mods show as current without another request.
     let mut cache = Cache::load(&Cache::path(ctx.inst));
@@ -333,7 +354,7 @@ fn place(
     std::fs::create_dir_all(&mods).map_err(|e| Error::io(&mods, e))?;
     let folder = match target {
         Target::Replace(f) => f.clone(),
-        Target::New { .. } => free_folder(&mods, &folder_name(&dl.mod_name)),
+        Target::New { .. } => free_folder(&mods, &folder_name(&dl.folder())),
     };
     let staging = inst.root().join(".lyno").join("staging").join("nexus");
     if staging.exists() {
@@ -368,6 +389,7 @@ fn place(
             Target::New { personal, after } => (*personal, after.as_deref()),
             Target::Replace(_) => (true, None),
         };
+        let personal = personal && crate::install::has_build(inst);
         insert(&mut list, Entry::enabled(&folder), personal, after);
         if let Some(dir) = list_path.parent() {
             std::fs::create_dir_all(dir).map_err(|e| Error::io(dir, e))?;
@@ -777,23 +799,36 @@ mod tests {
             mod_id: 42,
             file_id,
             mod_name: "Cool: Mod".into(),
-            file_title: "Main File".into(),
+            file_title: "Cool: Mod".into(),
             version: Some(version.into()),
             file_name: format!("Cool Mod-42-{file_id}.zip"),
             local: false,
         }
     }
 
+    /// An instance with the build installed.
     fn instance(list: &str) -> (tempfile::TempDir, Instance) {
         let dir = tempfile::tempdir().unwrap();
         let inst = Instance::new(dir.path());
         std::fs::create_dir_all(inst.profile_dir("LYNO")).unwrap();
         std::fs::write(inst.modlist_path("LYNO"), list).unwrap();
+        let state = crate::state::State { build_version: Some("1.0".into()), ..Default::default() };
+        state.save(&crate::install::state_path(&inst)).unwrap();
         (dir, inst)
     }
 
     fn names(inst: &Instance) -> Vec<String> {
         ModList::load(&inst.modlist_path("LYNO")).unwrap().entries.into_iter().map(|e| e.name).collect()
+    }
+
+    #[test]
+    fn without_the_build_a_mod_goes_to_the_end_of_the_list() {
+        let (dir, inst) = instance("+Mine\r\n");
+        std::fs::remove_file(crate::install::state_path(&inst)).unwrap();
+        let archive = dir.path().join("dl.zip");
+        zip_with(&archive, &[("Cool/archive/pc/mod/a.archive", b"v1")]);
+        install(&inst, "LYNO", &archive, &download(1, "1.0"), &Target::New { personal: true, after: None }).unwrap();
+        assert_eq!(names(&inst), ["Mine", "Cool_ Mod"]);
     }
 
     #[test]
@@ -1036,5 +1071,14 @@ mod tests {
         assert_eq!(folder_name(" trailing. "), "trailing");
         assert_eq!(folder_name("x_separator"), "x_separator mod");
         assert_eq!(folder_name(""), "Nexus mod");
+    }
+
+    #[test]
+    fn names_addons_apart_from_the_main_file() {
+        let dl = |title: &str| Download { mod_name: "Cool Mod".into(), file_title: title.into(), ..Default::default() };
+        assert_eq!(dl("").folder(), "Cool Mod");
+        assert_eq!(dl("cool mod").folder(), "Cool Mod");
+        assert_eq!(dl("Cool Mod - Extra Outfits").folder(), "Cool Mod - Extra Outfits");
+        assert_eq!(dl("Extra Outfits").folder(), "Cool Mod - Extra Outfits");
     }
 }

@@ -3,7 +3,7 @@ import { useEffect, useState, type CSSProperties } from "react";
 import { api, type ModRow, type UserRow } from "../api";
 import { PageTitle } from "../components/PageTitle";
 import { formatBytes, plural } from "../format";
-import { useApp } from "../store";
+import { activeInstance, useApp } from "../store";
 
 type Mod = Extract<ModRow, { kind: "mod" }>;
 type Group = { title: string | null; color: string | null; mods: Mod[] };
@@ -48,19 +48,22 @@ export function Mods() {
     ? "Дождитесь окончания обновления"
     : "Закройте игру и Mod Organizer 2, чтобы включать и выключать моды";
 
-  if (!build) {
+  // The player's own MO2: the whole list is their section.
+  const isBuild = !!activeInstance(settings)?.build;
+  if (!build && isBuild) {
     return <p className="text-muted">{buildError ?? "Загрузка списка модов…"}</p>;
   }
-  const last = build.lastUpdate;
+  const last = build?.lastUpdate ?? null;
   // Where an archive being dragged or dropped from Explorer would land. A player's mod never goes among the
   // build's: over those it lands at the top of their own section, which is what the core does with it too.
   const spot = drag?.over ?? (fileOver && !fileOver.outside ? fileOver : null);
   const dropping = !!drag || (!!fileOver && !fileOver.outside);
-  const buildNames = new Set(build.mods.map((r) => (r.kind === "mod" ? r.name : `${r.title}_separator`)));
+  const buildNames = new Set((build?.mods ?? []).map((r) => (r.kind === "mod" ? r.name : `${r.title}_separator`)));
   const lineAfter = spot && (spot.after === null ? "end" : !settings?.authorMode && buildNames.has(spot.after) ? USER_SEPARATOR : spot.after);
   const userRows = (userMods ?? []).filter((r) => r.kind === "separator" || filter === "all" || (filter === "off" && !r.enabled));
   const q = query.trim().toLowerCase();
   const shownUser = userRows.filter((r) => !q || r.kind === "separator" || r.name.toLowerCase().includes(q));
+  const userModCount = (userMods ?? []).filter((r) => r.kind === "mod").length;
   const endKey = shownUser.length > 0 ? rowKey(shownUser[shownUser.length - 1]) : USER_SEPARATOR;
   const line = (key: string) => (lineAfter === key || (lineAfter === "end" && key === endKey) ? "shadow-[inset_0_-2px_0_0_var(--color-neon)]" : "");
 
@@ -68,7 +71,11 @@ export function Mods() {
     <div className="mx-auto flex h-full max-w-5xl flex-col">
       <div className="flex items-end justify-between gap-6">
         <PageTitle
-          sub={`${all.length} ${plural(all.length, "мод", "мода", "модов")} · ${formatBytes(totalSize)} · сборка ${build.latestVersion}`}
+          sub={
+            build
+              ? `${all.length} ${plural(all.length, "мод", "мода", "модов")} · ${formatBytes(totalSize)} · сборка ${build.latestVersion}`
+              : `${userModCount} ${plural(userModCount, "мод", "мода", "модов")} · Mod Organizer 2`
+          }
         >
           Моды
         </PageTitle>
@@ -161,7 +168,7 @@ export function Mods() {
                         восстановится
                       </Badge>
                     )}
-                    {!m.installed && build.installedVersion && <Badge tone="warn">новый</Badge>}
+                    {!m.installed && build?.installedVersion && <Badge tone="warn">новый</Badge>}
                     {nexusUpdate.has(m.name) && (
                       <Badge tone="ok" title={`На Nexus: ${nexusUpdate.get(m.name) ?? "новая версия"}. Обновить — на вкладке «Nexus»`}>
                         обновление на Nexus
@@ -217,7 +224,7 @@ export function Mods() {
           {(shownUser.length > 0 || dropping) && filter !== "changes" && (
             <tbody>
               <SeparatorRow
-                title="Мои моды"
+                title={isBuild ? "Мои моды" : "Моды"}
                 color={null}
                 count={shownUser.filter((r) => r.kind === "mod").length}
                 open={!!q || dropping || !collapsed.has(USER_SEPARATOR)}

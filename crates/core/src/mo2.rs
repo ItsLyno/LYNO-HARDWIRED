@@ -95,6 +95,16 @@ impl Instance {
         self.root.join("ModOrganizer.ini")
     }
 
+    /// The profile MO2 opened last: the one of an instance without the build.
+    pub fn selected_profile(&self) -> Option<String> {
+        let text = std::fs::read_to_string(self.ini_path()).ok()?;
+        text.lines().find_map(|l| {
+            let v = l.trim().strip_prefix("selected_profile=")?;
+            let v = v.strip_prefix("@ByteArray(").and_then(|v| v.strip_suffix(')')).unwrap_or(v);
+            (!v.is_empty()).then(|| v.to_owned())
+        })
+    }
+
     /// Points the instance at the user's game folder.
     ///
     /// `ModOrganizer.ini` comes from the author's machine: besides
@@ -188,6 +198,86 @@ pub fn open_args(profile: &str) -> Vec<String> {
     vec!["-p".into(), profile.into()]
 }
 
+/// `gameName` of the Cyberpunk plugin.
+const GAME_NAME: &str = "Cyberpunk 2077";
+
+/// Profile of an instance the launcher creates without the build.
+pub const DEFAULT_PROFILE: &str = "Default";
+
+const MO2_LATEST: &str = "https://api.github.com/repos/ModOrganizer2/modorganizer/releases/latest";
+
+/// The portable archive of an official MO2 release.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Release {
+    pub version: String,
+    pub url: String,
+    pub size: u64,
+}
+
+/// Latest MO2 release on GitHub. MO2 2.5+ ships the Cyberpunk game plugin, so
+/// an instance without the build needs nothing else.
+pub fn latest_release(dl: &crate::download::Downloader) -> Result<Release> {
+    let json: serde_json::Value = serde_json::from_str(&dl.get_text(MO2_LATEST)?)?;
+    pick_release(&json).ok_or_else(|| Error::Download(format!("{MO2_LATEST}: no portable archive in the release")))
+}
+
+/// `Mod.Organizer-2.5.2.7z`; next to it are the installer and `-pdbs`, `-src` archives.
+fn pick_release(json: &serde_json::Value) -> Option<Release> {
+    let asset = json["assets"].as_array()?.iter().find(|a| {
+        a["name"]
+            .as_str()
+            .and_then(|n| n.strip_prefix("Mod.Organizer-")?.strip_suffix(".7z"))
+            .is_some_and(|v| !v.is_empty() && v.chars().all(|c| c.is_ascii_digit() || c == '.'))
+    })?;
+    Some(Release {
+        version: json["tag_name"].as_str()?.trim_start_matches('v').to_owned(),
+        url: asset["browser_download_url"].as_str()?.to_owned(),
+        size: asset["size"].as_u64()?,
+    })
+}
+
+/// Unpacks MO2's portable archive into `inst` (which must not exist yet) and
+/// sets it up for Cyberpunk, so MO2 starts without its instance wizard. Goes
+/// through `<root>.part`: a failed attempt leaves no half instance behind.
+pub fn create_portable(inst: &Instance, archive_path: &Path, game_dir: Option<&Path>) -> Result<()> {
+    let root = inst.root();
+    if root.exists() {
+        return Err(Error::Io { path: root.to_owned(), source: std::io::ErrorKind::AlreadyExists.into() });
+    }
+    let part = PathBuf::from(format!("{}.part", root.display()));
+    if part.exists() {
+        std::fs::remove_dir_all(&part).map_err(|e| Error::io(&part, e))?;
+    }
+    let kind = crate::archive::kind(archive_path)?;
+    let entries = crate::archive::entries(archive_path, kind)?;
+    let exe = entries
+        .iter()
+        .find(|e| e.rsplit('/').next().is_some_and(|n| n.eq_ignore_ascii_case(EXE_NAME)))
+        .ok_or_else(|| Error::Parse { path: archive_path.to_owned(), message: format!("no {EXE_NAME}") })?;
+    let prefix = &exe[..exe.len() - EXE_NAME.len()];
+    let files: Vec<(String, String)> = entries
+        .iter()
+        .filter_map(|e| Some((e.clone(), e.strip_prefix(prefix)?.to_owned())))
+        .filter(|(_, rel)| crate::archive::is_safe(rel))
+        .collect();
+    crate::archive::extract(archive_path, kind, &files, &part)?;
+
+    let staged = Instance::new(&part);
+    let write = |path: PathBuf, text: &str| std::fs::write(&path, text).map_err(|e| Error::io(&path, e));
+    write(part.join("portable.txt"), "")?;
+    write(
+        staged.ini_path(),
+        &format!("[General]\r\ngameName={GAME_NAME}\r\nselected_profile=@ByteArray({DEFAULT_PROFILE})\r\n"),
+    )?;
+    if let Some(dir) = game_dir {
+        staged.set_game_path(dir)?;
+    }
+    let profile = staged.profile_dir(DEFAULT_PROFILE);
+    std::fs::create_dir_all(&profile).map_err(|e| Error::io(&profile, e))?;
+    crate::modlist::ModList::default().save(&staged.modlist_path(DEFAULT_PROFILE))?;
+    std::fs::rename(&part, root).map_err(|e| Error::io(root, e))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -232,6 +322,45 @@ mod tests {
         assert_eq!(mods.len(), 2);
         assert_eq!(mods["CET"].lyno_id.as_deref(), Some("cet"));
         assert_eq!(mods["Core_separator"], ModMeta::default());
+    }
+
+    #[test]
+    fn picks_the_portable_archive_of_a_release() {
+        let json = serde_json::json!({
+            "tag_name": "v2.5.2",
+            "assets": [
+                { "name": "Mod.Organizer-2.5.2-pdbs.7z", "browser_download_url": "https://x/pdbs", "size": 1 },
+                { "name": "Mod.Organizer-2.5.2.exe", "browser_download_url": "https://x/exe", "size": 2 },
+                { "name": "Mod.Organizer-2.5.2.7z", "browser_download_url": "https://x/7z", "size": 3 },
+            ]
+        });
+        assert_eq!(pick_release(&json), Some(Release { version: "2.5.2".into(), url: "https://x/7z".into(), size: 3 }));
+        assert_eq!(pick_release(&serde_json::json!({ "tag_name": "v1", "assets": [] })), None);
+    }
+
+    #[test]
+    fn creates_a_portable_instance_from_the_archive() {
+        use std::io::Write;
+        let dir = tempfile::tempdir().unwrap();
+        let archive = dir.path().join("mo2.zip");
+        let mut w = zip::ZipWriter::new(std::fs::File::create(&archive).unwrap());
+        for name in ["MO2/ModOrganizer.exe", "MO2/plugins/game_cyberpunk2077.py", "readme.txt"] {
+            w.start_file(name, zip::write::SimpleFileOptions::default()).unwrap();
+            w.write_all(b"x").unwrap();
+        }
+        w.finish().unwrap();
+
+        let inst = Instance::new(dir.path().join("inst"));
+        create_portable(&inst, &archive, Some(Path::new("C:/Games/Cyberpunk 2077"))).unwrap();
+        assert!(inst.is_installed() && inst.is_portable());
+        assert!(inst.root().join("plugins/game_cyberpunk2077.py").is_file());
+        assert!(!inst.root().join("readme.txt").exists());
+        assert!(inst.modlist_path(DEFAULT_PROFILE).is_file());
+        assert_eq!(inst.selected_profile().as_deref(), Some(DEFAULT_PROFILE));
+        let ini = std::fs::read_to_string(inst.ini_path()).unwrap();
+        assert!(ini.contains("gameName=Cyberpunk 2077") && ini.contains("gamePath=@ByteArray(C:/Games/Cyberpunk 2077)"), "{ini}");
+        // Never over an existing folder.
+        assert!(create_portable(&inst, &archive, None).is_err());
     }
 
     #[test]

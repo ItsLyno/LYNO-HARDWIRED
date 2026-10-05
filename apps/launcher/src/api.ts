@@ -5,8 +5,17 @@ import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { openUrl as tauriOpenUrl } from "@tauri-apps/plugin-opener";
 import { mock } from "./mock";
 
+export interface InstanceEntry {
+  name: string;
+  dir: string;
+  /** Installed and updated from the build's manifest; otherwise the player's own MO2. */
+  build: boolean;
+}
+
 export interface Settings {
+  /** The active instance, one of `instances`; none of them before the first setup. */
   instanceDir: string;
+  instances: InstanceEntry[];
   gameDir: string | null;
   manifestUrl: string;
   /** The author releases from this instance: updates and repairs are off. */
@@ -250,6 +259,8 @@ export type Mo2Reason = "fomod" | "format" | "layout";
 
 export type Outcome =
   | { kind: "installed"; folder: string }
+  /** A new version of the installed `replaces`: in MO2's downloads until the player drags it onto the list. */
+  | { kind: "downloaded"; replaces: string }
   /** Not an archive the launcher reads: left in MO2's downloads. */
   | { kind: "mo2"; reason: Mo2Reason }
   /** The rest park the job ("waitingMo2", "choosingRoot", "choosing") and never show as done. */
@@ -391,7 +402,8 @@ export const api = isTauri()
       saveSettings: (settings: Settings) => invoke<void>("save_settings", { settings }),
       detectGames: () => invoke<GameInstall[]>("detect_games"),
       getStatus: () => invoke<Status>("get_status"),
-      fetchBuild: () => invoke<BuildInfo>("fetch_build"),
+      /** Null for the player's own MO2. */
+      fetchBuild: () => invoke<BuildInfo | null>("fetch_build"),
       startUpdate: () => invoke<void>("start_update"),
       cancelUpdate: () => invoke<void>("cancel_update"),
       /** Null when cancelled. */
@@ -452,6 +464,13 @@ export const api = isTauri()
       userMods: () => invoke<UserRow[]>("user_mods"),
       setUserModEnabled: (folder: string, enabled: boolean) => invoke<void>("set_user_mod_enabled", { folder, enabled }),
       openUserModFolder: (folder: string) => invoke<void>("open_user_mod_folder", { folder }),
+      instanceSelect: (dir: string) => invoke<void>("instance_select", { dir }),
+      /** The player's portable MO2 for Cyberpunk. */
+      instanceAdd: (dir: string) => invoke<void>("instance_add", { dir }),
+      /** Switches to the build's instance; installing it is `startUpdate`. */
+      instanceAddBuild: () => invoke<void>("instance_add_build"),
+      /** Downloads the official MO2 into a new instance; reports like an update. */
+      startMo2Setup: () => invoke<void>("start_mo2_setup"),
       /** Archives dropped on the window from Explorer, with the drop point in CSS pixels. */
       onFileDrop: (handlers: FileDropHandlers): Promise<UnlistenFn> =>
         getCurrentWebview().onDragDropEvent((e) => {

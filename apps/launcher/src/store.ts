@@ -7,6 +7,7 @@ import {
   type BuildInfo,
   type BuiltRelease,
   type DownloadItem,
+  type InstanceEntry,
   type LauncherUpdate,
   type NexusJob,
   type NexusStatus,
@@ -82,6 +83,8 @@ interface AppStore {
   refreshBuild: () => Promise<void>;
   saveSettings: (s: Settings) => Promise<boolean>;
   startUpdate: () => Promise<void>;
+  /** Official MO2 into a new instance; progress shows as an update's. */
+  startMo2Setup: () => Promise<void>;
   setModEnabled: (id: string, enabled: boolean) => Promise<void>;
   verify: () => Promise<void>;
   startRepair: (ids: string[], base: boolean, resetSettings: boolean) => Promise<void>;
@@ -104,6 +107,8 @@ interface AppStore {
   replaceAsks: ReplaceAsk[];
   /** A file name in MO2's downloads or a path from Explorer. Over an installed mod only after `answerReplace`. */
   installArchive: (file: string, after: string | null) => Promise<void>;
+  /** Runs an `instance*` call, then reloads everything that belongs to the instance. */
+  switchInstance: (op: () => Promise<void>) => Promise<boolean>;
   answerReplace: (replace: boolean) => void;
   clearError: () => void;
 }
@@ -169,6 +174,14 @@ export const useApp = create<AppStore>((set, get) => ({
       set({ progress: null, error: String(e) });
     }
   },
+  startMo2Setup: async () => {
+    set({ progress: noProgress });
+    try {
+      await api.startMo2Setup();
+    } catch (e) {
+      set({ progress: null, error: String(e) });
+    }
+  },
   // Patches the row in place: refetching the manifest for one switch is a round trip to GitHub.
   setModEnabled: async (id, enabled) => {
     try {
@@ -219,6 +232,7 @@ export const useApp = create<AppStore>((set, get) => ({
     set({ progress: null, error: error });
     if (ok || error) void get().refreshBuild();
     void get().refreshStatus();
+    void get().refreshUserMods();
   },
   run: async (action) => {
     try {
@@ -341,8 +355,28 @@ export const useApp = create<AppStore>((set, get) => ({
     set({ replaceAsks: rest });
     if (ask && replace) void api.installArchive(ask.file, ask.after).catch((e) => set({ error: String(e) }));
   },
+  switchInstance: async (op) => {
+    try {
+      await op();
+    } catch (e) {
+      set({ error: String(e) });
+      return false;
+    }
+    set({ build: null, buildError: null, verifyReport: null, nexusUpdates: null });
+    await get().refreshStatus();
+    void get().refreshBuild();
+    void get().refreshNexus();
+    void get().refreshDownloads();
+    void get().refreshUserMods();
+    return true;
+  },
   clearError: () => set({ error: null }),
 }));
+
+/** The active instance; none before the first setup. */
+export function activeInstance(settings: Settings | null): InstanceEntry | null {
+  return settings?.instances.find((i) => i.dir === settings.instanceDir) ?? null;
+}
 
 export interface ReplaceAsk {
   file: string;
@@ -371,15 +405,18 @@ export function isRepairOnly(build: BuildInfo | null): boolean {
   return !!build && build.repairs > 0 && build.installedVersion === build.latestVersion;
 }
 
-/** What the main button should do right now. */
-export type PrimaryAction = "loading" | "game" | "install" | "update" | "updating" | "play" | "running";
+/** What the main button should do right now; "setup": no MO2 to start yet. */
+export type PrimaryAction = "loading" | "setup" | "game" | "install" | "update" | "updating" | "play" | "running";
 
 /** In author mode the instance is ahead of the published build on purpose: no update is offered. */
-export function primaryAction(status: Status | null, build: BuildInfo | null, updating: boolean, authorMode = false): PrimaryAction {
-  if (!status) return "loading";
+export function primaryAction(status: Status | null, build: BuildInfo | null, updating: boolean, settings: Settings | null): PrimaryAction {
+  if (!status || !settings) return "loading";
   if (updating || status.updating) return "updating";
   if (status.gameRunning) return "running";
-  if (!status.installedVersion || !status.mo2Installed) return build ? "install" : "loading";
+  const instance = activeInstance(settings);
+  if (!instance || (!instance.build && !status.mo2Installed)) return "setup";
+  if (instance.build && (!status.installedVersion || !status.mo2Installed)) return build ? "install" : "loading";
+  const authorMode = settings.authorMode;
   if (build && !build.upToDate && build.online && !authorMode) return "update";
   if (!status.gameFound) return "game";
   return "play";

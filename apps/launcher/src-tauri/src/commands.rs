@@ -1,9 +1,9 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
-use lyno_core::download::Downloader;
+use lyno_core::download::{Downloader, PartEvent};
 use lyno_core::game::{self, GameInstall};
 use lyno_core::install::{self, Installer};
 use lyno_core::manifest::{ChangelogEntry, Manifest, ModEntry};
@@ -18,7 +18,7 @@ use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, System};
 use tauri::{AppHandle, Emitter, Manager, State as TauriState};
 use tauri_plugin_updater::UpdaterExt;
 
-use crate::settings::Settings;
+use crate::settings::{self, InstanceEntry, Settings};
 use crate::AppState;
 
 const GAME_PROCESS: &str = "Cyberpunk2077.exe";
@@ -42,8 +42,12 @@ pub(crate) fn installed_manifest(inst: &Instance) -> Option<Manifest> {
     Manifest::from_json(&text).ok()
 }
 
+/// The build's profile; for the player's own MO2 the one it opened last.
 pub(crate) fn profile(inst: &Instance) -> String {
-    installed_manifest(inst).map_or_else(|| DEFAULT_PROFILE.to_owned(), |m| m.profile)
+    installed_manifest(inst)
+        .map(|m| m.profile)
+        .or_else(|| inst.selected_profile())
+        .unwrap_or_else(|| DEFAULT_PROFILE.to_owned())
 }
 
 #[tauri::command]
@@ -52,7 +56,13 @@ pub fn get_settings(state: TauriState<'_, AppState>) -> Settings {
 }
 
 #[tauri::command]
-pub fn save_settings(state: TauriState<'_, AppState>, settings: Settings) -> CmdResult<()> {
+pub fn save_settings(state: TauriState<'_, AppState>, mut settings: Settings) -> CmdResult<()> {
+    // Instances change only through the `instance_*` commands.
+    {
+        let current = state.settings.lock().unwrap();
+        settings.instance_dir = current.instance_dir.clone();
+        settings.instances = current.instances.clone();
+    }
     // Turning author mode on goes through `author_enable`, which checks the token.
     if settings.author_mode && !state.settings.lock().unwrap().author_mode {
         return Err("Режим автора включается по токену GitHub: «Я автор сборки» внизу настроек".into());
@@ -171,11 +181,15 @@ pub enum ModRow {
 }
 
 /// Fetches the latest manifest from GitHub and compares it with what is installed.
-/// Falls back to the installed manifest when offline.
+/// Falls back to the installed manifest when offline. `None` for the player's own MO2.
 #[tauri::command]
-pub async fn fetch_build(app: AppHandle) -> CmdResult<BuildInfo> {
+pub async fn fetch_build(app: AppHandle) -> CmdResult<Option<BuildInfo>> {
     let state = app.state::<AppState>();
     let settings = state.settings.lock().unwrap().clone();
+    if !settings.build() {
+        *state.manifest.lock().unwrap() = None;
+        return Ok(None);
+    }
     let url = settings.manifest_url.clone();
     let remote = tauri::async_runtime::spawn_blocking(move || {
         let text = Downloader::new().get_text(&url)?;
@@ -256,7 +270,7 @@ pub async fn fetch_build(app: AppHandle) -> CmdResult<BuildInfo> {
         })
         .collect();
 
-    Ok(BuildInfo {
+    Ok(Some(BuildInfo {
         name: manifest.name.clone(),
         latest_version: manifest.build_version.clone(),
         installed_version: installed.build_version.clone(),
@@ -280,7 +294,7 @@ pub async fn fetch_build(app: AppHandle) -> CmdResult<BuildInfo> {
         last_update: last_update.and_then(|u| {
             Some(LastUpdateInfo { from: u.from.clone()?, to: u.to.clone(), removed: u.removed.clone() })
         }),
-    })
+    }))
 }
 
 #[derive(Clone, Serialize)]
@@ -302,6 +316,9 @@ pub fn start_update(app: AppHandle) -> CmdResult<()> {
         .clone()
         .ok_or("Сначала нужно загрузить манифест сборки")?;
     let settings = state.settings.lock().unwrap().clone();
+    if !settings.build() {
+        return Err(NOT_BUILD.into());
+    }
     if settings.author_mode {
         return Err(AUTHOR_MODE_NO_UPDATE.into());
     }
@@ -488,6 +505,9 @@ pub fn start_repair(app: AppHandle, ids: Vec<String>, base: bool, reset_settings
     start_update(app)
 }
 
+/// The build never goes over the player's own MO2: it brings its own MO2 and config.
+const NOT_BUILD: &str = "Выбран ваш Mod Organizer 2, а сборка ставится в свою папку: выберите её в настройках";
+
 /// The game and MO2 write into the instance being packed.
 const AUTHOR_JOB_RUNNING: &str = "Идёт сборка или публикация выпуска: дождитесь окончания";
 
@@ -547,10 +567,12 @@ pub fn user_mods(state: TauriState<'_, AppState>) -> CmdResult<Vec<UserRow>> {
         return Ok(Vec::new());
     }
     let list = ModList::load(&path).map_err(err)?;
-    let (_, user) = lyno_core::publish::split_user_section(&list);
+    let user = match install::has_build(&inst) {
+        true => lyno_core::publish::split_user_section(&list).1.get(1..).unwrap_or_default(),
+        false => &list.entries[..],
+    };
     Ok(user
         .iter()
-        .skip(1)
         .filter(|e| e.state != EntryState::Unmanaged)
         .map(|e| match e.separator_title() {
             Some(title) => UserRow::Separator { title: title.to_owned() },
@@ -581,7 +603,10 @@ pub fn set_user_mod_enabled(state: TauriState<'_, AppState>, folder: String, ena
     let inst = Instance::new(&state.settings.lock().unwrap().instance_dir);
     let path = inst.modlist_path(&profile(&inst));
     let mut list = ModList::load(&path).map_err(err)?;
-    let at = list.entries.iter().position(|e| e.separator_title() == Some(plan::USER_SEPARATOR));
+    let at = match install::has_build(&inst) {
+        true => list.entries.iter().position(|e| e.separator_title() == Some(plan::USER_SEPARATOR)),
+        false => Some(0),
+    };
     let entry = at
         .and_then(|at| list.entries[at..].iter_mut().find(|e| e.name == folder && !e.is_separator()))
         .ok_or("Это не ваш мод: моды сборки включаются в её списке")?;
@@ -669,7 +694,7 @@ pub fn launch_game(state: TauriState<'_, AppState>) -> CmdResult<()> {
                     Установите бесплатное DLC REDmod в Steam, GOG или Epic."
             .into());
     }
-    let profile = manifest.map_or_else(|| DEFAULT_PROFILE.to_owned(), |m| m.profile);
+    let profile = profile(&inst);
     log::info!("launching the game (profile {profile}, REDmod {redmod})");
     spawn_mo2(&inst, &mo2::run_args(&profile, mo2::game_executable(redmod)))
 }
@@ -686,7 +711,7 @@ pub fn open_mo2(state: TauriState<'_, AppState>) -> CmdResult<()> {
 
 fn spawn_mo2(inst: &Instance, args: &[String]) -> CmdResult<()> {
     if !inst.is_installed() {
-        return Err("Сборка не установлена".into());
+        return Err("Mod Organizer 2 не установлен".into());
     }
     Command::new(inst.exe())
         .args(args)
@@ -697,6 +722,138 @@ fn spawn_mo2(inst: &Instance, args: &[String]) -> CmdResult<()> {
             log::error!("{}: {e}", inst.exe().display());
             format!("Не удалось запустить MO2: {e}")
         })
+}
+
+/// Switches the launcher to another instance it knows.
+#[tauri::command]
+pub fn instance_select(state: TauriState<'_, AppState>, dir: PathBuf) -> CmdResult<()> {
+    let entry = state.settings.lock().unwrap().instances.iter().find(|i| i.dir == dir).cloned();
+    use_instance(&state, entry.ok_or("Эта папка MO2 не добавлена в лаунчер")?)
+}
+
+/// Adds the player's own portable MO2 set up for Cyberpunk.
+#[tauri::command]
+pub fn instance_add(state: TauriState<'_, AppState>, dir: PathBuf) -> CmdResult<()> {
+    let inst = Instance::new(&dir);
+    if !inst.is_installed() {
+        return Err(format!("В папке нет ModOrganizer.exe: {}", dir.display()));
+    }
+    // A global instance keeps mods and profiles in AppData, where the launcher doesn't look.
+    if !inst.is_portable() {
+        return Err("Это не портативный MO2 (в папке нет portable.txt): лаунчер работает только с портативными".into());
+    }
+    let ini = std::fs::read_to_string(inst.ini_path()).unwrap_or_default();
+    if !ini.lines().any(|l| l.trim() == "gameName=Cyberpunk 2077") {
+        return Err("Этот Mod Organizer 2 настроен не на Cyberpunk 2077".into());
+    }
+    let name = dir.file_name().map_or_else(|| "Mod Organizer 2".into(), |n| n.to_string_lossy().into_owned());
+    use_instance(&state, InstanceEntry { name, dir, build: false })
+}
+
+/// Selects the build's instance, adding it at its default place; installing it is `start_update`.
+#[tauri::command]
+pub fn instance_add_build(app: AppHandle) -> CmdResult<()> {
+    let state = app.state::<AppState>();
+    let known = state.settings.lock().unwrap().instances.iter().find(|i| i.build).cloned();
+    let entry = match known {
+        Some(e) => e,
+        None => InstanceEntry {
+            name: settings::BUILD_NAME.into(),
+            dir: settings::build_dir(&app.path().app_local_data_dir().map_err(err)?),
+            build: true,
+        },
+    };
+    use_instance(&state, entry)
+}
+
+/// Makes `entry` the active instance, adding it to the list when new.
+fn use_instance(state: &AppState, entry: InstanceEntry) -> CmdResult<()> {
+    if state.update.lock().unwrap().is_some() || crate::nexus::busy(state) {
+        return Err("Дождитесь окончания установки, обновления или проверки".into());
+    }
+    let mut settings = state.settings.lock().unwrap().clone();
+    if !settings.instances.iter().any(|i| i.dir == entry.dir) {
+        settings.instances.push(entry.clone());
+    }
+    settings.instance_dir = entry.dir;
+    if let Some(game) = settings.game_dir.as_deref().filter(|d| game::is_game_dir(d)) {
+        let inst = Instance::new(&settings.instance_dir);
+        if inst.ini_path().is_file() {
+            inst.set_game_path(game).map_err(err)?;
+        }
+    }
+    settings.save(&state.settings_path).map_err(err)?;
+    log::info!("instance {:?} (build: {})", settings.instance_dir, settings.build());
+    *state.manifest.lock().unwrap() = None;
+    *state.settings.lock().unwrap() = settings;
+    Ok(())
+}
+
+/// Downloads the latest official MO2 into a new portable instance for Cyberpunk
+/// and switches to it. Progress and outcome arrive as an update's do.
+#[tauri::command]
+pub fn start_mo2_setup(app: AppHandle) -> CmdResult<()> {
+    let state = app.state::<AppState>();
+    let data_dir = app.path().app_local_data_dir().map_err(err)?;
+    let dir = data_dir.join("mo2");
+    if state.settings.lock().unwrap().instances.iter().any(|i| i.dir == dir) {
+        return Err("Mod Organizer 2 уже установлен лаунчером: выберите его в настройках".into());
+    }
+    if crate::nexus::busy(&state) {
+        return Err("Дождитесь окончания проверки или выпуска".into());
+    }
+    let cancel = Arc::new(AtomicBool::new(false));
+    {
+        let mut slot = state.update.lock().unwrap();
+        if slot.is_some() {
+            return Err("Установка уже идёт".into());
+        }
+        *slot = Some(cancel.clone());
+    }
+    let game_dir = state.settings.lock().unwrap().game_dir.clone().filter(|d| game::is_game_dir(d));
+
+    std::thread::spawn(move || {
+        let result = setup_mo2(&app, &data_dir, &dir, game_dir.as_deref(), &cancel);
+        let state = app.state::<AppState>();
+        *state.update.lock().unwrap() = None;
+        let finished = match result {
+            Ok(()) => match use_instance(&state, InstanceEntry { name: "Mod Organizer 2".into(), dir, build: false }) {
+                Ok(()) => Finished { ok: true, error: None },
+                Err(e) => Finished { ok: false, error: Some(e) },
+            },
+            Err(lyno_core::Error::Cancelled) => Finished { ok: false, error: None },
+            Err(e) => {
+                log::error!("MO2 setup failed: {e}");
+                Finished { ok: false, error: Some(format!("Не удалось установить Mod Organizer 2: {e}")) }
+            }
+        };
+        let _ = app.emit("update-finished", finished);
+    });
+    Ok(())
+}
+
+fn setup_mo2(app: &AppHandle, data_dir: &Path, dir: &Path, game_dir: Option<&Path>, cancel: &AtomicBool) -> lyno_core::Result<()> {
+    let emit = |e: install::Event| {
+        let _ = app.emit("update-progress", e);
+    };
+    emit(install::Event::Step { index: 1, total: 2, label: "Скачивание Mod Organizer 2".into() });
+    let downloader = Downloader::new();
+    let release = mo2::latest_release(&downloader)?;
+    log::info!("MO2 {} from {}", release.version, release.url);
+    let archive = data_dir.join(format!("Mod.Organizer-{}.7z", release.version));
+    let mut last_emit = std::time::Instant::now() - std::time::Duration::from_secs(1);
+    downloader.fetch_file(&release.url, release.size, &archive, &|| cancel.load(Ordering::Relaxed), &mut |p| match p {
+        PartEvent::Bytes(done) if last_emit.elapsed().as_millis() >= 100 => {
+            last_emit = std::time::Instant::now();
+            emit(install::Event::Bytes { done, total: release.size });
+        }
+        PartEvent::Bytes(_) => {}
+        PartEvent::Retry { attempt, delay, error } => emit(install::Event::Retry { attempt, delay_secs: delay.as_secs(), error }),
+    })?;
+    emit(install::Event::Step { index: 2, total: 2, label: "Распаковка Mod Organizer 2".into() });
+    mo2::create_portable(&Instance::new(dir), &archive, game_dir)?;
+    let _ = std::fs::remove_file(&archive);
+    Ok(())
 }
 
 pub(crate) fn running_processes() -> (bool, bool) {

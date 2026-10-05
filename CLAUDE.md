@@ -5,6 +5,13 @@ MO2 + instance config + every mod) is distributed through GitHub Releases of thi
 repo; `build/manifest.json` on `main` points at the current version. The launcher
 installs and updates the build, sets the game path, starts the game through MO2.
 
+The build is optional: the launcher is an MO2 front end first. It knows several portable
+instances (`Settings::instances`); only one flagged `build` is installed and updated from the
+manifest. The others are the player's own MO2 — downloaded by the launcher
+(`mo2::latest_release` + `mo2::create_portable`) or an existing one added by path — and the
+build never goes over them. Without the build installed (`install::has_build`) the whole mod
+list is the player's: no `LYNO USER MODS` section.
+
 ## Layout
 
 | Path | What |
@@ -35,6 +42,8 @@ cargo test -p lyno-core -p lyno-pack          # unit tests + tests/e2e.rs (build
 cargo clippy -p lyno-core -p lyno-pack --all-targets
 cd apps/launcher && pnpm install && pnpm build # frontend
 pnpm dev                                       # UI in a browser on mock data (src/mock.ts)
+pnpm app                                       # Windows: the real launcher with hot reload, own identifier (tauri.dev.conf.json):
+                                               # settings, instances and nxm/single-instance apart from the installed launcher
 ```
 
 The launcher crate (`lyno-hardwired`) is clippy-checked on Linux in CI. Locally on Linux,

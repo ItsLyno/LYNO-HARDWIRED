@@ -55,13 +55,11 @@ impl NxmLink {
     }
 }
 
-/// The page of a mod's files on Nexus, scrolled to `file_id`: where a free
-/// account clicks "Mod Manager Download" to send the launcher an nxm link.
-pub fn file_page(game: &str, mod_id: u64, file_id: Option<u64>) -> String {
-    match file_id {
-        Some(f) => format!("https://www.nexusmods.com/{game}/mods/{mod_id}?tab=files&file_id={f}"),
-        None => format!("https://www.nexusmods.com/{game}/mods/{mod_id}?tab=files"),
-    }
+/// The list of a mod's files on Nexus: where a free account clicks "Mod Manager
+/// Download" to send the launcher an nxm link. No `file_id`: with it Nexus opens
+/// that file's popup, whose button is the manual download.
+pub fn file_page(game: &str, mod_id: u64) -> String {
+    format!("https://www.nexusmods.com/{game}/mods/{mod_id}?tab=files")
 }
 
 /// Whether the launcher receives nxm links, and who does otherwise.

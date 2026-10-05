@@ -141,6 +141,10 @@ pub fn run() {
             commands::user_mods,
             commands::set_user_mod_enabled,
             commands::open_user_mod_folder,
+            commands::instance_select,
+            commands::instance_add,
+            commands::instance_add_build,
+            commands::start_mo2_setup,
         ])
         .run(tauri::generate_context!())
         .expect("error while running LYNO//HARDWIRED");

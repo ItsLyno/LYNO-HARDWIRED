@@ -926,7 +926,7 @@ fn mod_zip() -> Vec<u8> {
 
 #[test]
 fn nexus_updates_are_tracked_and_installed_from_nxm_links() {
-    use lyno_core::mod_install::{fetch_and_install, Context, Outcome};
+    use lyno_core::mod_install::{fetch_and_install, install, Context, Outcome, Target};
     use lyno_core::nexus::NexusApi;
     use lyno_core::nxm::NxmLink;
     use lyno_core::tracking::{check, status, tracked_mods, Cache, Status};
@@ -951,13 +951,20 @@ fn nexus_updates_are_tracked_and_installed_from_nxm_links() {
     let never = || false;
     let player = Context { inst: &user, profile: "LYNO", author: false, mo2_running: false, now };
 
-    // The player's own mod: the new file replaces the folder in place.
+    // The player's own mod: the new file only goes to MO2's downloads, the
+    // installed folder stays until the player drags the archive onto the list.
     let link = NxmLink::parse("nxm://cyberpunk2077/mods/42/files/11?key=abc&expires=99&user_id=1").unwrap();
     let mut progress = Vec::new();
     let (dl, outcome) = fetch_and_install(&api, &downloader, &player, &link, &never, &mut |p| progress.push(p)).unwrap().unwrap();
-    assert_eq!(outcome, Outcome::Installed { folder: "Old Mod".into() });
+    assert_eq!(outcome, Outcome::Downloaded { replaces: "Old Mod".into() });
     assert_eq!(dl.version.as_deref(), Some("1.1"));
     let folder = root.join("mods/Old Mod");
+    assert_eq!(std::fs::read(folder.join("archive/pc/mod/old.archive")).unwrap(), b"old version");
+    let archive = root.join("downloads/mod-11.zip");
+    assert!(std::fs::read_to_string(root.join("downloads/mod-11.zip.meta")).unwrap().contains("installed=false"));
+    // Dragged onto the list: it replaces the folder in place.
+    let target = Target::Replace("Old Mod".into());
+    assert_eq!(install(&user, "LYNO", &archive, &dl, &target).unwrap(), Outcome::Installed { folder: "Old Mod".into() });
     assert!(!folder.join("archive/pc/mod/old.archive").exists());
     assert_eq!(std::fs::read(folder.join("archive/pc/mod/new.archive")).unwrap(), b"new version");
     assert!(!folder.join("readme.txt").exists());
@@ -996,25 +1003,28 @@ fn nexus_updates_are_tracked_and_installed_from_nxm_links() {
 
     // The author updates build mods; the [LYNO] id stays, so it is the same build mod.
     let author = Context { author: true, ..player };
-    let (_, outcome) = fetch_and_install(&api, &downloader, &author, &cet, &never, &mut |_| {}).unwrap().unwrap();
+    let (dl, outcome) = fetch_and_install(&api, &downloader, &author, &cet, &never, &mut |_| {}).unwrap().unwrap();
+    assert_eq!(outcome, Outcome::Downloaded { replaces: "CET".into() });
+    let outcome = install(&user, "LYNO", &root.join("downloads/mod-2.zip"), &dl, &Target::Replace("CET".into())).unwrap();
     assert_eq!(outcome, Outcome::Installed { folder: "CET".into() });
     let meta = ModMeta::load(&root.join("mods/CET/meta.ini")).unwrap();
     assert_eq!((meta.file_id, meta.lyno_id.as_deref()), (Some(2), Some("cet")));
 
-    // With MO2 open the archive only goes to its downloads.
-    let open = Context { mo2_running: true, ..player };
+    // A new mod installs by itself, but with MO2 open the archive only goes to its downloads.
+    let fresh = Instance::new(tmp.path().join("fresh"));
+    write(fresh.root(), "profiles/LYNO/modlist.txt", b"-LYNO USER MODS_separator\r\n");
+    let open = Context { inst: &fresh, mo2_running: true, ..player };
     let (dl, outcome) = fetch_and_install(&api, &downloader, &open, &link, &never, &mut |_| {}).unwrap().unwrap();
     let Outcome::Deferred { archive, target } = outcome else { panic!("{outcome:?}") };
-    assert_eq!(archive, root.join("downloads/mod-11.zip"));
+    assert_eq!(archive, fresh.root().join("downloads/mod-11.zip"));
     // Once MO2 is closed the waiting archive installs like any other.
-    let outcome = lyno_core::mod_install::install(&user, "LYNO", &archive, &dl, &target).unwrap();
-    assert_eq!(outcome, Outcome::Installed { folder: "Old Mod".into() });
+    assert_eq!(install(&fresh, "LYNO", &archive, &dl, &target).unwrap(), Outcome::Installed { folder: "Old Mod - Main File".into() });
 }
 
 #[test]
 fn nexus_fomod_update_keeps_the_players_choice() {
     use lyno_core::fomod::{encode_saved, SavedGroup, SavedStep};
-    use lyno_core::mod_install::{fetch_and_install, install_fomod, open_fomod, Context, Outcome};
+    use lyno_core::mod_install::{fetch_and_install, install, install_fomod, open_fomod, Context, Outcome, Target};
     use lyno_core::nexus::NexusApi;
     use lyno_core::nxm::NxmLink;
 
@@ -1057,6 +1067,9 @@ fn nexus_fomod_update_keeps_the_players_choice() {
 
     let link = NxmLink::parse("nxm://cyberpunk2077/mods/42/files/11?key=abc&expires=99").unwrap();
     let (dl, outcome) = fetch_and_install(&api, &Downloader::new(), &player, &link, &|| false, &mut |_| {}).unwrap().unwrap();
+    assert_eq!(outcome, Outcome::Downloaded { replaces: "Old Mod".into() });
+    let target = Target::Replace("Old Mod".into());
+    let outcome = install(&user, "LYNO", &root.join("downloads/mod-11.zip"), &dl, &target).unwrap();
     let Outcome::Fomod { archive, target } = outcome else { panic!("{outcome:?}") };
     assert_eq!(std::fs::read(root.join("mods/Old Mod/archive/pc/mod/size.archive")).unwrap(), b"large, old", "untouched until the choice");
 

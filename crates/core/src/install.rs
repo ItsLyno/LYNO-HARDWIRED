@@ -42,6 +42,12 @@ pub fn state_path(inst: &Instance) -> PathBuf {
     inst.root().join(".lyno").join("state.json")
 }
 
+/// The build is installed into the instance. Without it the whole mod list is
+/// the player's: there is no `LYNO USER MODS` section to keep apart.
+pub fn has_build(inst: &Instance) -> bool {
+    State::load(&state_path(inst)).is_ok_and(|s| s.build_version.is_some())
+}
+
 pub struct Installer<'a> {
     pub inst: &'a Instance,
     pub manifest: &'a Manifest,
