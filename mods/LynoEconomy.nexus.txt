@@ -1,0 +1,87 @@
+DESCRIPTION
+
+LYNO Economy is an economy overhaul that works on every item in your game, not only the vanilla ones.
+
+Most economy overhauls change prices item by item. Whatever other mods add (new cyberware, weapons, schematics, cars) keeps the numbers its author typed in for the vanilla economy. In a modded game that means schematics at 23 000 next to implants at 750 000, and quest rewards that buy everything within an hour.
+
+LYNO Economy uses rules instead of lists. When the game loads, it goes through every item, reward and vehicle in the game database, vanilla and modded alike, and prices each one by what it is. Install another mod and its content lands in the same economy without a patch.
+
+The goal is a Night City where money matters: chrome is a real investment, a car is a big purchase, and you can't buy everything after the first act.
+
+
+INSTALLATION INSTRUCTIONS
+
+1. Install the requirements listed below.
+2. Install LYNO Economy with Mod Organizer 2 or Vortex, or extract the archive into your Cyberpunk 2077 folder (the one with bin and r6).
+3. Disable any other economy overhaul (EconomyPunk and similar). Both would change the same numbers.
+4. Launch the game.
+
+Safe to add to an existing save. To uninstall, remove the files: prices and rewards go back to vanilla, the money you already have stays.
+
+Checking that it works: the redscript log (r6/logs/redscript_rCURRENT.log) has lines starting with [LynoEconomy] that say how many prices and rewards were changed.
+
+Changing the numbers: every multiplier is one line at the top of a file in r6/scripts/LynoEconomy/:
+- Prices.reds: LynoEconomyCyberwareMultiplier = 0.6 (the vanilla value is 0.4), LynoEconomyWeaponBuy = 0.75, LynoEconomyWeaponSell = 0.3, LynoEconomyRecipeBuy = 3.0
+- Income.reds: LynoEconomyStoryIncome = 0.7, LynoEconomyGrindIncome = 0.4
+- Vehicles.reds: LynoEconomyVehicleMultiplier = 1.5
+
+
+MAIN FEATURES
+
+Prices
+- Cyberware is expensive. All implants, arm weapons included, cost 1.5x vanilla.
+- Guns cost 25% less to buy, and looted guns sell for 30% of the vanilla price: hauling piles of loot to a vendor is no longer the best job in Night City.
+- Modded cyberware with a typed-in price (for example 500 000 for an implant of any quality) gets the same price formula as vanilla implants, so it scales with quality like everything else.
+- A schematic costs 3x the item it crafts: it is a licence to craft that item forever. Modded schematics included.
+- Clothing is not touched, Virtual Atelier stores included.
+
+Income
+- Main quests, side quests, gigs, races and fights pay 70% of vanilla.
+- Repeatable sources pay 40%: NCPD scanner hustles, cyberpsycho sightings, bounties, access point breaches, cash and money shards in loot.
+- Money rewards added by other mods scale the same way, as long as they use the game's reward system.
+- NC Courier Jobs payouts are scaled to 40% with the optional Courier Jobs patch; its own payout sliders still work on top.
+
+Vehicles
+- Every car costs 1.5x vanilla at every dealer that uses the game's prices: the Autofixer, Autofixer Customs, and modded cars sold through dealer prices.
+- Mods that calculate their prices from a car's value follow automatically: Garage (claim, sell, repair), Chop Shop, NCGT services, Virtual Car Dealer buy-back.
+
+Left alone on purpose
+- Expenses added by other mods (rent, Trauma Team coverage, fuel, repairs). With lower income they matter more, which is the point.
+- Gambling: you bet your own money against the house.
+
+Known limitations
+- Amounts written in quest descriptions and fixer messages are text and still show the vanilla numbers. The money you actually get is the new amount.
+- Mods that pay money directly from their own code are not affected, except NC Courier Jobs (optional patch).
+- Dealers with their own price catalogs (Dedka Car Dealership) keep their own prices.
+
+Optional file: NC Courier Jobs patch
+Scales NC Courier Jobs payouts like other repeatable income. Install only if you use NC Courier Jobs.
+
+Optional file: Economy Scanner
+For modders and modlist authors. Run Game.LynoEconomyScan() in the Cyber Engine Tweaks console: it writes every item with its price formula, and every money reward, to r6/storages/LynoEconomy/ as tables. Useful to find mods with broken prices. Needs Cyber Engine Tweaks, Codeware and RedFileSystem.
+
+
+REQUIREMENTS
+
+- RED4ext
+- redscript
+- TweakXL
+
+NC Courier Jobs patch (optional file) needs NC Courier Jobs.
+
+Economy Scanner (optional file) also needs:
+- Cyber Engine Tweaks
+- Codeware
+- RedFileSystem
+
+Not compatible with other economy overhauls that change prices or rewards. Compatible with mods that add items, cyberware, schematics, quests and cars: that is what it is made for.
+
+
+SHOUT OUTS
+
+- psiberx for TweakXL and Codeware: scriptable tweaks are what make rule-based prices possible.
+- jac3km4 and the redscript team, WopsS for RED4ext, the Cyber Engine Tweaks team.
+- rayshader for RedFileSystem.
+- adamsmasher for the decompiled game scripts that show how the economy works under the hood.
+- EconomyPunk, for showing how much better Night City feels when money matters.
+- The authors of NC Courier Jobs, Garage, Chop Shop, NCGT and Virtual Car Dealer, for mods that read prices from the game instead of hardcoding them.

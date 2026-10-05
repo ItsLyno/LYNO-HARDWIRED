@@ -19,8 +19,8 @@ list is the player's: no `LYNO USER MODS` section.
 | `crates/core` (`lyno-core`) | Everything that matters: manifest, packages, download, install, update plan, MO2 files, game detection |
 | `crates/pack` (`lyno-pack`) | Author CLI: `build` (MO2 instance → `out/manifest.json` + `tar.zst` parts), `publish` (upload, HTTP-check every part, push the manifest) |
 | `apps/launcher` | Tauri 2 + React + TypeScript + Tailwind. `src-tauri/src/commands.rs` is the IPC layer over `lyno-core`; `author.rs` the author-mode commands (build, publish, adopt), `nexus.rs` Nexus account, update checks and the nxm download queue, `secrets.rs` the GitHub token and Nexus key in Windows Credential Manager |
-| `mods/LynoEconomy` | Game mod (redscript), dropped into MO2 as is: price and income rules (TweakXL ScriptableTweak), scanner `Game.LynoEconomyScan()` → `r6/storages/LynoEconomy/*.tsv` |
-| `docs/` | Reference: [Cyberpunk under MO2](docs/cyberpunk-mo2.md), [MO2 instance format](docs/mo2-instance.md), [release process](docs/release-process.md), vendored MO2 Cyberpunk plugin in `docs/reference/` |
+| `mods/LynoEconomy` | Game mod (redscript, TweakXL ScriptableTweak), dropped into MO2 as is: rule-based prices, income and car prices; also published on Nexus. `mods/LynoEconomy-CourierJobs` patches NC Courier Jobs payouts, `mods/LynoEconomy-Scanner` dumps prices to TSV. Everything about it: [LYNO Economy](docs/lyno-economy.md) |
+| `docs/` | Reference: [Cyberpunk under MO2](docs/cyberpunk-mo2.md), [LYNO Economy](docs/lyno-economy.md), [MO2 instance format](docs/mo2-instance.md), [release process](docs/release-process.md), vendored MO2 Cyberpunk plugin in `docs/reference/` |
 
 Core modules: `publish.rs` (author side: build manifest, reuse unchanged packages),
 `release.rs` (publish a build in the safe order over a `Host`: releases + manifest; `lyno-pack` implements it with `gh`/`git`),

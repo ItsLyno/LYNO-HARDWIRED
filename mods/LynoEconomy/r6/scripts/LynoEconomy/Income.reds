@@ -1,7 +1,7 @@
 // Money the player gets from the world, scaled down so prices mean something. Story and gigs keep most
 // of their pay; grind sources (NCPD hustles, cyberpsychos, cash and shards in loot) much less.
 // Money rewards of mods that use reward records scale the same way. Mods that pay from their own scripts
-// (NC Courier Jobs, NCGT, Gambling...) can't be reached from TweakDB, and expenses other mods add
+// can't be reached from TweakDB (NC Courier Jobs is patched in CourierJobs.reds), and expenses other mods add
 // (rent, Trauma Team, fuel) are left alone on purpose.
 func LynoEconomyStoryIncome() -> Float = 0.7;
 func LynoEconomyGrindIncome() -> Float = 0.4;
@@ -22,8 +22,8 @@ public class LynoEconomyIncome extends ScriptableTweak {
       }
     }
     // Cash piles: an item count, not a modifier.
-    loot += LynoEconomyScaleInt(t"Items.MoneyLootTable_inline0.dropCountMin", grind);
-    loot += LynoEconomyScaleInt(t"Items.MoneyLootTable_inline0.dropCountMax", grind);
+    loot += LynoEconomyScaleIntFlat(t"Items.MoneyLootTable_inline0.dropCountMin", grind);
+    loot += LynoEconomyScaleIntFlat(t"Items.MoneyLootTable_inline0.dropCountMax", grind);
     TweakDBManager.UpdateRecord(t"Items.MoneyLootTable_inline0");
 
     let story = 0;
@@ -105,12 +105,4 @@ public class LynoEconomyIncome extends ScriptableTweak {
 // also carry a .value, but it is a factor of someone else's formula (Black Chrome's reward bonus is one).
 func LynoEconomyIsAmount(mod: wref<StatModifier_Record>) -> Bool {
   return IsDefined(mod as ConstantStatModifier_Record) || IsDefined(mod as RandomStatModifier_Record);
-}
-
-func LynoEconomyScaleInt(flat: TweakDBID, k: Float) -> Int32 {
-  let v = TweakDBInterface.GetFlat(flat);
-  if !IsDefined(v) || !Equals(VariantTypeName(v), n"Int32") {
-    return 0;
-  }
-  return TweakDBManager.SetFlat(flat, Max(1, RoundF(Cast<Float>(FromVariant<Int32>(v)) * k))) ? 1 : 0;
 }

@@ -6,3 +6,6 @@ dist/
 apps/launcher/src-tauri/gen/
 *.log
 .DS_Store
+
+# Local only: no permission to redistribute Dedka's files (docs/lyno-economy.md)
+/mods/LynoEconomy-Dedka/
