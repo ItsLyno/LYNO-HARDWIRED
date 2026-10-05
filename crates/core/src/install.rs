@@ -112,13 +112,12 @@ pub fn optional_in(inst: &Instance, manifest: &Manifest, folder: &str) -> Result
 /// The player puts their own version of build mod `id` into its folder: the
 /// build lets go of it as of a removed one ([`remove_mod`]), and the folder by
 /// its name is the player's (see [`crate::plan::is_players`]).
-/// [`restore_mod`] brings the build's version back over it.
+/// [`restore_mod`] brings the build's version back over it. Its file record stays until the
+/// player's files are in: a failed swap gives the mod back to the build as it was.
 pub fn detach(inst: &Instance, id: &str) -> Result<()> {
     let path = state_path(inst);
     let mut state = State::load(&path)?;
-    if state.mods.remove(id).is_some() {
-        files::remove(inst, id)?;
-    }
+    state.mods.remove(id);
     state.removed.insert(id.to_owned());
     state.save(&path)
 }

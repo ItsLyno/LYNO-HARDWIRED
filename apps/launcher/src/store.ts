@@ -200,14 +200,20 @@ export const useApp = create<AppStore>((set, get) => ({
   // Patches the row in place: refetching the manifest for one switch is a round trip to GitHub.
   setModEnabled: async (id, enabled) => {
     try {
-      await api.setModEnabled(id, enabled);
       const build = get().build;
+      // The author switches by folder: a mod of the next release isn't in the manifest yet.
+      const row = build?.mods.find((m) => m.kind === "mod" && m.id === id);
+      if (get().settings?.authorMode && row?.kind === "mod") await api.setUserModEnabled(row.name, enabled);
+      else await api.setModEnabled(id, enabled);
       if (build) {
         set({ build: { ...build, mods: build.mods.map((m) => (m.kind === "mod" && m.id === id ? { ...m, enabled } : m)) } });
       }
       await get().refreshStatus();
     } catch (e) {
       set({ error: String(e) });
+      // The row may be out of date (the mod changed hands in MO2 or an install): show what is there now.
+      void get().refreshBuild();
+      void get().refreshUserMods();
     }
   },
   verify: async () => {

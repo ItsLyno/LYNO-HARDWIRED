@@ -415,14 +415,12 @@ pub fn target<'a>(mods: &'a [Tracked], files: &ModFiles, game: &str, mod_id: u64
     if let Some(t) = same_page.iter().find(|t| t.file_id.is_some_and(|f| replaced.contains(&f))) {
         return Some(t);
     }
-    // Installed without a file record: the only folder of the page is the one to update,
-    // unless the new file is an addon, which goes next to the main mod.
-    let addon = files
-        .files
-        .iter()
-        .any(|f| f.file_id == file_id && matches!(f.category_name.as_deref(), Some("OPTIONAL" | "MISCELLANEOUS")));
+    // Like MO2, the only folder of the page is the one to update, even from a file the chain
+    // doesn't link (an older version, a reupload), unless one of the two is an addon: it goes
+    // next to the main mod. Otherwise the page's mod ends up in the list twice.
+    let addon = |id: u64| files.files.iter().any(|f| f.file_id == id && matches!(f.category_name.as_deref(), Some("OPTIONAL" | "MISCELLANEOUS")));
     match same_page.as_slice() {
-        [only] if only.file_id.is_none() && !addon => Some(only),
+        [only] if !addon(file_id) && !only.file_id.is_some_and(addon) => Some(only),
         _ => None,
     }
 }
@@ -533,6 +531,12 @@ mod tests {
         assert_eq!(target(&unknown, &c.files, "cyberpunk2077", 1, 2).map(|t| t.folder.as_str()), Some("Hand"));
         // An addon never replaces the main mod installed without a file id.
         assert_eq!(target(&unknown, &c.files, "cyberpunk2077", 1, 7), None);
+
+        // A file the chain doesn't link replaces the page's only mod, not an addon of it.
+        let only = [Tracked { folder: "Main".into(), ..tracked(Some(2), "2") }];
+        assert_eq!(target(&only, &c.files, "cyberpunk2077", 1, 1).map(|t| t.folder.as_str()), Some("Main"));
+        let only_addon = [Tracked { folder: "Addon".into(), ..tracked(Some(7), "1") }];
+        assert_eq!(target(&only_addon, &c.files, "cyberpunk2077", 1, 2), None);
     }
 
     #[test]

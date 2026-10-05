@@ -1099,6 +1099,12 @@ fn nexus_updates_are_tracked_and_installed_from_nxm_links() {
     assert_eq!(outcome, Outcome::Downloaded { replaces: Some("CET".into()) });
     let target = lyno_core::mod_install::target_for(&user, "LYNO", &dl, false, Some(&m), None).unwrap().unwrap();
     assert_eq!(target, Target::Own { folder: "CET".into(), id: "cet".into() });
+    // A swap that fails (a file held open on Windows) leaves the build's files: the build keeps the mod.
+    write(root, "mods/CET.lyno-old", b"in the way");
+    assert!(install(&user, "LYNO", &root.join("downloads/mod-2.zip"), &dl, &target).is_err());
+    let st = State::load(&state_path(&user)).unwrap();
+    assert!(st.mods.contains_key("cet") && !st.removed.contains("cet"));
+    std::fs::remove_file(root.join("mods/CET.lyno-old")).unwrap();
     install(&user, "LYNO", &root.join("downloads/mod-2.zip"), &dl, &target).unwrap();
     let st = State::load(&state_path(&user)).unwrap();
     assert!(!st.mods.contains_key("cet") && st.removed.contains("cet"));

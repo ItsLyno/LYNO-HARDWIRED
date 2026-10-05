@@ -381,11 +381,26 @@ fn place(
     meta.save(&meta_path)?;
     crate::meta::save_fomod(&meta_path, fomod)?;
     // Before the swap: a crash in between leaves the build's files as the player's, never the
-    // player's as a damaged build mod that a repair would overwrite.
-    if let Target::Own { id, .. } = target {
-        crate::install::detach(inst, id)?;
+    // player's as a damaged build mod that a repair would overwrite. A swap that fails (Windows:
+    // a file held open) leaves the build's files in place, so the build takes the mod back.
+    let state_path = crate::install::state_path(inst);
+    let before = match target {
+        Target::Own { id, .. } => {
+            let before = crate::state::State::load(&state_path)?;
+            crate::install::detach(inst, id)?;
+            Some((before, id))
+        }
+        _ => None,
+    };
+    if let Err(e) = package::swap_folder(&staging, &mods.join(&folder)) {
+        if let Some((before, _)) = &before {
+            before.save(&state_path)?;
+        }
+        return Err(e);
     }
-    package::swap_folder(&staging, &mods.join(&folder))?;
+    if let Some((_, id)) = before {
+        crate::files::remove(inst, id)?;
+    }
 
     let list_path = inst.modlist_path(profile);
     let mut list = if list_path.is_file() { ModList::load(&list_path)? } else { ModList::default() };

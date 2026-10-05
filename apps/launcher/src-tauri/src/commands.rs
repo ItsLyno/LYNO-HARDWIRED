@@ -759,14 +759,16 @@ pub fn set_user_mod_enabled(state: TauriState<'_, AppState>, folder: String, ena
     if running_processes() != (false, false) {
         return Err("Закройте игру и Mod Organizer 2, чтобы включать и выключать моды".into());
     }
-    let inst = Instance::new(&state.settings.lock().unwrap().instance_dir);
+    let settings = state.settings.lock().unwrap().clone();
+    let inst = Instance::new(&settings.instance_dir);
     let path = inst.modlist_path(&profile(&inst));
     let mut list = ModList::load(&path).map_err(err)?;
     let installed = State::load(&install::state_path(&inst)).map_err(err)?;
+    // The author's list is MO2's: a mod of the next release has no manifest id to switch it by.
     let entry = list
         .entries
         .iter_mut()
-        .find(|e| e.name == folder && !e.is_separator() && e.state != EntryState::Unmanaged && !installed.is_managed_folder(&e.name))
+        .find(|e| e.name == folder && !e.is_separator() && e.state != EntryState::Unmanaged && (settings.author_mode || !installed.is_managed_folder(&e.name)))
         .ok_or("Это не ваш мод: моды сборки включаются в её списке")?;
     entry.state = if enabled { EntryState::Enabled } else { EntryState::Disabled };
     list.save(&path).map_err(err)?;

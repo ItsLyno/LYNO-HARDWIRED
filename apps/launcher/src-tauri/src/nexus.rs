@@ -611,6 +611,8 @@ fn work(app: &AppHandle) {
             Err(lyno_core::Error::Cancelled) => JobState::Cancelled,
             Err(e) => {
                 log::error!("job {} ({:?}): {e}", job.id, job.title);
+                // An install may stop after it changed the list or the state: the UI reads them again.
+                let _ = app.emit("nexus-changed", ());
                 JobState::Failed { error: job_error(&e) }
             }
         };
