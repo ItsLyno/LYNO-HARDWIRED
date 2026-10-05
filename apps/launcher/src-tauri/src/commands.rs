@@ -744,6 +744,7 @@ pub fn launch_game(state: TauriState<'_, AppState>) -> CmdResult<()> {
                     Установите бесплатное DLC REDmod в Steam, GOG или Epic."
             .into());
     }
+    inst.set_game_path(game_dir).map_err(err)?;
     let profile = profile(&inst);
     log::info!("launching the game (profile {profile}, REDmod {redmod})");
     spawn_mo2(&inst, &mo2::run_args(&profile, mo2::game_executable(redmod)))
