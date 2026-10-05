@@ -74,7 +74,7 @@ export interface LastUpdate {
   removed: string[];
 }
 
-export type Folder = "instance" | "game" | "saves" | "logs" | "downloads";
+export type Folder = "instance" | "game" | "saves" | "logs" | "downloads" | "overwrite";
 
 export interface BuildInfo {
   name: string;
@@ -236,6 +236,19 @@ export interface ModUpdateRow {
   status: ModStatus;
   /** Files tab on Nexus, at the new file when known. */
   pageUrl: string;
+  /** Requirements on its Nexus page the list doesn't meet; empty for a disabled mod. */
+  needs: Need[];
+}
+
+/** A requirement on a mod's Nexus page that no enabled mod meets. Authors fill these loosely: advice, not a block. */
+export interface Need {
+  /** A mod of the same game on Nexus; null: a tool or another site, which the launcher can't check. */
+  modId: number | null;
+  name: string;
+  url: string;
+  notes: string;
+  /** The required mod is installed, but this folder of it is disabled. */
+  disabled: string | null;
 }
 
 /** Requests left on the Nexus account: a daily allowance, then an hourly one once it is spent. */
@@ -305,6 +318,8 @@ export interface NexusJob {
   version: string | null;
   /** Installed mod folder this file replaces. */
   replaces: string | null;
+  /** Once done: requirements on the mod's page the list doesn't meet. */
+  needs: Need[];
   state: JobState;
 }
 
@@ -333,8 +348,20 @@ export interface ArchiveRoot {
 
 /** The player's own section of the list (under LYNO USER MODS), in MO2's order. */
 export type UserRow =
-  | { kind: "separator"; title: string }
+  | { kind: "separator"; title: string; color: string | null }
   | { kind: "mod"; name: string; enabled: boolean; version: string | null; nexusUrl: string | null };
+
+/** What the game and its tools wrote through MO2's virtual file system. */
+export interface OverwriteInfo {
+  files: number;
+  size: number;
+}
+
+/** An entry of MO2's executables list. */
+export interface Executable {
+  title: string;
+  binary: string;
+}
 
 export type GroupKind = "exactlyOne" | "atMostOne" | "atLeastOne" | "all" | "any";
 export type PluginKind = "required" | "optional" | "recommended" | "notUsable" | "couldBeUsable";
@@ -429,7 +456,11 @@ export const api = isTauri()
         listen<AuthorEvent>("author-event", (e) => handler(e.payload)),
       openModFolder: (id: string) => invoke<void>("open_mod_folder", { id }),
       openFolder: (folder: Folder) => invoke<void>("open_folder", { folder }),
-      launchGame: () => invoke<void>("launch_game"),
+      launchGame: () => invoke<void>("launch_game", { executable: null }),
+      /** Another of MO2's executables, by title. */
+      launchExecutable: (executable: string) => invoke<void>("launch_game", { executable }),
+      /** MO2's executables besides the game the play button starts. */
+      executables: () => invoke<Executable[]>("executables"),
       openMo2: () => invoke<void>("open_mo2"),
       /** Path of the zip written to the desktop. */
       exportReport: () => invoke<string>("export_report"),
@@ -466,7 +497,16 @@ export const api = isTauri()
       openUserModFolder: (folder: string) => invoke<void>("open_user_mod_folder", { folder }),
       /** The player's own mod, or any in author mode. */
       deleteMod: (folder: string) => invoke<void>("delete_mod", { folder }),
+      /** A separator takes its new title. */
       renameMod: (folder: string, name: string) => invoke<void>("rename_mod", { folder, name }),
+      /** Within the player's section; `after`: the entry it was dropped below, null for the end. */
+      moveUserMod: (folder: string, after: string | null) => invoke<void>("move_user_mod", { folder, after }),
+      addSeparator: (title: string, after: string | null) => invoke<void>("add_separator", { title, after }),
+      /** `#rrggbb`; null takes the color away. */
+      setSeparatorColor: (folder: string, color: string | null) => invoke<void>("set_separator_color", { folder, color }),
+      overwriteInfo: () => invoke<OverwriteInfo>("overwrite_info"),
+      overwriteToMod: (name: string) => invoke<void>("overwrite_to_mod", { name }),
+      clearOverwrite: () => invoke<void>("clear_overwrite"),
       /** From the archive in MO2's downloads, as a queued job; a player's build mod is repaired instead (`startRepair`). */
       reinstallMod: (folder: string) => invoke<number>("reinstall_mod", { folder }),
       instanceSelect: (dir: string) => invoke<void>("instance_select", { dir }),

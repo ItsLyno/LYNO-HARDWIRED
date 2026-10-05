@@ -42,6 +42,12 @@ package is the instance root.
   16-bit alpha, red, green, blue). `lyno-pack` turns it into `#rrggbb` in the manifest; the launcher
   shows it in the mod list and writes it back into the player's separator (`meta::qt_color`, `meta::save_color`).
 
+## `overwrite/`
+
+Files the game and its tools create through the VFS (CET and RED4ext settings, logs) land
+here, above every mod. The launcher shows it as the last row of the list, like MO2, and
+can turn it into a mod (MO2's "Create Mod": the folder moves to `mods/<name>`) or empty it.
+
 ## `mods/<folder>/meta.ini`
 
 Fields used: `[General]` `modid`, `version`, `gameName`, `installationFile`,
@@ -75,7 +81,8 @@ shipped.
 
 - `[General]` `gamePath=@ByteArray(D:/…/Cyberpunk 2077)`, `selected_profile`.
 - `[customExecutables]` `N\title`, `N\binary`, `N\arguments`, `N\workingDirectory`
-  (absolute paths into the game folder).
+  (absolute paths into the game folder), `N\hide` (left out of MO2's menu). The launcher
+  offers every entry but the game's on Home and starts it with `run -e "<title>"` (`Instance::executables`).
 - `[Plugins]` per-plugin settings, e.g. `Cyberpunk 2077 Support Plugin\enforce_archive_load_order=true`.
 - Qt ini: backslashes may be escaped (`D:\\Games\\…`).
 

@@ -19,6 +19,7 @@ list is the player's: no `LYNO USER MODS` section.
 | `crates/core` (`lyno-core`) | Everything that matters: manifest, packages, download, install, update plan, MO2 files, game detection |
 | `crates/pack` (`lyno-pack`) | Author CLI: `build` (MO2 instance → `out/manifest.json` + `tar.zst` parts), `publish` (upload, HTTP-check every part, push the manifest) |
 | `apps/launcher` | Tauri 2 + React + TypeScript + Tailwind. `src-tauri/src/commands.rs` is the IPC layer over `lyno-core`; `author.rs` the author-mode commands (build, publish, adopt), `nexus.rs` Nexus account, update checks and the nxm download queue, `secrets.rs` the GitHub token and Nexus key in Windows Credential Manager |
+| `mods/LynoEconomy` | Game mod (redscript), dropped into MO2 as is: price and income rules (TweakXL ScriptableTweak), scanner `Game.LynoEconomyScan()` → `r6/storages/LynoEconomy/*.tsv` |
 | `docs/` | Reference: [Cyberpunk under MO2](docs/cyberpunk-mo2.md), [MO2 instance format](docs/mo2-instance.md), [release process](docs/release-process.md), vendored MO2 Cyberpunk plugin in `docs/reference/` |
 
 Core modules: `publish.rs` (author side: build manifest, reuse unchanged packages),
@@ -26,7 +27,7 @@ Core modules: `publish.rs` (author side: build manifest, reuse unchanged package
 `author.rs` (author mode: the author releases from their launcher instance; `pending` mod-list changes since the installed build, `adopt` a just-published build as installed),
 `github.rs` (`release::Host` over the GitHub REST API with a token: what the launcher publishes with), `nexus.rs` (mod authors for `build`; `NexusApi`: the player's account),
 `nexus_sso.rs` (log in with Nexus; needs an application slug, `LYNO_NEXUS_APP` at build time), `nxm.rs` (nxm:// links, registering the launcher as their handler),
-`tracking.rs` (version tracking of mods from Nexus, cache `.lyno/nexus.json`), `archive.rs` (zip/7z/rar layout by MO2's Cyberpunk checker; `roots`/`map_under` for the manual "pick the mod folder" install), `fomod.rs` (FOMOD installers: parse, evaluate steps/flags, files to install; the UI wizard only shows its results),
+`tracking.rs` (version tracking of mods from Nexus, cache `.lyno/nexus.json`; `needs`: requirements on a mod's Nexus page, GraphQL v2, that the list doesn't meet), `archive.rs` (zip/7z/rar layout by MO2's Cyberpunk checker; `roots`/`map_under` for the manual "pick the mod folder" install), `fomod.rs` (FOMOD installers: parse, evaluate steps/flags, files to install; the UI wizard only shows its results),
 `mod_install.rs` (install a Nexus download, an archive of MO2's `downloads/` or one from disk; stops halfway with `Outcome::Fomod` / `Manual` / `Deferred` (MO2 running) for the launcher's queue to park),
 `plan.rs` (manifest + state → actions + new `modlist.txt`), `install.rs` (apply plan),
 `prefetch.rs` (parallel part downloads running ahead of `install`), `download.rs` (one part: resume, retries),

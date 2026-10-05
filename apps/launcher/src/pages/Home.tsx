@@ -1,13 +1,13 @@
-import { ArrowRight, Download, FolderCog, FolderSearch, Loader2, Play, RefreshCw, Wrench } from "lucide-react";
-import { useState, type ReactNode } from "react";
-import { api } from "../api";
+import { ChevronUp, Download, FolderCog, FolderSearch, Loader2, Play, RefreshCw, RotateCw, Wrench } from "lucide-react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { api, type Executable } from "../api";
 import { Button } from "../components/Button";
 import { Changelog } from "../components/Changelog";
 import { InstanceSetup } from "../components/InstanceSetup";
 import { Section } from "../components/Section";
 import { UpdateProgress } from "../components/UpdateProgress";
 import logo from "../assets/logo.webp";
-import { downloadLabel } from "../format";
+import { downloadLabel, plural } from "../format";
 import { activeInstance, isRepairOnly, primaryAction, useApp, type PrimaryAction } from "../store";
 
 export function Home() {
@@ -34,8 +34,6 @@ export function Home() {
     }
   };
 
-  const showUpdateBanner = action === "update" && build;
-
   return (
     <div className="grid h-full grid-cols-[1fr_380px] gap-6">
       <div className="flex min-h-0 flex-col">
@@ -49,24 +47,6 @@ export function Home() {
           {instance && !isBuild && <Tag>{instance.name}</Tag>}
         </div>
 
-        {showUpdateBanner && (
-          <button
-            onClick={() => setPage("updates")}
-            className="mt-8 flex items-center gap-3 rounded-full bg-warn/[0.07] py-2.5 pr-4 pl-5 text-left transition-colors hover:bg-warn/[0.12]"
-          >
-            <span className="flex-1">
-              {isRepairOnly(build) ? (
-                "Нужно восстановить повреждённые файлы"
-              ) : (
-                <>
-                  Доступна версия <span className="font-mono font-semibold tabular-nums">{build.latestVersion}</span>
-                </>
-              )}
-              <span className="text-muted"> · {downloadLabel(build)}</span>
-            </span>
-            <ArrowRight size={16} className="text-muted" />
-          </button>
-        )}
         {buildError && !build && (
           <div className="mt-8 flex items-center gap-3 rounded-full bg-bad/[0.07] px-5 py-2.5 text-[13px]">
             <span className="flex-1 text-bad">{buildError}</span>
@@ -120,35 +100,190 @@ export function Home() {
               <FolderCog size={17} />
               Открыть MO2
             </Button>
+            <ToolsMenu disabled={!status?.mo2Installed || !!progress} />
           </div>
         </div>
       </div>
 
-      {isBuild ? (
-        <Section title="Что нового" className="flex min-h-0 flex-col">
-          <div className="min-h-0 flex-1 overflow-y-auto">
-            {build ? (
-              <Changelog entries={build.changelog} installed={build.installedVersion} />
-            ) : (
-              <p className="px-5 pb-4 text-[13px] text-muted">{buildError ? "Нет данных о сборке." : "Загрузка…"}</p>
-            )}
-          </div>
-        </Section>
-      ) : (
-        <Section title="Сборка LYNO//HARDWIRED" className="self-start">
-          <div className="px-5 pb-5 text-[13px] text-muted">
-            <p>
-              Готовая сборка модов с обновлениями в один клик. Ставится в отдельную папку со своим Mod Organizer 2 — ваш
-              MO2 и его моды она не трогает. Переключаться между ними можно в настройках.
-            </p>
-            <Button className="mt-4" disabled={!!progress} onClick={() => switchInstance(api.instanceAddBuild)}>
-              <Download size={15} />
-              Перейти к сборке
-            </Button>
-          </div>
-        </Section>
+      <div className="flex min-h-0 flex-col gap-6">
+        <UpdatesPanel isBuild={isBuild} />
+        {isBuild ? (
+          <Section title="Что нового" className="flex min-h-0 flex-1 flex-col">
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              {build ? (
+                <Changelog entries={build.changelog} installed={build.installedVersion} />
+              ) : (
+                <p className="px-5 pb-4 text-[13px] text-muted">{buildError ? "Нет данных о сборке." : "Загрузка…"}</p>
+              )}
+            </div>
+          </Section>
+        ) : (
+          <Section title="Сборка LYNO//HARDWIRED" className="self-start">
+            <div className="px-5 pb-5 text-[13px] text-muted">
+              <p>
+                Готовая сборка модов с обновлениями в один клик. Ставится в отдельную папку со своим Mod Organizer 2 — ваш
+                MO2 и его моды она не трогает. Переключаться между ними можно в настройках.
+              </p>
+              <Button className="mt-4" disabled={!!progress} onClick={() => switchInstance(api.instanceAddBuild)}>
+                <Download size={15} />
+                Перейти к сборке
+              </Button>
+            </div>
+          </Section>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** MO2's other executables (REDmod, WolvenKit, what the player added in MO2), started inside its virtual file system. */
+function ToolsMenu({ disabled }: { disabled: boolean }) {
+  const { run, settings } = useApp();
+  const [tools, setTools] = useState<Executable[]>([]);
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    api.executables().then(setTools, () => setTools([]));
+  }, [settings?.instanceDir]);
+  useEffect(() => {
+    if (!open) return;
+    const outside = (e: Event) => !ref.current?.contains(e.target as Node) && setOpen(false);
+    const esc = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    window.addEventListener("mousedown", outside);
+    window.addEventListener("keydown", esc);
+    return () => {
+      window.removeEventListener("mousedown", outside);
+      window.removeEventListener("keydown", esc);
+    };
+  }, [open]);
+  if (tools.length === 0) return null;
+  return (
+    <div ref={ref} className="relative">
+      <Button size="lg" disabled={disabled} onClick={() => setOpen(!open)} aria-haspopup="menu" aria-expanded={open}>
+        <Wrench size={16} />
+        Программы
+        <ChevronUp size={14} className={`transition-transform ${open ? "" : "rotate-180"}`} />
+      </Button>
+      {open && (
+        <div role="menu" className="panel absolute bottom-full left-0 z-50 mb-2 w-72 bg-surface py-1.5 shadow-2xl">
+          {tools.map((t) => (
+            <button
+              key={t.title}
+              role="menuitem"
+              title={t.binary}
+              onClick={() => {
+                setOpen(false);
+                void run(() => api.launchExecutable(t.title));
+              }}
+              className="flex h-8 w-full items-center gap-2.5 px-3.5 text-left text-[13px] text-fg outline-none hover:bg-raised focus:bg-raised"
+            >
+              <Play size={13} className="shrink-0 opacity-70" />
+              <span className="truncate">{t.title}</span>
+            </button>
+          ))}
+        </div>
       )}
     </div>
+  );
+}
+
+/** Build and launcher versions side by side: one "check" asks GitHub about both. */
+function UpdatesPanel({ isBuild }: { isBuild: boolean }) {
+  const { build, buildError, status, progress, settings, launcherUpdate, refreshBuild, checkLauncherUpdate, run } = useApp();
+  const [version, setVersion] = useState<string | null>(null);
+  const [checking, setChecking] = useState(false);
+  const [installing, setInstalling] = useState(false);
+  useEffect(() => {
+    api.launcherVersion().then(setVersion, () => {});
+  }, []);
+  const busy = !!progress || !!status?.updating;
+  const installed = status?.installedVersion ?? null;
+
+  const check = async () => {
+    setChecking(true);
+    await Promise.all([isBuild ? refreshBuild() : null, checkLauncherUpdate()]);
+    setChecking(false);
+  };
+  // The installer closes the launcher and starts the new version, so there is no "done" state.
+  const installLauncher = () =>
+    run(async () => {
+      setInstalling(true);
+      try {
+        await api.installLauncherUpdate();
+      } finally {
+        setInstalling(false);
+      }
+    });
+
+  let buildLine: ReactNode = null;
+  if (isBuild) {
+    buildLine = !build ? (
+      <span className="text-muted">{buildError ?? "Загрузка…"}</span>
+    ) : !build.online ? (
+      <span className="text-muted">нет связи с GitHub</span>
+    ) : build.upToDate ? (
+      <span className="text-muted">последняя</span>
+    ) : settings?.authorMode ? (
+      <span className="text-muted">режим автора: обновление выключено</span>
+    ) : (
+      <span className="text-accent">
+        {isRepairOnly(build) ? "нужно восстановить файлы" : installed ? `доступна ${build.latestVersion}` : "не установлена"}
+        <span className="text-muted">
+          {" "}· {build.changes} {plural(build.changes, "изменение", "изменения", "изменений")} · {downloadLabel(build)}
+        </span>
+      </span>
+    );
+  }
+
+  return (
+    <Section
+      title="Обновления"
+      action={
+        <Button variant="ghost" className="-mr-2 h-8 text-[13px]" onClick={check} disabled={checking || busy}>
+          <RotateCw size={14} className={checking ? "animate-spin" : ""} />
+          Проверить
+        </Button>
+      }
+    >
+      <dl className="divide-y divide-line/60 border-t border-line/60 text-[13px]">
+        {isBuild && (
+          <div className="px-5 py-3">
+            <dt className="label">Сборка</dt>
+            <dd className="mt-1">
+              <span className="font-mono tabular-nums">{installed ?? "—"}</span>
+              {build && <span className="text-muted"> · патч {build.gameVersion}</span>}
+              <div className="mt-0.5">{buildLine}</div>
+            </dd>
+          </div>
+        )}
+        <div className="flex items-center gap-3 px-5 py-3">
+          <div className="min-w-0 flex-1">
+            <dt className="label">Лаунчер</dt>
+            <dd className="mt-1">
+              <span className="font-mono tabular-nums">{version ?? "—"}</span>
+              <div className="mt-0.5 truncate" title={launcherUpdate?.notes ?? undefined}>
+                {launcherUpdate ? (
+                  <span className="text-accent">доступна {launcherUpdate.version}</span>
+                ) : (
+                  <span className="text-muted">последняя</span>
+                )}
+              </div>
+            </dd>
+          </div>
+          {launcherUpdate && (
+            <Button
+              className="h-8 text-[13px]"
+              onClick={installLauncher}
+              disabled={installing || busy}
+              title={busy ? "Дождитесь окончания обновления сборки" : undefined}
+            >
+              {installing ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+              {installing ? "Загрузка…" : "Обновить"}
+            </Button>
+          )}
+        </div>
+      </dl>
+    </Section>
   );
 }
 

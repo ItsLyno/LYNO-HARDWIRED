@@ -231,7 +231,7 @@ impl Installer<'_> {
                 std::fs::create_dir_all(&dir).map_err(|e| Error::io(&dir, e))?;
                 // The player's MO2 shows the author's separator colors too.
                 if let Some(color) = color {
-                    meta::save_color(&dir.join("meta.ini"), color)?;
+                    meta::save_color(&dir.join("meta.ini"), Some(color))?;
                 }
             }
         }

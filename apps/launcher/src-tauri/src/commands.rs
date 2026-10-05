@@ -8,7 +8,8 @@ use lyno_core::game::{self, GameInstall};
 use lyno_core::install::{self, Installer};
 use lyno_core::manifest::{ChangelogEntry, Manifest, ModEntry};
 use lyno_core::mo2::{self, Instance};
-use lyno_core::modlist::{EntryState, ModList};
+use lyno_core::mod_install;
+use lyno_core::modlist::{Entry, EntryState, ModList};
 use lyno_core::plan;
 use lyno_core::report;
 use lyno_core::state::State;
@@ -553,7 +554,7 @@ pub fn set_mod_enabled(state: TauriState<'_, AppState>, id: String, enabled: boo
 #[derive(Serialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum UserRow {
-    Separator { title: String },
+    Separator { title: String, color: Option<String> },
     #[serde(rename_all = "camelCase")]
     Mod { name: String, enabled: bool, version: Option<String>, nexus_url: Option<String> },
 }
@@ -574,17 +575,19 @@ pub fn user_mods(state: TauriState<'_, AppState>) -> CmdResult<Vec<UserRow>> {
     Ok(user
         .iter()
         .filter(|e| e.state != EntryState::Unmanaged)
-        .map(|e| match e.separator_title() {
-            Some(title) => UserRow::Separator { title: title.to_owned() },
-            None => {
-                let meta = inst.mods_dir().join(&e.name).join("meta.ini");
-                let meta = lyno_core::meta::ModMeta::load(&meta).unwrap_or_default();
-                let game = meta.game_name.clone().unwrap_or_else(|| "cyberpunk2077".into()).to_lowercase();
-                UserRow::Mod {
-                    name: e.name.clone(),
-                    enabled: e.state == EntryState::Enabled,
-                    version: meta.version,
-                    nexus_url: meta.mod_id.map(|id| format!("https://www.nexusmods.com/{game}/mods/{id}")),
+        .map(|e| {
+            let meta = inst.mods_dir().join(&e.name).join("meta.ini");
+            let meta = lyno_core::meta::ModMeta::load(&meta).unwrap_or_default();
+            match e.separator_title() {
+                Some(title) => UserRow::Separator { title: title.to_owned(), color: meta.color },
+                None => {
+                    let game = meta.game_name.clone().unwrap_or_else(|| "cyberpunk2077".into()).to_lowercase();
+                    UserRow::Mod {
+                        name: e.name.clone(),
+                        enabled: e.state == EntryState::Enabled,
+                        version: meta.version,
+                        nexus_url: meta.mod_id.map(|id| format!("https://www.nexusmods.com/{game}/mods/{id}")),
+                    }
                 }
             }
         })
@@ -628,21 +631,37 @@ pub fn open_user_mod_folder(state: TauriState<'_, AppState>, folder: String) -> 
 /// A mod the player may delete or rename: their own, or any in author mode.
 /// A build mod of a player is the build's to change: it would come back with the next update.
 fn own_mod(state: &AppState, folder: &str) -> CmdResult<Instance> {
+    let inst = editable(state)?;
+    let author = state.settings.lock().unwrap().author_mode;
+    if folder.is_empty() || folder.contains(['/', '\\']) || folder == ".." || !inst.mods_dir().join(folder).is_dir() {
+        return Err("Мод не найден".into());
+    }
+    if folder == Entry::separator(plan::USER_SEPARATOR).name {
+        return Err("Этот разделитель отделяет ваши моды от сборки: его менять нельзя".into());
+    }
+    if !author && State::load(&install::state_path(&inst)).map_err(err)?.is_managed_folder(folder) {
+        return Err("Это мод сборки: его можно только выключить".into());
+    }
+    // Build separators aren't in the state: the list tells them apart.
+    if !author && Entry::enabled(folder).is_separator() {
+        let list = ModList::load(&inst.modlist_path(&profile(&inst))).map_err(err)?;
+        if !mod_install::is_users(&list, install::has_build(&inst), folder) {
+            return Err("Это разделитель сборки: его можно поменять только в её списке".into());
+        }
+    }
+    Ok(inst)
+}
+
+/// The instance, once nothing else writes `modlist.txt`: MO2 keeps the list in
+/// memory and writes it back on exit, an update rewrites it.
+fn editable(state: &AppState) -> CmdResult<Instance> {
     if state.update.lock().unwrap().is_some() {
         return Err("Дождитесь окончания обновления сборки".into());
     }
     if running_processes() != (false, false) {
         return Err("Закройте игру и Mod Organizer 2, чтобы менять моды".into());
     }
-    let settings = state.settings.lock().unwrap().clone();
-    let inst = Instance::new(&settings.instance_dir);
-    if folder.is_empty() || folder.contains(['/', '\\']) || folder == ".." || !inst.mods_dir().join(folder).is_dir() {
-        return Err("Мод не найден".into());
-    }
-    if !settings.author_mode && State::load(&install::state_path(&inst)).map_err(err)?.is_managed_folder(folder) {
-        return Err("Это мод сборки: его можно только выключить".into());
-    }
-    Ok(inst)
+    Ok(Instance::new(&state.settings.lock().unwrap().instance_dir))
 }
 
 #[tauri::command]
@@ -656,22 +675,123 @@ pub fn delete_mod(state: TauriState<'_, AppState>, folder: String) -> CmdResult<
     Ok(())
 }
 
+/// Renames a mod, or a separator by its title (`name`).
 #[tauri::command]
 pub fn rename_mod(state: TauriState<'_, AppState>, folder: String, name: String) -> CmdResult<()> {
     let inst = own_mod(&state, &folder)?;
-    let name = name.trim();
-    if let Some(why) = lyno_core::mod_install::invalid_name(name) {
+    let title = name.trim();
+    let separator = Entry::enabled(&folder).is_separator();
+    let name = if separator { separator_folder(title)? } else { title.to_owned() };
+    if let Some(why) = mod_install::invalid_name(title) {
         return Err(why.into());
     }
     // Windows names ignore case: a change of case only is the same folder.
-    if inst.mods_dir().join(name).exists() && !folder.eq_ignore_ascii_case(name) {
-        return Err(format!("Мод «{name}» уже есть"));
+    if inst.mods_dir().join(&name).exists() && !folder.eq_ignore_ascii_case(&name) {
+        return Err(if separator { format!("Разделитель «{title}» уже есть") } else { format!("Мод «{name}» уже есть") });
     }
-    lyno_core::mod_install::rename(&inst, &folder, name).map_err(|e| {
+    mod_install::rename(&inst, &folder, &name).map_err(|e| {
         log::error!("rename mod {folder:?}: {e}");
         format!("Не удалось переименовать мод: {e}")
     })?;
     log::info!("renamed mod {folder:?} to {name:?}");
+    Ok(())
+}
+
+/// MO2's folder of a separator the player names; never the one of their section.
+fn separator_folder(title: &str) -> CmdResult<String> {
+    if let Some(why) = mod_install::invalid_name(title) {
+        return Err(why.into());
+    }
+    if title.eq_ignore_ascii_case(plan::USER_SEPARATOR) {
+        return Err("Это название занято лаунчером".into());
+    }
+    Ok(Entry::separator(title).name)
+}
+
+/// Drags a mod or separator of the player's section below `after` (`None`: the end),
+/// in the current profile only: the order is a profile's, as in MO2.
+#[tauri::command]
+pub fn move_user_mod(state: TauriState<'_, AppState>, folder: String, after: Option<String>) -> CmdResult<()> {
+    let inst = editable(&state)?;
+    let path = inst.modlist_path(&profile(&inst));
+    let mut list = ModList::load(&path).map_err(err)?;
+    if !mod_install::move_entry(&mut list, install::has_build(&inst), &folder, after.as_deref()) {
+        return Err("Перетаскивать можно только ваши моды: порядок сборки задаёт её автор".into());
+    }
+    list.save(&path).map_err(err)?;
+    log::info!("moved {folder:?} below {after:?}");
+    Ok(())
+}
+
+/// A new separator of the player below `after` (`None`: the end of their section).
+#[tauri::command]
+pub fn add_separator(state: TauriState<'_, AppState>, title: String, after: Option<String>) -> CmdResult<()> {
+    let inst = editable(&state)?;
+    let title = title.trim();
+    let folder = separator_folder(title)?;
+    if inst.mods_dir().join(&folder).exists() {
+        return Err(format!("Разделитель «{title}» уже есть"));
+    }
+    mod_install::add_separator(&inst, &profile(&inst), title, after.as_deref()).map_err(|e| {
+        log::error!("add separator {title:?}: {e}");
+        format!("Не удалось добавить разделитель: {e}")
+    })?;
+    log::info!("added separator {title:?}");
+    Ok(())
+}
+
+/// `color`: `#rrggbb`, `None` takes it away. MO2 reads it from the separator's `meta.ini`.
+#[tauri::command]
+pub fn set_separator_color(state: TauriState<'_, AppState>, folder: String, color: Option<String>) -> CmdResult<()> {
+    if !Entry::enabled(&folder).is_separator() {
+        return Err("Это не разделитель".into());
+    }
+    let inst = own_mod(&state, &folder)?;
+    lyno_core::meta::save_color(&inst.mods_dir().join(&folder).join("meta.ini"), color.as_deref()).map_err(err)
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OverwriteInfo {
+    files: usize,
+    size: u64,
+}
+
+/// What the game and its tools wrote into MO2's `overwrite/`.
+#[tauri::command]
+pub fn overwrite_info(state: TauriState<'_, AppState>) -> CmdResult<OverwriteInfo> {
+    let inst = Instance::new(&state.settings.lock().unwrap().instance_dir);
+    let files = mod_install::overwrite_files(&inst).map_err(err)?;
+    Ok(OverwriteInfo { files: files.len(), size: files.iter().map(|f| f.size).sum() })
+}
+
+/// MO2's "Create Mod" of `overwrite/`.
+#[tauri::command]
+pub fn overwrite_to_mod(state: TauriState<'_, AppState>, name: String) -> CmdResult<()> {
+    let inst = editable(&state)?;
+    let name = name.trim();
+    if let Some(why) = mod_install::invalid_name(name) {
+        return Err(why.into());
+    }
+    if inst.mods_dir().join(name).exists() {
+        return Err(format!("Мод «{name}» уже есть"));
+    }
+    mod_install::overwrite_to_mod(&inst, &profile(&inst), name).map_err(|e| {
+        log::error!("overwrite to mod {name:?}: {e}");
+        format!("Не удалось создать мод: {e}")
+    })?;
+    log::info!("overwrite became mod {name:?}");
+    Ok(())
+}
+
+#[tauri::command]
+pub fn clear_overwrite(state: TauriState<'_, AppState>) -> CmdResult<()> {
+    let inst = editable(&state)?;
+    mod_install::clear_overwrite(&inst).map_err(|e| {
+        log::error!("clear overwrite: {e}");
+        format!("Не удалось очистить overwrite: {e}")
+    })?;
+    log::info!("overwrite cleared");
     Ok(())
 }
 
@@ -693,6 +813,8 @@ pub enum Folder {
     Logs,
     /// MO2's downloads: archives from Nexus and the ones dropped on the launcher.
     Downloads,
+    /// What the game wrote through MO2's virtual file system.
+    Overwrite,
 }
 
 #[tauri::command]
@@ -710,6 +832,7 @@ pub fn open_folder(app: AppHandle, folder: Folder) -> CmdResult<()> {
             std::fs::create_dir_all(&dir).map_err(|e| format!("{}: {e}", dir.display()))?;
             dir
         }
+        Folder::Overwrite => Instance::new(&settings.instance_dir).overwrite_dir(),
     };
     open_dir(&path)
 }
@@ -724,13 +847,22 @@ fn open_dir(path: &std::path::Path) -> CmdResult<()> {
     })
 }
 
+/// MO2's executables besides the one the play button starts.
 #[tauri::command]
-pub fn launch_game(state: TauriState<'_, AppState>) -> CmdResult<()> {
+pub fn executables(state: TauriState<'_, AppState>) -> Vec<mo2::Executable> {
+    let inst = Instance::new(&state.settings.lock().unwrap().instance_dir);
+    let game = mo2::game_executable(installed_manifest(&inst).is_some_and(|m| m.redmod));
+    inst.executables().into_iter().filter(|e| e.title != game).collect()
+}
+
+/// Starts the game through MO2, or another of its executables (`executable`, a title).
+#[tauri::command]
+pub fn launch_game(state: TauriState<'_, AppState>, executable: Option<String>) -> CmdResult<()> {
     let settings = state.settings.lock().unwrap().clone();
     if state.author_job.lock().unwrap().is_some() {
         return Err(AUTHOR_JOB_RUNNING.into());
     }
-    if running_processes().0 {
+    if executable.is_none() && running_processes().0 {
         return Err("Cyberpunk 2077 уже запущен".into());
     }
     let Some(game_dir) = settings.game_dir.as_deref().filter(|d| game::is_game_dir(d)) else {
@@ -739,15 +871,16 @@ pub fn launch_game(state: TauriState<'_, AppState>) -> CmdResult<()> {
     let inst = Instance::new(&settings.instance_dir);
     let manifest = installed_manifest(&inst);
     let redmod = manifest.as_ref().is_some_and(|m| m.redmod);
-    if redmod && !game::has_redmod(game_dir) {
+    if redmod && executable.is_none() && !game::has_redmod(game_dir) {
         return Err("В сборке есть REDmod-моды, а REDmod не установлен. \
                     Установите бесплатное DLC REDmod в Steam, GOG или Epic."
             .into());
     }
     inst.set_game_path(game_dir).map_err(err)?;
     let profile = profile(&inst);
-    log::info!("launching the game (profile {profile}, REDmod {redmod})");
-    spawn_mo2(&inst, &mo2::run_args(&profile, mo2::game_executable(redmod)))
+    let executable = executable.unwrap_or_else(|| mo2::game_executable(redmod).to_owned());
+    log::info!("launching {executable:?} (profile {profile}, REDmod {redmod})");
+    spawn_mo2(&inst, &mo2::run_args(&profile, &executable))
 }
 
 #[tauri::command]

@@ -139,10 +139,11 @@ pub fn save_fomod(path: &Path, value: Option<&str>) -> Result<()> {
     ini.write_to_file_opt(path, opt).map_err(|e| Error::io(path, e))
 }
 
-/// Sets `[General] color` (MO2 shows it on the separator), keeping every other key.
-pub fn save_color(path: &Path, hex: &str) -> Result<()> {
-    let Some(value) = qt_color_value(hex) else {
-        return Err(Error::Manifest(format!("bad color {hex:?}")));
+/// Sets (`Some`) or removes `[General] color` (MO2 shows it on the separator), keeping every other key.
+pub fn save_color(path: &Path, hex: Option<&str>) -> Result<()> {
+    let value = match hex {
+        Some(hex) => Some(qt_color_value(hex).ok_or_else(|| Error::Manifest(format!("bad color {hex:?}")))?),
+        None => None,
     };
     let mut ini = if path.exists() {
         let text = std::fs::read_to_string(path).map_err(|e| Error::io(path, e))?;
@@ -151,7 +152,16 @@ pub fn save_color(path: &Path, hex: &str) -> Result<()> {
     } else {
         Ini::new()
     };
-    ini.with_section(Some(GENERAL)).set("color", value);
+    match value {
+        Some(v) => {
+            ini.with_section(Some(GENERAL)).set("color", v);
+        }
+        None => {
+            if let Some(section) = ini.section_mut(Some(GENERAL)) {
+                section.remove("color");
+            }
+        }
+    }
     let opt = WriteOption { escape_policy: EscapePolicy::Nothing, ..Default::default() };
     ini.write_to_file_opt(path, opt).map_err(|e| Error::io(path, e))
 }
@@ -362,11 +372,13 @@ size=1
         let dir = tempfile::tempdir().unwrap();
         let p = dir.path().join("meta.ini");
         std::fs::write(&p, "[General]\nmodid=0\n").unwrap();
-        save_color(&p, "#3cf2a0").unwrap();
+        save_color(&p, Some("#3cf2a0")).unwrap();
         let text = std::fs::read_to_string(&p).unwrap();
         assert!(text.contains("modid=0"), "other keys kept: {text}");
         assert_eq!(ModMeta::load(&p).unwrap().color.as_deref(), Some("#3cf2a0"));
-        assert!(save_color(&p, "red").is_err());
+        assert!(save_color(&p, Some("red")).is_err());
+        save_color(&p, None).unwrap();
+        assert_eq!(ModMeta::load(&p).unwrap().color, None);
     }
 
     #[test]

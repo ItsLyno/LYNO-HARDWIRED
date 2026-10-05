@@ -32,6 +32,8 @@ import type {
   DownloadItem,
   RateLimit,
   UserRow,
+  OverwriteInfo,
+  Executable,
   FileDropHandlers,
 } from "./api";
 
@@ -76,7 +78,40 @@ const mods: ModRow[] = [
   mod("Immersive Rippers", "xBaebsae", "1.2", 4 * MB, 9330, { recent: "added" }),
   mod("Never Lose Your Car", "Jelle Bakker", "1.0.3", 1 * MB, 6012, { enabled: false }),
   mod("Appearance Menu Mod", "MxOrcinus", "2.6.3", 420 * MB, 790),
+  ...bulk(),
 ];
+
+// A list as long as the real build's (hundreds of mods, a dozen-plus separators) to see the page at scale.
+function bulk(): ModRow[] {
+  const groups: [string, string | null, string[]][] = [
+    ["00 - Core - Runtimes & Frameworks", "#ff3b5c", ["Input Loader", "Cyberpunk 2077 Input Loader", "RED4ext Patch", "Native Settings UI", "Redscript Plus", "Cyberpunk Engine Hooks", "Equipment-EX", "Virtual Atelier", "Mod Settings Extras", "TweakDB Extensions", "Archive Hot Reload", "Script Debugger", "Arasaka UI Framework", "ReShade Bridge"]],
+    ["01 - Core - Libraries & Dependencies", "#ff3b5c", ["RadioExt", "Audioware", "World Builder", "Entity Spawner", "Let There Be Flight", "Cyberware-EX", "Spawn0", "Appearance Change Unlocker", "Body Mod Base", "Hair Physics Library", "Codeware Extras", "Vehicle Framework", "Weapon Framework", "Quest Framework", "Dialogue Framework", "Character Creator Library", "UI Kit", "Sound Library", "Icon Pack Base", "Localization Helper", "Animation Framework", "Photo Mode Library", "Clothing Base", "Gun Sounds Core", "Lighting Base", "Crowd Library", "Scene Tools", "Database Patcher", "Holo Library", "Map Library"]],
+    ["02 - Fixes - Engine, Performance & Streaming", "#3cf2a0", ["Streaming Fix", "Shader Cache Fix", "Memory Pool Tweaks", "Texture Streaming Budget", "Stutter Fix", "LOD Fix", "Crowd Density Fix", "Async Compute Fix", "Ray Tracing Fixes", "DLSS Enabler", "Frame Gen Fix", "Shadow Cascade Fix", "VRAM Fix", "Loading Screen Fix", "Pop-in Reducer"]],
+    ["03 - Fixes - Gameplay, Quest & System", "#3cf2a0", ["Map Waypoint Bug Fixes", "Radioport Dropout Fix", "Conflict Begone", "Vehicle Exit Fix", "Hammers are not bats", "Second Heart Fix", "Speedometer Fixes", "No crowd panic from stealth activity", "Photomode Camera Reset Fix", "Fixed NPC Vehicle Reactions", "Quest Trigger Fix", "Elevator Fix", "Wardrobe Fix", "Stash Fix", "Phone Call Fix", "Police Spawn Fix"]],
+    ["04 - Visuals - Lighting & Weather", "#c77dff", ["Natural Weather", "Night City Lights", "Better Sky", "Volumetric Fog Tweaks", "Neon Reflections", "Sun Shadows", "Rain Overhaul", "Interior Lighting", "Car Headlights Overhaul", "Street Lamps HD"]],
+    ["05 - Visuals - Textures & Models", "#c77dff", ["4K Roads", "HD Signs", "Better Trees", "Detailed Interiors", "Vehicle Textures HD", "NPC Faces Overhaul", "Weapon Textures HD", "Graffiti Pack", "Billboards HD", "Water Textures", "Debris Overhaul", "Food Props HD"]],
+    ["06 - Characters - Body & Faces", "#f3e600", ["Hyst Body", "VTK Body", "Skin Overhaul", "Eye Textures HD", "Better Teeth", "Tattoo Pack", "Hair Pack", "Makeup Collection", "Nails Pack", "Freckles"]],
+    ["07 - Characters - Clothing", "#f3e600", ["Arasaka Jacket", "Netrunner Suit", "Nomad Pack", "Corpo Suits", "Street Kid Hoodies", "Boots Collection", "Sunglasses Pack", "Glove Pack", "Rings and Jewelry", "Cyberdeck Visuals", "Masks Pack", "Hats Collection", "Backpacks"]],
+    ["08 - Gameplay - Combat", null, ["Better Netrunning", "Enemies Rebalance", "Stealth Overhaul", "Smarter AI", "Melee Overhaul", "Grenade Tweaks", "Recoil Overhaul", "Headshot Damage", "Cyberware Rebalance", "Quickhack Rebalance", "Boss Overhaul"]],
+    ["09 - Gameplay - Driving & Vehicles", null, ["Better Traffic", "Car Radio Overhaul", "Vehicle Combat Tweaks", "Motorcycle Lean", "Drive an Aerial Vehicle", "Cars Sound Overhaul", "Fuel System", "Vehicle Summon Anywhere", "Garage Expansion"]],
+    ["10 - Gameplay - Economy & Loot", null, ["Loot Overhaul", "Vendor Rebalance", "Crafting Overhaul", "Iconic Weapons Rework", "Better Stash", "Money Rebalance", "Apartment Shopping"]],
+    ["11 - World - NPCs & Crowds", "#00b4d8", ["Crowd Overhaul", "NPC Routines", "Gang Patrols", "Police Overhaul", "Street Vendors", "Joytoys Overhaul", "Bar Patrons", "Night Life", "Pedestrian Reactions"]],
+    ["12 - World - Locations", "#00b4d8", ["Afterlife Expansion", "Apartment Interiors", "Open Shops", "Megabuilding Interiors", "Badlands Camps", "Pacifica Expansion", "Rooftops Access", "Hidden Clubs"]],
+    ["13 - UI & HUD", "#ffb020", ["Minimap Tweaks", "Better HUD", "Clean Inventory", "Item Tooltips", "Better Map", "Quest Log Overhaul", "Font Overhaul", "Crosshair Pack", "Damage Numbers", "Compass HUD", "Photo Mode UI"]],
+    ["14 - Audio & Radio", "#ffb020", ["Radio Stations Expansion", "Ambient Sounds", "Gun Sounds Overhaul", "Footsteps Overhaul", "Music Replacer", "Silent Menus"]],
+    ["99 - Patches & Compatibility", "#8b91a1", ["Compatibility Patch Pack", "Body x Clothing Refits", "Lighting x Weather Patch", "HUD x Map Patch", "AI x Stealth Patch", "Final Load Order Patch"]],
+  ];
+  let n = 20000;
+  return groups.flatMap(([title, color, names]) => [
+    { kind: "separator", title, color } as ModRow,
+    ...names.map((name, i) =>
+      mod(name, "author", `1.${i % 7}.${i % 3}`, ((i % 9) + 1) * 12 * MB, n++, {
+        enabled: n % 17 !== 0,
+        optional: !/^0[01] /.test(title),
+      }),
+    ),
+  ]);
+}
 
 const BUILD_DIR = "C:\\Users\\V\\AppData\\Local\\dev.lyno.hardwired\\instance";
 
@@ -299,12 +334,16 @@ function tracked(folder: string, modId: number, version: string, extra: Partial<
     canUpdate: settings.authorMode,
     status: { kind: "upToDate" },
     pageUrl: `https://www.nexusmods.com/cyberpunk2077/mods/${modId}?tab=files`,
+    needs: [],
     ...extra,
   };
 }
 
+/** Unix seconds of the last "Проверить обновления": until then Nexus knows nothing. */
+let checkedAt: number | null = null;
+
 function updatesView(): UpdatesView {
-  const checked = !!nexus.account;
+  const checked = checkedAt !== null;
   const update = (fileId: number, version: string, name = "Main File") => ({
     kind: "update" as const,
     file: { fileId, name, fileName: `mod-${fileId}.zip`, size: 12 * MB },
@@ -322,9 +361,20 @@ function updatesView(): UpdatesView {
       canUpdate: true,
       status: checked ? update(96000, "3.2", "Better Lightning — main") : { kind: "unknown" },
     }),
-    tracked("Photo Mode Unlocker", 2711, "1.0", { personal: true, managed: false, canUpdate: true }),
+    tracked("Photo Mode Unlocker", 2711, "1.0", {
+      personal: true,
+      managed: false,
+      canUpdate: true,
+      needs: checked
+        ? [
+            { modId: 4197, name: "ArchiveXL", url: "https://www.nexusmods.com/cyberpunk2077/mods/4197", notes: "", disabled: null },
+            { modId: null, name: "ReShade", url: "https://reshade.me/", notes: "Для фильтров", disabled: null },
+          ]
+        : [],
+      status: checked ? update(95000, "1.1", "Main") : { kind: "unknown" },
+    }),
   ];
-  return { mods, untracked: ["LYNO Settings", "My Test Weapon"], checkedAt: checked ? Date.now() / 1000 - 3600 : null, rateLimit: limits };
+  return { mods, untracked: ["LYNO Settings", "My Test Weapon"], checkedAt, rateLimit: limits };
 }
 
 let jobs: NexusJob[] = [];
@@ -337,8 +387,11 @@ let downloads: DownloadItem[] = [
 ];
 let userMods: UserRow[] = [
   { kind: "mod", name: "Better Lightning", enabled: true, version: "3.1", nexusUrl: "https://www.nexusmods.com/cyberpunk2077/mods/15520" },
+  { kind: "separator", title: "Мои текстуры", color: "#3cf2a0" },
   { kind: "mod", name: "Photo Mode Unlocker", enabled: false, version: "1.0", nexusUrl: "https://www.nexusmods.com/cyberpunk2077/mods/2711" },
 ];
+let overwrite: OverwriteInfo = { files: 14, size: 182_000 };
+const userKey = (r: UserRow) => (r.kind === "mod" ? r.name : `${r.title}_separator`);
 const mockRoots: ArchiveRoot[] = [
   { path: "", files: 6, valid: false },
   { path: "Pack/", files: 6, valid: false },
@@ -567,6 +620,12 @@ export const mock = {
   openModFolder: async (_id: string) => {},
   openFolder: async (_folder: Folder) => {},
   launchGame: async () => {},
+  launchExecutable: async (_executable: string) => {},
+  executables: async (): Promise<Executable[]> => [
+    { title: "Cyberpunk 2077 (REDmod)", binary: "C:/Games/Cyberpunk 2077/bin/x64/Cyberpunk2077.exe" },
+    { title: "REDmod", binary: "C:/Games/Cyberpunk 2077/tools/redmod/bin/redMod.exe" },
+    { title: "WolvenKit", binary: "C:/Tools/WolvenKit/WolvenKit.exe" },
+  ],
   openMo2: async () => {},
   exportReport: async () => {
     await delay(600);
@@ -611,11 +670,12 @@ export const mock = {
   },
   nexusUpdates: async () => updatesView(),
   nexusCheck: async (_force: boolean) => {
-    if (!nexus.account) throw new Error("Войдите в Nexus Mods на вкладке «Nexus»");
+    if (!nexus.account) throw new Error("Войдите в Nexus Mods в настройках");
     for (let done = 0; done <= 7; done++) {
       nexusHandlers?.check({ done, total: 7 });
       await delay(150);
     }
+    checkedAt = now();
     return updatesView();
   },
   nexusCheckCancel: async () => {},
@@ -630,7 +690,7 @@ export const mock = {
   },
   nexusDownload: async (game: string, modId: number, fileId: number) => {
     if (!nexus.account?.premium) throw new Error("Без Premium Nexus отдаёт файлы только по кнопке «Mod Manager Download» на сайте");
-    const job: NexusJob = { id: ++jobSeq, source: "nexus", game, modId, fileId, title: null, fileTitle: null, version: null, replaces: null, state: { kind: "queued" } };
+    const job: NexusJob = { id: ++jobSeq, source: "nexus", game, modId, fileId, title: null, fileTitle: null, version: null, replaces: null, needs: [], state: { kind: "queued" } };
     jobs = [...jobs, job];
     nexusHandlers?.job(job);
     // Every second download carries a FOMOD installer.
@@ -650,6 +710,7 @@ export const mock = {
       fileTitle: null,
       version: null,
       replaces: null,
+      needs: [],
       state: { kind: "queued" },
     };
     jobs = [...jobs, job];
@@ -682,7 +743,32 @@ export const mock = {
   },
   renameMod: async (folder: string, name: string) => {
     if (userMods.some((r) => r.kind === "mod" && r.name === name)) throw new Error(`Мод «${name}» уже есть`);
-    userMods = userMods.map((r) => (r.kind === "mod" && r.name === folder ? { ...r, name } : r));
+    userMods = userMods.map((r) =>
+      r.kind === "mod" && r.name === folder ? { ...r, name } : r.kind === "separator" && userKey(r) === folder ? { ...r, title: name } : r,
+    );
+  },
+  moveUserMod: async (folder: string, after: string | null) => {
+    const row = userMods.find((r) => userKey(r) === folder);
+    if (!row) throw new Error("Перетаскивать можно только ваши моды: порядок сборки задаёт её автор");
+    userMods = userMods.filter((r) => r !== row);
+    const at = after === null ? userMods.length : userMods.findIndex((r) => userKey(r) === after) + 1;
+    userMods.splice(at, 0, row);
+  },
+  addSeparator: async (title: string, after: string | null) => {
+    if (userMods.some((r) => r.kind === "separator" && r.title === title)) throw new Error(`Разделитель «${title}» уже есть`);
+    const at = after === null ? userMods.length : userMods.findIndex((r) => userKey(r) === after) + 1;
+    userMods.splice(at, 0, { kind: "separator", title, color: null });
+  },
+  setSeparatorColor: async (folder: string, color: string | null) => {
+    userMods = userMods.map((r) => (r.kind === "separator" && userKey(r) === folder ? { ...r, color } : r));
+  },
+  overwriteInfo: async (): Promise<OverwriteInfo> => overwrite,
+  overwriteToMod: async (name: string) => {
+    userMods = [...userMods, { kind: "mod", name, enabled: true, version: null, nexusUrl: null }];
+    overwrite = { files: 0, size: 0 };
+  },
+  clearOverwrite: async () => {
+    overwrite = { files: 0, size: 0 };
   },
   reinstallMod: async (folder: string): Promise<number> => {
     throw new Error(`Архива мода «${folder}» нет в загрузках Mod Organizer 2: скачайте мод заново и перетащите его в список`);

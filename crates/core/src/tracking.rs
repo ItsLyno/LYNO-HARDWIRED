@@ -24,7 +24,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::mo2::Instance;
 use crate::modlist::{EntryState, ModList};
-use crate::nexus::{FileInfo, ModFiles, ModPage, NexusApi, Period};
+use crate::nexus::{FileInfo, ModFiles, ModPage, NexusApi, Period, Requirement};
 use crate::publish::split_user_section;
 use crate::state::State;
 use crate::{Error, Result};
@@ -45,6 +45,7 @@ pub struct Tracked {
     pub personal: bool,
     /// Installed by the launcher from the build (in `state.json`).
     pub managed: bool,
+    pub enabled: bool,
 }
 
 impl Tracked {
@@ -84,6 +85,7 @@ pub fn tracked_mods(inst: &Instance, profile: &str) -> Result<(Vec<Tracked>, Vec
                 version: meta.version,
                 personal,
                 managed: managed.contains(e.name.as_str()),
+                enabled: e.state == EntryState::Enabled,
             });
         }
     }
@@ -112,6 +114,9 @@ pub struct Checked {
 pub struct Cache {
     /// `game/mod_id`.
     pub mods: BTreeMap<String, Checked>,
+    /// `game/mod_id` → what the page lists as requirements; asked again when its files change.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub requirements: BTreeMap<String, Vec<Requirement>>,
     #[serde(skip)]
     path: PathBuf,
 }
@@ -139,6 +144,14 @@ impl Cache {
 
     pub fn get(&self, game: &str, mod_id: u64) -> Option<&Checked> {
         self.mods.get(&cache_key(game, mod_id))
+    }
+
+    pub fn requirements(&self, game: &str, mod_id: u64) -> Option<&[Requirement]> {
+        self.requirements.get(&cache_key(game, mod_id)).map(Vec::as_slice)
+    }
+
+    pub fn record_requirements(&mut self, game: &str, mod_id: u64, list: Vec<Requirement>) {
+        self.requirements.insert(cache_key(game, mod_id), list);
     }
 
     /// Oldest check among `mods`; `None` when one was never checked.
@@ -227,13 +240,66 @@ pub fn check(
                 return Err(e);
             }
         };
+        // A new version may come with new requirements.
+        cache.requirements.remove(&cache_key(&game, mod_id));
         cache.mods.insert(cache_key(&game, mod_id), checked);
         if i % 20 == 19 {
             cache.save()?;
         }
         on(i + 1, total);
     }
-    cache.save()
+    let result = check_requirements(api, cache, mods);
+    cache.save()?;
+    result
+}
+
+/// Asks for the requirements of pages the cache has none for: one request per 40 pages.
+fn check_requirements(api: &NexusApi, cache: &mut Cache, mods: &[Tracked]) -> Result<()> {
+    let mut by_game: BTreeMap<&str, BTreeSet<u64>> = BTreeMap::new();
+    for t in mods.iter().filter(|t| !cache.requirements.contains_key(&t.key())) {
+        by_game.entry(t.game.as_str()).or_default().insert(t.mod_id);
+    }
+    for (game, ids) in by_game {
+        let ids: Vec<u64> = ids.into_iter().collect();
+        let mut found = api.requirements(game, &ids)?;
+        // Hidden and removed pages aren't returned: no need to ask about them every time.
+        for id in ids {
+            cache.record_requirements(game, id, found.remove(&id).unwrap_or_default());
+        }
+    }
+    Ok(())
+}
+
+/// A requirement of a mod the list doesn't satisfy.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Need {
+    #[serde(flatten)]
+    pub requirement: Requirement,
+    /// The required mod is installed, but this folder of it is disabled.
+    pub disabled: Option<String>,
+}
+
+/// Requirements of the page `game/mod_id` that no enabled mod of `mods`
+/// meets. Links outside Nexus can't be checked and are all returned. Authors
+/// fill requirements loosely, so this is advice, never a block.
+pub fn needs(game: &str, mod_id: u64, requirements: &[Requirement], mods: &[Tracked]) -> Vec<Need> {
+    // ponytail: matched by Nexus page only; a required mod installed by hand (no `modid` in meta.ini) shows as missing.
+    let mut out = Vec::new();
+    for r in requirements {
+        let mut disabled = None;
+        if let Some(id) = r.mod_id {
+            let same: Vec<&Tracked> = mods.iter().filter(|t| t.game == game && t.mod_id == id).collect();
+            if id == mod_id || same.iter().any(|t| t.enabled) {
+                continue;
+            }
+            disabled = same.first().map(|t| t.folder.clone());
+        }
+        if !out.iter().any(|n: &Need| n.requirement == *r) {
+            out.push(Need { requirement: r.clone(), disabled });
+        }
+    }
+    out
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -392,6 +458,7 @@ mod tests {
             version: Some(version.into()),
             personal: true,
             managed: false,
+            enabled: true,
         }
     }
 
@@ -470,6 +537,18 @@ mod tests {
         assert_eq!(target(&unknown, &c.files, "cyberpunk2077", 1, 2).map(|t| t.folder.as_str()), Some("Hand"));
         // An addon never replaces the main mod installed without a file id.
         assert_eq!(target(&unknown, &c.files, "cyberpunk2077", 1, 7), None);
+    }
+
+    #[test]
+    fn needs_what_no_enabled_mod_provides() {
+        let req = |mod_id: Option<u64>, name: &str| Requirement { mod_id, name: name.into(), url: String::new(), notes: String::new() };
+        let reqs = [req(Some(2), "On"), req(Some(3), "Off"), req(Some(4), "Absent"), req(None, "ReShade"), req(Some(1), "Itself")];
+        let on = Tracked { folder: "On".into(), mod_id: 2, ..tracked(None, "1") };
+        let off = Tracked { folder: "Off folder".into(), mod_id: 3, enabled: false, ..tracked(None, "1") };
+        let other_game = Tracked { game: "witcher3".into(), mod_id: 4, ..tracked(None, "1") };
+        let got = needs("cyberpunk2077", 1, &reqs, &[on, off, other_game]);
+        let names: Vec<(&str, Option<&str>)> = got.iter().map(|n| (n.requirement.name.as_str(), n.disabled.as_deref())).collect();
+        assert_eq!(names, [("Off", Some("Off folder")), ("Absent", None), ("ReShade", None)]);
     }
 
     #[test]

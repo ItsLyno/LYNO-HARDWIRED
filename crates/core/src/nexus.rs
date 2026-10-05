@@ -244,17 +244,35 @@ impl NexusApi {
         *self.limit.lock().unwrap()
     }
 
+    /// Nexus asks API clients to name themselves.
+    fn named<B>(&self, req: ureq::RequestBuilder<B>) -> ureq::RequestBuilder<B> {
+        req.header("Application-Name", "LYNO-HARDWIRED").header("Application-Version", env!("CARGO_PKG_VERSION"))
+    }
+
     fn get<T: serde::de::DeserializeOwned>(&self, path: &str) -> Result<T> {
-        let url = format!("{}{path}", self.base);
-        let mut resp = self
-            .agent
-            .get(&url)
-            .header("apikey", &self.key)
-            // Nexus asks API clients to name themselves.
-            .header("Application-Name", "LYNO-HARDWIRED")
-            .header("Application-Version", env!("CARGO_PKG_VERSION"))
-            .call()
-            .map_err(|e| Error::Download(format!("Nexus: {e}")))?;
+        let resp = self.named(self.agent.get(format!("{}{path}", self.base))).header("apikey", &self.key).call();
+        self.read(resp, path)
+    }
+
+    /// GraphQL needs no key for public data: the player may not have logged in.
+    fn graphql(&self, query: &str, variables: serde_json::Value) -> Result<serde_json::Value> {
+        let mut req = self.named(self.agent.post(format!("{}/v2/graphql", self.base)));
+        if !self.key.is_empty() {
+            req = req.header("apikey", &self.key);
+        }
+        let v: serde_json::Value = self.read(req.send_json(serde_json::json!({ "query": query, "variables": variables })), "/v2/graphql")?;
+        match v["errors"][0]["message"].as_str() {
+            Some(message) => Err(Error::Download(format!("Nexus: {message}"))),
+            None => Ok(v),
+        }
+    }
+
+    fn read<T: serde::de::DeserializeOwned>(
+        &self,
+        resp: std::result::Result<ureq::http::Response<ureq::Body>, ureq::Error>,
+        path: &str,
+    ) -> Result<T> {
+        let mut resp = resp.map_err(|e| Error::Download(format!("Nexus: {e}")))?;
         let header = |name: &str| resp.headers().get(name).and_then(|v| v.to_str().ok()).and_then(|v| v.trim().parse().ok());
         let limit = RateLimit {
             daily: header("x-rl-daily-remaining"),
@@ -310,5 +328,121 @@ impl NexusApi {
         }
         let links: Vec<serde_json::Value> = self.get(&path)?;
         Ok(links.iter().filter_map(|l| l["URI"].as_str().map(str::to_owned)).collect())
+    }
+
+    /// What the pages of `mod_ids` list as requirements: only GraphQL v2 has
+    /// them. Pages Nexus doesn't return (hidden, removed) are missing from the map.
+    pub fn requirements(&self, game: &str, mod_ids: &[u64]) -> Result<HashMap<u64, Vec<Requirement>>> {
+        const QUERY: &str = "query($ids: [CompositeDomainWithIdInput!]!) { legacyModsByDomain(ids: $ids, count: 40) { nodes { \
+            modId gameId modRequirements { nexusRequirements(count: 30) { nodes { modId gameId modName notes url externalRequirement } } } } } }";
+        let mut out = HashMap::new();
+        // 40 pages × 30 requirements stays under the API's query complexity limit.
+        for chunk in mod_ids.chunks(40) {
+            let ids: Vec<_> = chunk.iter().map(|id| serde_json::json!({ "gameDomain": game, "modId": id })).collect();
+            let v = self.graphql(QUERY, serde_json::json!({ "ids": ids }))?;
+            for node in v["data"]["legacyModsByDomain"]["nodes"].as_array().into_iter().flatten() {
+                if let Some(mod_id) = node["modId"].as_u64() {
+                    out.insert(mod_id, requirements(node, game));
+                }
+            }
+        }
+        Ok(out)
+    }
+}
+
+/// One entry of a mod page's requirements.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Requirement {
+    /// A mod of the same game on Nexus; `None`: a tool, another site, another game's mod.
+    #[serde(default)]
+    pub mod_id: Option<u64>,
+    pub name: String,
+    #[serde(default)]
+    pub url: String,
+    #[serde(default)]
+    pub notes: String,
+}
+
+/// Requirements of a `legacyModsByDomain` node. Authors often add a Nexus mod
+/// as an "external" link to its page: those count as the mod.
+fn requirements(node: &serde_json::Value, game: &str) -> Vec<Requirement> {
+    let game_id = node["gameId"].to_string();
+    let list = node["modRequirements"]["nexusRequirements"]["nodes"].as_array();
+    list.into_iter()
+        .flatten()
+        .map(|r| {
+            let text = |k: &str| unescape(r[k].as_str().unwrap_or_default().trim());
+            // Any author writes these, and the launcher opens them: web links only.
+            let url = Some(text("url")).filter(|u| u.to_lowercase().starts_with("https://") || u.to_lowercase().starts_with("http://")).unwrap_or_default();
+            let mod_id = match r["externalRequirement"].as_bool() {
+                Some(false) if r["gameId"].as_str() == Some(&game_id) => r["modId"].as_str().and_then(|s| s.parse().ok()),
+                _ => page_mod_id(&url, game),
+            };
+            let url = mod_id.map_or(url, |id| format!("https://www.nexusmods.com/{game}/mods/{id}"));
+            Requirement { mod_id, name: text("modName"), url, notes: text("notes") }
+        })
+        .collect()
+}
+
+/// `https://www.nexusmods.com/cyberpunk2077/mods/107?tab=files` → 107.
+fn page_mod_id(url: &str, game: &str) -> Option<u64> {
+    let url = url.to_lowercase();
+    let rest = &url[url.find(&format!("nexusmods.com/{game}/mods/"))? + game.len() + 20..];
+    let digits: String = rest.chars().take_while(char::is_ascii_digit).collect();
+    digits.parse().ok().filter(|&id| id > 0)
+}
+
+/// Nexus returns names and notes HTML-escaped (`&#92;` for `\`).
+fn unescape(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    let mut rest = s;
+    while let Some(i) = rest.find('&') {
+        out.push_str(&rest[..i]);
+        rest = &rest[i..];
+        let end = rest.find(';').filter(|&e| e <= 8);
+        let ch = end.and_then(|e| match &rest[1..e] {
+            "amp" => Some('&'),
+            "lt" => Some('<'),
+            "gt" => Some('>'),
+            "quot" => Some('"'),
+            "apos" => Some('\''),
+            n => n.strip_prefix('#').and_then(|d| d.parse().ok()).and_then(char::from_u32),
+        });
+        match (ch, end) {
+            (Some(c), Some(e)) => {
+                out.push(c);
+                rest = &rest[e + 1..];
+            }
+            _ => {
+                out.push('&');
+                rest = &rest[1..];
+            }
+        }
+    }
+    out.push_str(rest);
+    out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn reads_requirements() {
+        let node = serde_json::json!({ "modId": 712, "gameId": 3333, "modRequirements": { "nexusRequirements": { "nodes": [
+            { "modId": "3051", "gameId": "3333", "modName": "Nulled", "notes": "", "url": "", "externalRequirement": false },
+            { "modId": "0", "gameId": "0", "modName": "CET", "notes": "a&#92;b &amp; c", "url": "https://www.nexusmods.com/Cyberpunk2077/mods/107?tab=files", "externalRequirement": true },
+            { "modId": "0", "gameId": "0", "modName": "ReShade", "notes": "", "url": "https://reshade.me/", "externalRequirement": true },
+            { "modId": "5", "gameId": "1704", "modName": "Other game", "notes": "", "url": "", "externalRequirement": false },
+            { "modId": "0", "gameId": "0", "modName": "Trap", "notes": "", "url": "file:///C:/Windows/evil.exe", "externalRequirement": true },
+        ] } } });
+        let r = requirements(&node, "cyberpunk2077");
+        assert_eq!(r.iter().map(|r| r.mod_id).collect::<Vec<_>>(), [Some(3051), Some(107), None, None, None]);
+        assert_eq!(r[4].url, "");
+        assert_eq!(r[0].url, "https://www.nexusmods.com/cyberpunk2077/mods/3051");
+        assert_eq!(r[1].notes, "a\\b & c");
+        assert_eq!(r[2].url, "https://reshade.me/");
+        assert_eq!(unescape("&broken &#99999999; &lt;"), "&broken &#99999999; <");
     }
 }

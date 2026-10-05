@@ -9,18 +9,17 @@ import { activeInstance, useApp, type Page } from "../store";
 const tabs: { id: Page; label: string; author?: boolean; build?: boolean }[] = [
   { id: "home", label: "Главная" },
   { id: "mods", label: "Моды" },
-  { id: "updates", label: "Обновления", build: true },
-  { id: "nexus", label: "Nexus" },
   { id: "release", label: "Выпуск", author: true, build: true },
   { id: "settings", label: "Настройки" },
 ];
 
 // The window is frameless: this bar is the title bar, navigation and window controls.
 export function Header() {
-  const { page, setPage, build, settings } = useApp();
+  const { page, setPage, build, settings, launcherUpdate } = useApp();
   const authorMode = !!settings?.authorMode;
   const isBuild = !!activeInstance(settings)?.build;
-  const updateAvailable = !!build && !build.upToDate && build.online && !authorMode;
+  // Updates live on the dashboard: its tab lights up for the build's and the launcher's.
+  const updateAvailable = (isBuild && !!build && !build.upToDate && build.online && !authorMode) || !!launcherUpdate;
   const win = isTauri() ? getCurrentWindow() : null;
 
   return (
@@ -34,11 +33,11 @@ export function Header() {
           <button
             key={t.id}
             onClick={() => setPage(t.id)}
-            title={t.id === "updates" && updateAvailable ? "Есть обновление" : undefined}
+            title={t.id === "home" && updateAvailable ? "Есть обновление" : undefined}
             className={`h-8 rounded-full px-4 text-[13px] transition-colors ${
               page === t.id
                 ? "bg-raised text-fg"
-                : t.id === "updates" && updateAvailable
+                : t.id === "home" && updateAvailable
                   ? "text-accent hover:text-fg"
                   : "text-muted hover:text-fg"
             }`}

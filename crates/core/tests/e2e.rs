@@ -911,6 +911,15 @@ fn fake_nexus(dir: &Path, base: &str, now: u64, zip: &[u8]) {
     let updated = format!(r#"[{{"mod_id":107,"latest_file_update":{now},"latest_mod_activity":{now}}}]"#);
     write(dir, &format!("{api}/updated.json?period=1d"), updated.as_bytes());
     write(dir, "cdn/mod.zip", zip);
+    // GraphQL answers by path too, whatever the query: requirements of both pages.
+    let req = |id: u64, name: &str| format!(r#"{{"modId":"{id}","gameId":"3333","modName":"{name}","notes":"","url":"","externalRequirement":false}}"#);
+    let node = |id: u64, reqs: &[String]| format!(r#"{{"modId":{id},"gameId":3333,"modRequirements":{{"nexusRequirements":{{"nodes":[{}]}}}}}}"#, reqs.join(","));
+    let graphql = format!(
+        r#"{{"data":{{"legacyModsByDomain":{{"nodes":[{},{}]}}}}}}"#,
+        node(42, &[req(107, "Cyber Engine Tweaks")]),
+        node(107, &[req(9999, "Missing Lib")])
+    );
+    write(dir, "v2/graphql", graphql.as_bytes());
 }
 
 fn mod_zip() -> Vec<u8> {
@@ -929,7 +938,7 @@ fn nexus_updates_are_tracked_and_installed_from_nxm_links() {
     use lyno_core::mod_install::{fetch, install, Context, Outcome, Target};
     use lyno_core::nexus::NexusApi;
     use lyno_core::nxm::NxmLink;
-    use lyno_core::tracking::{check, status, tracked_mods, Cache, Status};
+    use lyno_core::tracking::{check, needs, status, tracked_mods, Cache, Status};
 
     let tmp = tempfile::tempdir().unwrap();
     let user = Instance::new(tmp.path().join("user"));
@@ -994,6 +1003,11 @@ fn nexus_updates_are_tracked_and_installed_from_nxm_links() {
     let by_folder = |f: &str| status(tracked.iter().find(|t| t.folder == f).unwrap(), cache.get("cyberpunk2077", tracked.iter().find(|t| t.folder == f).unwrap().mod_id));
     assert!(matches!(by_folder("CET"), Status::Update { file: Some(ref f), .. } if f.file_id == 2));
     assert_eq!(by_folder("Old Mod"), Status::UpToDate);
+    // Requirements of every page in one request: Old Mod's CET is there, CET's library isn't.
+    assert_eq!(asked.iter().filter(|r| *r == "v2/graphql").count(), 1, "{asked:?}");
+    let missing = |mod_id: u64| needs("cyberpunk2077", mod_id, cache.requirements("cyberpunk2077", mod_id).unwrap(), &tracked);
+    assert!(missing(42).is_empty());
+    assert_eq!(missing(107).iter().map(|n| n.requirement.name.as_str()).collect::<Vec<_>>(), ["Missing Lib"]);
 
     // A second check within the day asks only `updated.json`, which lists 107
     // as changed at `now`, before its check: nothing to fetch again.

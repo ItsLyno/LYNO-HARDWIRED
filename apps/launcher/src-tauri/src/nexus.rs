@@ -28,7 +28,7 @@ use lyno_core::mod_install::{self, BuildMod, Context, Download, DownloadItem, Fo
 use lyno_core::nexus::{NexusApi, RateLimit, User};
 use lyno_core::nexus_sso;
 use lyno_core::nxm::{self, HandlerStatus, NxmLink};
-use lyno_core::tracking::{self, Cache, Status, Tracked};
+use lyno_core::tracking::{self, Cache, Need, Status, Tracked};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, State as TauriState};
 
@@ -249,6 +249,8 @@ pub struct ModUpdateRow {
     status: Status,
     /// Files tab, scrolled to the new file when known.
     page_url: String,
+    /// Requirements on its Nexus page the list doesn't meet; empty for a disabled mod.
+    needs: Vec<Need>,
 }
 
 #[derive(Serialize)]
@@ -268,7 +270,12 @@ fn view(state: &AppState, tracked: Vec<Tracked>, untracked: Vec<String>, cache: 
         .iter()
         .map(|t| {
             let status = tracking::status(t, cache.get(&t.game, t.mod_id));
+            let needs = match cache.requirements(&t.game, t.mod_id) {
+                Some(r) if t.enabled => tracking::needs(&t.game, t.mod_id, r, &tracked),
+                _ => Vec::new(),
+            };
             ModUpdateRow {
+                needs,
                 folder: t.folder.clone(),
                 game: t.game.clone(),
                 mod_id: t.mod_id,
@@ -434,6 +441,8 @@ pub struct Job {
     version: Option<String>,
     /// The installed mod folder this file replaces.
     replaces: Option<String>,
+    /// Once done: requirements on the mod's page the list doesn't meet.
+    needs: Vec<Need>,
     state: JobState,
     #[serde(skip)]
     work: Option<Work>,
@@ -453,6 +462,7 @@ impl Job {
             file_title: None,
             version: None,
             replaces: None,
+            needs: Vec::new(),
             state,
             work,
             cancel: Arc::new(AtomicBool::new(false)),
@@ -590,6 +600,8 @@ fn work(app: &AppHandle) {
             Ok(Ok(Next::Parked(parked))) => parked,
             Ok(Ok(Next::Done(outcome))) => {
                 log::info!("job {} ({:?}): {outcome:?}", job.id, job.title);
+                let needs = job_needs(app, job.id);
+                update_job(app, job.id, |j| j.needs = needs);
                 let _ = app.emit("nexus-changed", ());
                 JobState::Done { outcome }
             }
@@ -610,6 +622,33 @@ fn work(app: &AppHandle) {
         }
         update_job(app, job.id, |j| j.state = new_state);
     }
+}
+
+/// What the mod a job brought needs that the list doesn't have: asked right
+/// away, the player is about to install or start it. Recorded in the cache, so
+/// the mod list shows it too.
+fn job_needs(app: &AppHandle, id: u64) -> Vec<Need> {
+    let state = app.state::<AppState>();
+    let Some((game, mod_id)) = state.nexus.jobs.lock().unwrap().iter().find(|j| j.id == id).map(|j| (j.game.clone(), j.mod_id)) else {
+        return Vec::new();
+    };
+    if mod_id == 0 {
+        return Vec::new();
+    }
+    let inst = Instance::new(&state.settings.lock().unwrap().instance_dir);
+    let ask = || -> lyno_core::Result<Vec<Need>> {
+        let api = NexusApi::new(&secrets::get(Secret::NexusKey).unwrap_or_default());
+        let reqs = api.requirements(&game, &[mod_id])?.remove(&mod_id).unwrap_or_default();
+        let mut cache = Cache::load(&Cache::path(&inst));
+        cache.record_requirements(&game, mod_id, reqs.clone());
+        cache.save()?;
+        let (tracked, _) = tracking::tracked_mods(&inst, &profile(&inst))?;
+        Ok(tracking::needs(&game, mod_id, &reqs, &tracked))
+    };
+    ask().unwrap_or_else(|e| {
+        log::warn!("requirements of {game}/{mod_id}: {e}");
+        Vec::new()
+    })
 }
 
 fn job_error(e: &lyno_core::Error) -> String {

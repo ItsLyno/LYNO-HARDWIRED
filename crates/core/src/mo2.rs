@@ -123,6 +123,51 @@ impl Instance {
     }
 }
 
+/// An entry of MO2's executables list (`[customExecutables]`): the game, REDmod,
+/// tools the player or the author added (WolvenKit, CET's console…).
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub struct Executable {
+    /// What `run -e` takes.
+    pub title: String,
+    pub binary: String,
+}
+
+impl Instance {
+    /// MO2's executables in its order, without the ones hidden in its menu.
+    pub fn executables(&self) -> Vec<Executable> {
+        std::fs::read_to_string(self.ini_path()).map(|t| parse_executables(&t)).unwrap_or_default()
+    }
+}
+
+fn parse_executables(ini: &str) -> Vec<Executable> {
+    let mut section = false;
+    let mut by_index: BTreeMap<u32, (Option<String>, Option<String>, bool)> = BTreeMap::new();
+    for line in ini.lines() {
+        let t = line.trim();
+        if let Some(name) = t.strip_prefix('[').and_then(|r| r.strip_suffix(']')) {
+            section = name == "customExecutables";
+            continue;
+        }
+        let Some((key, value)) = t.split_once('=').filter(|_| section) else { continue };
+        let Some((n, field)) = key.split_once('\\').and_then(|(n, f)| Some((n.parse::<u32>().ok()?, f))) else { continue };
+        // Qt quotes values with commas and escapes backslashes in them.
+        let value = value.trim();
+        let value = value.strip_prefix('"').and_then(|v| v.strip_suffix('"')).unwrap_or(value).replace("\\\\", "\\");
+        let e = by_index.entry(n).or_default();
+        match field {
+            "title" => e.0 = Some(value),
+            "binary" => e.1 = Some(value),
+            "hide" => e.2 = value == "true",
+            _ => {}
+        }
+    }
+    by_index
+        .into_values()
+        .filter(|(_, _, hide)| !hide)
+        .filter_map(|(title, binary, _)| Some(Executable { title: title.filter(|t| !t.is_empty())?, binary: binary? }))
+        .collect()
+}
+
 /// Sections of `ModOrganizer.ini` that are the state of the author's MO2
 /// window, not the build: window and column layout (`Geometry`), expanded
 /// separators and selected tabs (`Widgets`), last folders of file dialogs
@@ -356,6 +401,22 @@ mod tests {
     fn adds_missing_game_path() {
         let out = rewrite_game_path("[General]\r\nversion=2.5.2\r\n", "C:/G");
         assert!(out.starts_with("[General]\r\ngamePath=@ByteArray(C:/G)\r\nversion=2.5.2"), "{out}");
+    }
+
+    #[test]
+    fn reads_executables() {
+        let ini = "[General]\r\n1\\title=Not this\r\n[customExecutables]\r\nsize=3\r\n\
+            1\\binary=C:/G/bin/x64/Cyberpunk2077.exe\r\n1\\title=Cyberpunk 2077\r\n\
+            2\\binary=C:/Tools/WolvenKit.exe\r\n2\\hide=true\r\n2\\title=WolvenKit\r\n\
+            10\\binary=C:\\\\Tools\\\\a.exe\r\n10\\title=\"Tool, two\"\r\n[Settings]\r\nx=1\r\n";
+        let exes = parse_executables(ini);
+        assert_eq!(
+            exes,
+            [
+                Executable { title: "Cyberpunk 2077".into(), binary: "C:/G/bin/x64/Cyberpunk2077.exe".into() },
+                Executable { title: "Tool, two".into(), binary: "C:\\Tools\\a.exe".into() },
+            ]
+        );
     }
 
     #[test]

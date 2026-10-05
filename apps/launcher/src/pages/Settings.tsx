@@ -4,23 +4,20 @@ import { api, type Folder, type Settings as SettingsT } from "../api";
 import { Button } from "../components/Button";
 import { InstanceSetup } from "../components/InstanceSetup";
 import { Integrity } from "../components/Integrity";
+import { NexusAccount } from "../components/NexusAccount";
 import { PageTitle } from "../components/PageTitle";
 import { activeInstance, useApp } from "../store";
 
 export function Settings() {
-  const { settings, saveSettings, run, setPage, switchInstance, progress } = useApp();
+  const { settings, saveSettings, run, setPage } = useApp();
   const [draft, setDraft] = useState<SettingsT | null>(settings);
   const [saved, setSaved] = useState(false);
   const [detectNote, setDetectNote] = useState<string | null>(null);
-  const [version, setVersion] = useState<string | null>(null);
   const [report, setReport] = useState<{ busy: boolean; path: string | null }>({ busy: false, path: null });
 
   useEffect(() => {
     if (settings && !draft) setDraft(settings);
   }, [settings, draft]);
-  useEffect(() => {
-    api.launcherVersion().then(setVersion, () => {});
-  }, []);
   if (!draft) return null;
 
   // Instances change through their own calls, not the Save button.
@@ -66,6 +63,8 @@ export function Settings() {
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <PageTitle>Настройки</PageTitle>
+      <Profiles />
+      <h2 className="pt-4 text-base font-semibold">Игра</h2>
       <div className="panel divide-y divide-line/60">
         <Field label="Папка Cyberpunk 2077" hint="Папка, в которой лежит bin\x64\Cyberpunk2077.exe.">
           <div className="flex gap-2">
@@ -77,11 +76,6 @@ export function Settings() {
           </div>
           {detectNote && <div className="mt-2 text-[13px] text-muted">{detectNote}</div>}
         </Field>
-        {isBuild && (
-          <Field label="Манифест сборки" hint="Адрес файла с описанием актуальной версии сборки на GitHub.">
-            <Input value={draft.manifestUrl} onChange={(v) => update({ manifestUrl: v })} />
-          </Field>
-        )}
         {settings?.authorMode && (
           <>
             <Field
@@ -119,29 +113,8 @@ export function Settings() {
           </span>
         )}
       </div>
-      <h2 className="pt-4 text-base font-semibold">Mod Organizer 2</h2>
-      <div className="panel divide-y divide-line/60">
-        {(settings?.instances ?? []).map((i) => (
-          <label key={i.dir} className="flex cursor-pointer items-center gap-3 px-5 py-4">
-            <input
-              type="radio"
-              name="instance"
-              className="accent-neon"
-              checked={i.dir === settings?.instanceDir}
-              disabled={!!progress}
-              onChange={() => switchInstance(() => api.instanceSelect(i.dir))}
-            />
-            <span className="min-w-0 flex-1">
-              <span className="text-sm font-medium">{i.name}</span>
-              <span className="ml-2 text-[13px] text-muted">{i.build ? "сборка" : "ваш MO2"}</span>
-              <span className="block truncate font-mono text-[12px] text-faint" title={i.dir}>
-                {i.dir}
-              </span>
-            </span>
-          </label>
-        ))}
-        <InstanceSetup build={!settings?.instances.some((i) => i.build)} />
-      </div>
+      <h2 className="pt-4 text-base font-semibold">Nexus Mods</h2>
+      <NexusAccount />
       <h2 className="pt-4 text-base font-semibold">Папки</h2>
       <div className="panel">
         <Field
@@ -193,10 +166,61 @@ export function Settings() {
         </Field>
       </div>
       <p className="pt-4 font-mono text-[11px] text-faint">
-        LYNO//HARDWIRED {version ?? ""} · Моды принадлежат их авторам.
+        LYNO//HARDWIRED · Моды принадлежат их авторам.
       </p>
       {!settings?.authorMode && <AuthorUnlock repo={settings?.authorRepo ?? ""} onEnabled={authorEnabled} />}
     </div>
+  );
+}
+
+/** One card per MO2 instance: the active one is marked, the others switch with a click. */
+function Profiles() {
+  const { settings, switchInstance, progress } = useApp();
+  const instances = settings?.instances ?? [];
+  return (
+    <section className="space-y-3">
+      <div>
+        <h2 className="text-base font-semibold">Профиль Mod Organizer 2</h2>
+        <p className="mt-0.5 text-[13px] text-muted">
+          Каждый профиль — отдельная папка MO2 со своими модами. Кнопка «Играть» и список модов работают с активным профилем.
+        </p>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        {instances.map((i) => {
+          const active = i.dir === settings?.instanceDir;
+          return (
+            <button
+              key={i.dir}
+              disabled={active || !!progress}
+              onClick={() => switchInstance(() => api.instanceSelect(i.dir))}
+              className={`panel flex flex-col items-start gap-1 px-5 py-4 text-left transition-colors ${
+                active ? "ring-1 ring-neon" : "hover:bg-raised/60 disabled:opacity-60"
+              }`}
+            >
+              <span className="flex w-full items-center gap-2">
+                <span className="truncate text-sm font-medium">{i.name}</span>
+                <span className="rounded-full bg-raised px-2 py-0.5 text-[11px] text-muted">{i.build ? "сборка" : "свой MO2"}</span>
+                <span className="flex-1" />
+                {active ? (
+                  <span className="flex items-center gap-1 text-[12px] text-neon">
+                    <Check size={13} />
+                    Активный
+                  </span>
+                ) : (
+                  <span className="text-[12px] text-muted">Переключиться</span>
+                )}
+              </span>
+              <span className="block w-full truncate font-mono text-[12px] text-faint" title={i.dir}>
+                {i.dir}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      <div className="panel">
+        <InstanceSetup build={!instances.some((i) => i.build)} />
+      </div>
+    </section>
   );
 }
 

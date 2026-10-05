@@ -1,38 +1,69 @@
-import { ChevronRight, ExternalLink, FolderOpen, Lock, MoreHorizontal, Pencil, RefreshCw, Search, Trash2, X, type LucideIcon } from "lucide-react";
+import { ChevronRight, ExternalLink, FolderOpen, Lock, MoreHorizontal, Pencil, RefreshCw, Search, Trash2, X, type LucideIcon, TriangleAlert, ArrowUp, Plus, Wrench, Palette, Eraser, PackagePlus, SeparatorHorizontal } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from "react";
-import { api, type ModRow, type UserRow } from "../api";
+import { api, type ModRow, type Need, type UserRow } from "../api";
 import { Button } from "../components/Button";
+import { pressToDrag } from "../components/DragGhost";
 import { PageTitle } from "../components/PageTitle";
-import { plural } from "../format";
+import { formatBytes, plural } from "../format";
 import { activeInstance, useApp } from "../store";
 
 type Mod = Extract<ModRow, { kind: "mod" }>;
 type Group = { title: string | null; color: string | null; mods: Mod[] };
+type UserMod = Extract<UserRow, { kind: "mod" }>;
+type UserSeparator = Extract<UserRow, { kind: "separator" }>;
+/** The player's mods under one of their separators; `sep` null: right under the section's header. */
+type UserGroup = { sep: UserSeparator | null; mods: UserMod[] };
 type Filter = "all" | "off" | "changes";
-/** A row the context menu acts on. `id`: manifest id of a build mod. */
-type Target = { folder: string; label: string; id: string | null; nexusUrl: string | null; installed: boolean };
+/** A row the context menu acts on: a mod, a separator of the player or MO2's overwrite. `id`: manifest id of a build mod. */
+type Target = {
+  kind: "mod" | "separator" | "overwrite";
+  folder: string;
+  label: string;
+  id: string | null;
+  nexusUrl: string | null;
+  installed: boolean;
+  needs: Need[];
+  color: string | null;
+};
 type Menu = { target: Target; x: number; y: number };
-type Dialog = { kind: "delete" | "reinstall" | "rename"; target: Target };
+/** `after`: where a new separator goes. */
+type Dialog = { kind: "delete" | "reinstall" | "rename" | "color" | "separator" | "toMod" | "clear"; target: Target; after?: string | null };
 
 /** MO2's folder of the separator above the player's own mods (`plan::USER_SEPARATOR`). */
 const USER_SEPARATOR = "LYNO USER MODS_separator";
 
 export function Mods() {
-  const { build, buildError, status, progress, setModEnabled, settings, nexusUpdates, userMods, refreshUserMods, drag, fileOver } =
+  const { build, buildError, status, progress, setModEnabled, settings, nexus, nexusUpdates, nexusChecking, checkNexus, userMods, refreshUserMods, drag, fileOver, overwrite } =
     useApp();
   useEffect(() => {
     void refreshUserMods();
   }, []);
-  // The author takes Nexus updates of build mods into the next release (tab «Nexus»).
+  // A player's build mods come with the build: only the author (`canUpdate`) is shown their Nexus updates.
   const nexusUpdate = new Map(
-    settings?.authorMode
-      ? (nexusUpdates?.mods ?? []).flatMap((m) => (m.status.kind === "update" ? [[m.folder, m.status.version] as const] : []))
-      : [],
+    (nexusUpdates?.mods ?? []).flatMap((m) => (m.status.kind === "update" && m.canUpdate ? [[m.folder, { version: m.status.version, url: m.pageUrl }] as const] : [])),
   );
+  const needs = new Map((nexusUpdates?.mods ?? []).map((m) => [m.folder, m.needs] as const));
+  const buildTarget = (m: Mod): Target => ({
+    kind: "mod",
+    color: null,
+    folder: m.name,
+    label: m.title ?? m.name,
+    id: m.id,
+    nexusUrl: m.nexusUrl,
+    installed: m.installed,
+    needs: needs.get(m.name) ?? [],
+  });
+  const userTarget = (r: UserRow): Target =>
+    r.kind === "mod"
+      ? { kind: "mod", color: null, folder: r.name, label: r.name, id: null, nexusUrl: r.nexusUrl, installed: true, needs: needs.get(r.name) ?? [] }
+      : { kind: "separator", color: r.color, folder: rowKey(r), label: r.title, id: null, nexusUrl: null, installed: true, needs: [] };
+  const overwriteTarget: Target = { kind: "overwrite", color: null, folder: "overwrite", label: "Overwrite", id: null, nexusUrl: null, installed: true, needs: [] };
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const [collapsed, setCollapsed] = useState<Set<string>>(loadCollapsed);
   const [menu, setMenu] = useState<Menu | null>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  const [current, setCurrent] = useState<string | null>(null);
   const [dialog, setDialog] = useState<Dialog | null>(null);
   const openMenu = (e: MouseEvent, target: Target) => {
     e.preventDefault();
@@ -43,6 +74,34 @@ export function Mods() {
     if (!next.delete(title)) next.add(title);
     setCollapsed(next);
     saveCollapsed(next);
+  };
+  const setAllCollapsed = (titles: string[]) => {
+    const next = new Set(titles);
+    setCollapsed(next);
+    saveCollapsed(next);
+  };
+  // The sidebar opens a folded group and scrolls it under the table header.
+  const jump = (key: string) => {
+    if (collapsed.has(key)) toggleGroup(key);
+    requestAnimationFrame(() => {
+      const list = listRef.current;
+      const group = list?.querySelector<HTMLElement>(`tbody[data-group="${CSS.escape(key)}"]`);
+      if (!list || !group) return;
+      const top = list.scrollTop + group.getBoundingClientRect().top - list.getBoundingClientRect().top - HEADER_PX;
+      list.scrollTo({ top, behavior: "smooth" });
+    });
+  };
+  // The group under the table header is the one highlighted in the sidebar.
+  const trackCurrent = () => {
+    const list = listRef.current;
+    if (!list) return;
+    const edge = list.getBoundingClientRect().top + HEADER_PX + 1;
+    let key: string | null = null;
+    for (const g of list.querySelectorAll<HTMLElement>("tbody[data-group]")) {
+      if (g.getBoundingClientRect().top > edge) break;
+      key = g.dataset.group!;
+    }
+    setCurrent(key);
   };
 
   const isChange = (m: Mod) => !!m.recent || m.outdated || m.damaged || (!m.installed && !!build?.installedVersion);
@@ -68,17 +127,66 @@ export function Mods() {
   // build's: over those it lands at the top of their own section, which is what the core does with it too.
   const spot = drag?.over ?? (fileOver && !fileOver.outside ? fileOver : null);
   const dropping = !!drag || (!!fileOver && !fileOver.outside);
-  const buildNames = new Set((build?.mods ?? []).map((r) => (r.kind === "mod" ? r.name : `${r.title}_separator`)));
-  const lineAfter = spot && (spot.after === null ? "end" : !settings?.authorMode && buildNames.has(spot.after) ? USER_SEPARATOR : spot.after);
+  // A row of the player's section moves only within it: over the build's rows there is nowhere to drop it.
+  const lineAfter =
+    spot && !(drag?.move && spot.build) && (spot.after === null ? "end" : !settings?.authorMode && spot.build ? USER_SEPARATOR : spot.after);
   const userRows = (userMods ?? []).filter((r) => r.kind === "separator" || filter === "all" || (filter === "off" && !r.enabled));
   const q = query.trim().toLowerCase();
   const shownUser = userRows.filter((r) => !q || r.kind === "separator" || r.name.toLowerCase().includes(q));
   const userModCount = (userMods ?? []).filter((r) => r.kind === "mod").length;
-  const endKey = shownUser.length > 0 ? rowKey(shownUser[shownUser.length - 1]) : USER_SEPARATOR;
-  const line = (key: string) => (lineAfter === key || (lineAfter === "end" && key === endKey) ? "shadow-[inset_0_-2px_0_0_var(--color-neon)]" : "");
+  // The player's separators fold their mods like the build's; a search or a filter hides the empty ones.
+  const userGroups: UserGroup[] = [{ sep: null, mods: [] }];
+  for (const r of shownUser) {
+    if (r.kind === "separator") userGroups.push({ sep: r, mods: [] });
+    else userGroups[userGroups.length - 1].mods.push(r);
+  }
+  const userSeps = userGroups.slice(1).filter((g) => g.mods.length > 0 || (!q && filter === "all"));
+  // An archive from the downloads opens folded groups to land in; a moved row doesn't: the list would jump under the pointer.
+  const expand = dropping && !drag?.move;
+  const userOpen = !!q || expand || !collapsed.has(USER_SEPARATOR);
+  const groupOpen = (key: string) => !!q || expand || !collapsed.has(key);
+  const userModsShown = shownUser.filter((r) => r.kind === "mod").length;
+  // The row a drop at the end of the list lands under: the last one shown.
+  const lastUser = [userGroups[0], ...userSeps].reverse().find((g) => g.sep || g.mods.length > 0);
+  const endKey = !lastUser
+    ? USER_SEPARATOR
+    : lastUser.sep && !groupOpen(rowKey(lastUser.sep))
+      ? rowKey(lastUser.sep)
+      : lastUser.mods.length > 0
+        ? lastUser.mods[lastUser.mods.length - 1].name
+        : rowKey(lastUser.sep!);
+  // Like MO2, overwrite/ is the last row of the list: above every mod.
+  const showOverwrite = !!overwrite && overwrite.files > 0 && filter === "all" && !q;
+  const showUser = (shownUser.length > 0 || dropping || showOverwrite) && filter !== "changes";
+  // A drag reorders the player's own rows; MO2 would overwrite the list on exit, so it waits for it to close.
+  const startMove = (e: React.PointerEvent, target: Target) =>
+    !locked &&
+    pressToDrag(e, (ev) => useApp.setState({ drag: { file: target.folder, label: target.label, x: ev.clientX, y: ev.clientY, over: null, move: true } }));
+  const userRow = (r: UserMod) => (
+    <UserModRow
+      key={r.name}
+      row={r}
+      update={nexusUpdate.get(r.name)}
+      needs={needs.get(r.name)}
+      locked={locked}
+      lockReason={lockReason}
+      lineClass={line(r.name)}
+      active={menu?.target.folder === r.name}
+      onMenu={(x, y) => setMenu({ target: userTarget(r), x, y })}
+      onPress={(e) => startMove(e, userTarget(r))}
+    />
+  );
+  const nav = [
+    ...groups.flatMap((g) => (g.title ? [{ key: g.title, title: g.title, color: g.color, count: g.mods.length }] : [])),
+    ...(showUser ? [{ key: USER_SEPARATOR, title: isBuild ? "Мои моды" : "Моды", color: null, count: userModsShown }] : []),
+    ...(showUser ? userSeps.map((g) => ({ key: rowKey(g.sep!), title: g.sep!.title, color: g.sep!.color, count: g.mods.length })) : []),
+  ];
+  const active = nav.some((n) => n.key === current) ? current : nav[0]?.key;
+  const allFolded = nav.length > 0 && nav.every((n) => collapsed.has(n.key));
+  const line = (key: string) => (lineAfter === key || (lineAfter === "end" && key === endKey) ? DROP_LINE : "");
 
   return (
-    <div className="mx-auto flex h-full max-w-5xl flex-col">
+    <div className="mx-auto flex h-full max-w-[1600px] flex-col">
       <div className="flex items-end justify-between gap-6">
         <PageTitle
           sub={
@@ -89,35 +197,46 @@ export function Mods() {
         >
           Моды
         </PageTitle>
-        <label className="relative w-72">
-          <Search size={15} className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-faint" />
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Поиск по названию"
-            spellCheck={false}
-            className="h-9 w-full rounded-full bg-surface pr-4 pl-9 text-sm outline-none placeholder:text-faint focus:ring-1 focus:ring-neon/50"
-          />
-        </label>
+        <div className="flex items-center gap-4">
+          <Button
+            variant="ghost"
+            disabled={!!nexusChecking || !nexus?.account}
+            title={nexus?.account ? "Узнать на Nexus Mods, вышли ли новые версии модов" : "Войдите в Nexus Mods в настройках"}
+            onClick={() => void checkNexus(false)}
+          >
+            <RefreshCw size={14} className={nexusChecking ? "animate-spin" : ""} />
+            {nexusChecking ? `Проверка ${nexusChecking.done}/${nexusChecking.total}` : "Проверить обновления"}
+          </Button>
+          {(offCount > 0 || changeCount > 0) && (
+            <div className="flex items-center gap-1.5">
+              <Chip active={filter === "all"} onClick={() => setFilter("all")}>
+                Все
+              </Chip>
+              {offCount > 0 && (
+                <Chip active={filter === "off"} onClick={() => setFilter("off")} count={offCount}>
+                  Выключенные
+                </Chip>
+              )}
+              {changeCount > 0 && (
+                <Chip active={filter === "changes"} onClick={() => setFilter("changes")} count={changeCount}>
+                  Изменения
+                </Chip>
+              )}
+            </div>
+          )}
+          <label className="relative w-72">
+            <Search size={15} className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-faint" />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Поиск по названию"
+              spellCheck={false}
+              className="h-9 w-full rounded-full bg-surface pr-4 pl-9 text-sm outline-none placeholder:text-faint focus:ring-1 focus:ring-neon/50"
+            />
+          </label>
+        </div>
       </div>
 
-      {(offCount > 0 || changeCount > 0) && (
-        <div className="mt-4 flex items-center gap-1.5">
-          <Chip active={filter === "all"} onClick={() => setFilter("all")}>
-            Все
-          </Chip>
-          {offCount > 0 && (
-            <Chip active={filter === "off"} onClick={() => setFilter("off")} count={offCount}>
-              Выключенные
-            </Chip>
-          )}
-          {changeCount > 0 && (
-            <Chip active={filter === "changes"} onClick={() => setFilter("changes")} count={changeCount}>
-              Изменения
-            </Chip>
-          )}
-        </div>
-      )}
       {filter === "off" && (
         <p className="mt-3 text-[13px] text-muted">
           Выбор сохраняется при обновлениях сборки. Выключенный мод остаётся установленным. Если от мода зависят
@@ -130,141 +249,206 @@ export function Mods() {
         </p>
       )}
 
-      <div data-drop-zone className={`panel mt-4 min-h-0 flex-1 overflow-y-auto transition-shadow ${dropping ? "ring-1 ring-neon/40" : ""}`}>
-        <table className="w-full table-fixed text-left">
-          <colgroup>
-            <col />
-            <col className="w-32" />
-            <col className="w-24" />
-          </colgroup>
-          <thead className="sticky top-0 z-10 bg-surface">
-            <tr className="label h-10 border-b border-line">
-              <th className="pl-5 font-medium">Название</th>
-              <th className="font-medium">Версия</th>
-              <th className="pr-5" />
-            </tr>
-          </thead>
-          {groups.map((g, i) => (
-            <tbody key={g.title ?? `group-${i}`}>
-              {g.title && (
+      <div className="mt-4 flex min-h-0 flex-1 gap-4">
+        <aside className="panel flex w-80 shrink-0 flex-col overflow-hidden">
+          <div className="label flex h-9 shrink-0 items-center justify-between border-b border-line pr-2 pl-4">
+            <span className="font-medium">Категории</span>
+            {nav.length > 0 && (
+              <button
+                onClick={() => setAllCollapsed(allFolded ? [] : nav.map((n) => n.key))}
+                className="rounded-full px-2 py-0.5 text-[12px] text-muted transition-colors hover:bg-raised hover:text-fg"
+              >
+                {allFolded ? "Развернуть все" : "Свернуть все"}
+              </button>
+            )}
+          </div>
+          <nav className="min-h-0 flex-1 overflow-y-auto py-1.5">
+            {nav.map((n) => (
+              <button
+                key={n.key}
+                onClick={() => jump(n.key)}
+                title={n.title}
+                className={`flex h-8 w-full items-center gap-2.5 px-4 text-left text-[13px] transition-colors hover:bg-raised/60 hover:text-fg ${
+                  active === n.key ? "bg-raised text-fg" : "text-muted"
+                } ${collapsed.has(n.key) && !q ? "opacity-60" : ""}`}
+              >
+                <span className="h-3.5 w-1 shrink-0 rounded-full" style={{ background: n.color ?? "var(--color-line)" }} />
+                <span className="min-w-0 flex-1 truncate">{n.title}</span>
+                <span className="font-mono text-[11px] text-faint tabular-nums">{n.count}</span>
+              </button>
+            ))}
+          </nav>
+          <p className="shrink-0 border-t border-line px-4 py-3 text-[11px] leading-relaxed text-faint">
+            Все моды принадлежат их авторам. Если мод понравился — поддержите автора на Nexus Mods.
+          </p>
+        </aside>
+
+        <div
+          ref={listRef}
+          onScroll={trackCurrent}
+          data-drop-zone
+          className={`panel min-h-0 flex-1 overflow-y-auto transition-shadow ${dropping ? "ring-1 ring-neon/40" : ""}`}
+        >
+          <table className="w-full table-fixed text-left">
+            <colgroup>
+              <col />
+              <col className="w-32" />
+              <col className="w-24" />
+            </colgroup>
+            <thead className="sticky top-0 z-10 bg-surface">
+              <tr className="label h-9 border-b border-line">
+                <th className="pl-5 font-medium">Название</th>
+                <th className="font-medium">Версия</th>
+                <th className="pr-5" />
+              </tr>
+            </thead>
+            {groups.map((g, i) => (
+              <tbody key={g.title ?? `group-${i}`} data-group={g.title ?? undefined}>
+                {g.title && (
+                  <SeparatorRow
+                    build
+                    dropKey={`${g.title}_separator`}
+                    lineClass={line(`${g.title}_separator`)}
+                    title={g.title}
+                    color={g.color}
+                    count={g.mods.length}
+                    // A search shows every match, folded or not.
+                    open={!!query.trim() || !collapsed.has(g.title)}
+                    onToggle={() => toggleGroup(g.title!)}
+                  />
+                )}
+                {(!g.title || query.trim() || !collapsed.has(g.title)) && g.mods.map((m) => (
+                  <tr
+                    key={m.id}
+                    data-drop-after={m.name}
+                    data-drop-build
+                    onClick={(e) => openMenu(e, buildTarget(m))}
+                    onContextMenu={(e) => openMenu(e, buildTarget(m))}
+                    className={`h-10 cursor-pointer border-b border-line/60 last:border-b-0 hover:bg-raised/50 ${menu?.target.folder === m.name ? "bg-raised/50" : ""} ${line(m.name)}`}
+                  >
+                    <td className="pl-5">
+                     <div className="flex min-w-0 items-center gap-2">
+                      <span className={`truncate ${m.enabled ? "" : "text-faint"}`}>{m.title ?? m.name}</span>
+                      <span className="flex shrink-0 items-center gap-1">
+                      {!m.enabled && <Badge tone="state">выключен</Badge>}
+                      {m.recent && last && (
+                        <Badge tone="info" icon={m.recent === "added" ? Plus : ArrowUp} title={`В версии ${last.to}`}>
+                          {m.recent === "added" ? "добавлен" : "обновлён"}
+                        </Badge>
+                      )}
+                      {m.outdated && <Badge tone="pending" icon={ArrowUp}>обновится</Badge>}
+                      {m.damaged && !m.outdated && (
+                        <Badge tone="pending" icon={Wrench} title="Проверка нашла изменённые или удалённые файлы">
+                          восстановится
+                        </Badge>
+                      )}
+                      {!m.installed && build?.installedVersion && <Badge tone="pending" icon={Plus}>новый</Badge>}
+                      <NeedsBadge needs={needs.get(m.name)} />
+                      </span>
+                     </div>
+                    </td>
+                    <VersionCell version={m.version} update={nexusUpdate.get(m.name)} />
+                    <td className="pr-5">
+                      <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                        {m.optional && m.installed && (
+                          <Switch
+                            checked={m.enabled}
+                            disabled={locked}
+                            title={locked ? lockReason : m.enabled ? "Выключить мод" : "Включить мод"}
+                            onChange={(v) => setModEnabled(m.id, v)}
+                          />
+                        )}
+                        {m.installed && !m.optional && (
+                          <span
+                            className="mr-1 inline-flex h-[18px] w-8 items-center justify-center text-faint"
+                            title="Основа сборки: от этого мода зависят другие, выключить его нельзя"
+                          >
+                            <Lock size={13} />
+                          </span>
+                        )}
+                        <MenuButton onOpen={(x, y) => setMenu({ target: buildTarget(m), x, y })} />
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            ))}
+            {showUser && (
+              <tbody data-group={USER_SEPARATOR}>
                 <SeparatorRow
-                  dropKey={`${g.title}_separator`}
-                  lineClass={line(`${g.title}_separator`)}
-                  title={g.title}
-                  color={g.color}
-                  count={g.mods.length}
-                  // A search shows every match, folded or not.
-                  open={!!query.trim() || !collapsed.has(g.title)}
-                  onToggle={() => toggleGroup(g.title!)}
+                  title={isBuild ? "Мои моды" : "Моды"}
+                  color={null}
+                  count={userModsShown}
+                  open={userOpen}
+                  onToggle={() => toggleGroup(USER_SEPARATOR)}
+                  dropKey={USER_SEPARATOR}
+                  lineClass={line(USER_SEPARATOR)}
                 />
-              )}
-              {(!g.title || query.trim() || !collapsed.has(g.title)) && g.mods.map((m) => (
+                {userOpen && userGroups[0].mods.map(userRow)}
+                {dropping && shownUser.length === 0 && !drag?.move && (
+                  <tr data-drop-after={USER_SEPARATOR}>
+                    <td colSpan={3} className="px-5 py-4 text-center text-[13px] text-neon">
+                      Отпустите архив, чтобы установить его в ваши моды
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            )}
+            {showUser &&
+              userOpen &&
+              userSeps.map((g) => {
+                const key = rowKey(g.sep!);
+                const target = userTarget(g.sep!);
+                return (
+                  <tbody key={key} data-group={key}>
+                    <SeparatorRow
+                      title={g.sep!.title}
+                      color={g.sep!.color}
+                      count={g.mods.length}
+                      open={groupOpen(key)}
+                      onToggle={() => toggleGroup(key)}
+                      dropKey={key}
+                      lineClass={line(key)}
+                      active={menu?.target.folder === key}
+                      onMenu={(x, y) => setMenu({ target, x, y })}
+                      onPress={(e) => startMove(e, target)}
+                    />
+                    {groupOpen(key) && g.mods.map(userRow)}
+                  </tbody>
+                );
+              })}
+            {showUser && userOpen && showOverwrite && (
+              <tbody>
                 <tr
-                  key={m.id}
-                  data-drop-after={m.name}
-                  onClick={(e) => openMenu(e, buildTarget(m))}
-                  onContextMenu={(e) => openMenu(e, buildTarget(m))}
-                  className={`h-12 cursor-pointer border-b border-line/60 last:border-b-0 hover:bg-raised/50 ${menu?.target.folder === m.name ? "bg-raised/50" : ""} ${line(m.name)}`}
+                  onClick={(e) => openMenu(e, overwriteTarget)}
+                  onContextMenu={(e) => openMenu(e, overwriteTarget)}
+                  className={`h-10 cursor-pointer hover:bg-raised/50 ${menu?.target.kind === "overwrite" ? "bg-raised/50" : ""}`}
+                  title="Файлы, которые игра и моды создали через Mod Organizer 2: настройки CET, логи, кэш. Они важнее любого мода."
                 >
-                  <td className="truncate pl-5">
-                    <span className={m.enabled ? "" : "text-faint"}>{m.title ?? m.name}</span>
-                    {!m.enabled && <Badge>выключен</Badge>}
-                    {m.recent && last && (
-                      <Badge tone="ok" title={`В версии ${last.to}`}>
-                        {m.recent === "added" ? "добавлен" : "обновлён"}
-                      </Badge>
-                    )}
-                    {m.outdated && <Badge tone="warn">обновится</Badge>}
-                    {m.damaged && !m.outdated && (
-                      <Badge tone="warn" title="Проверка нашла изменённые или удалённые файлы">
-                        восстановится
-                      </Badge>
-                    )}
-                    {!m.installed && build?.installedVersion && <Badge tone="warn">новый</Badge>}
-                    {nexusUpdate.has(m.name) && (
-                      <Badge tone="ok" title={`На Nexus: ${nexusUpdate.get(m.name) ?? "новая версия"}. Обновить — на вкладке «Nexus»`}>
-                        обновление на Nexus
-                      </Badge>
-                    )}
+                  <td className="pl-5">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <span className="truncate text-muted">Overwrite</span>
+                      <Badge tone="state">{`${overwrite!.files} ${plural(overwrite!.files, "файл", "файла", "файлов")} · ${formatBytes(overwrite!.size)}`}</Badge>
+                    </div>
                   </td>
-                  <td className="truncate font-mono text-xs text-muted tabular-nums">{m.version ?? "—"}</td>
+                  <td />
                   <td className="pr-5">
                     <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-                      {m.optional && m.installed && (
-                        <Switch
-                          checked={m.enabled}
-                          disabled={locked}
-                          title={locked ? lockReason : m.enabled ? "Выключить мод" : "Включить мод"}
-                          onChange={(v) => setModEnabled(m.id, v)}
-                        />
-                      )}
-                      {m.installed && !m.optional && (
-                        <span
-                          className="mr-1 inline-flex h-[18px] w-8 items-center justify-center text-faint"
-                          title="Основа сборки: от этого мода зависят другие, выключить его нельзя"
-                        >
-                          <Lock size={13} />
-                        </span>
-                      )}
-                      <MenuButton onOpen={(x, y) => setMenu({ target: buildTarget(m), x, y })} />
+                      <MenuButton onOpen={(x, y) => setMenu({ target: overwriteTarget, x, y })} />
                     </div>
                   </td>
                 </tr>
-              ))}
-            </tbody>
-          ))}
-          {(shownUser.length > 0 || dropping) && filter !== "changes" && (
-            <tbody>
-              <SeparatorRow
-                title={isBuild ? "Мои моды" : "Моды"}
-                color={null}
-                count={shownUser.filter((r) => r.kind === "mod").length}
-                open={!!q || dropping || !collapsed.has(USER_SEPARATOR)}
-                onToggle={() => toggleGroup(USER_SEPARATOR)}
-                dropKey={USER_SEPARATOR}
-                lineClass={line(USER_SEPARATOR)}
-              />
-              {(q || dropping || !collapsed.has(USER_SEPARATOR)) &&
-                shownUser.map((r) => (
-                  <UserModRow
-                    key={rowKey(r)}
-                    row={r}
-                    locked={locked}
-                    lockReason={lockReason}
-                    lineClass={line(rowKey(r))}
-                    active={menu?.target.folder === rowKey(r)}
-                    onMenu={(x, y) => r.kind === "mod" && setMenu({ target: userTarget(r), x, y })}
-                  />
-                ))}
-              {dropping && shownUser.length === 0 && (
-                <tr data-drop-after={USER_SEPARATOR}>
-                  <td colSpan={3} className="px-5 py-4 text-center text-[13px] text-neon">
-                    Отпустите архив, чтобы установить его в ваши моды
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          )}
-        </table>
-        {shown === 0 && shownUser.length === 0 && !dropping && <p className="px-5 py-8 text-center text-[13px] text-muted">Ничего не найдено</p>}
+              </tbody>
+            )}
+          </table>
+          {shown === 0 && shownUser.length === 0 && !dropping && <p className="px-5 py-8 text-center text-[13px] text-muted">Ничего не найдено</p>}
+        </div>
       </div>
-
-      <p className="mt-4 text-xs text-faint">
-        Все моды принадлежат их авторам. Если мод понравился — поддержите автора на Nexus Mods.
-      </p>
 
       {menu && <ModMenu menu={menu} locked={locked} lockReason={lockReason} onDialog={setDialog} onClose={() => setMenu(null)} />}
       {dialog && <ModDialog dialog={dialog} onClose={() => setDialog(null)} />}
     </div>
   );
-}
-
-function buildTarget(m: Mod): Target {
-  return { folder: m.name, label: m.title ?? m.name, id: m.id, nexusUrl: m.nexusUrl, installed: m.installed };
-}
-
-function userTarget(r: Extract<UserRow, { kind: "mod" }>): Target {
-  return { folder: r.name, label: r.name, id: null, nexusUrl: r.nexusUrl, installed: true };
 }
 
 function MenuButton({ onOpen }: { onOpen: (x: number, y: number) => void }) {
@@ -288,16 +472,29 @@ type Item = { label: string; icon: LucideIcon; onClick: () => void; disabled?: b
 // Like MO2's right-click menu on a mod. Deleting and renaming are for the player's own mods: a build mod
 // would come back with the next update, so the player only switches it off (the author changes any).
 function ModMenu(props: { menu: Menu; locked: boolean; lockReason: string; onDialog: (d: Dialog) => void; onClose: () => void }) {
-  const { run, settings } = useApp();
+  const { run, settings, userMods } = useApp();
   const ref = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState({ left: props.menu.x, top: props.menu.y });
   const t = props.menu.target;
   const author = !!settings?.authorMode;
   const own = !t.id || author;
-  const dialog = (kind: Dialog["kind"]) => () => props.onDialog({ kind, target: t });
+  const dialog = (kind: Dialog["kind"], after?: string | null) => () => props.onDialog({ kind, target: t, after });
   // A player's build mod comes again with the build (repair), which needs MO2 closed; an archive install waits for it.
   const repair = !!t.id && !author;
-  const items: (Item | null)[] = [
+  const lock = props.locked ? props.lockReason : undefined;
+  // Above the mod, as MO2's "Create separator": below the row before it, or at the top of the section.
+  const at = (userMods ?? []).findIndex((r) => rowKey(r) === t.folder);
+  const above = at > 0 ? rowKey(userMods![at - 1]) : USER_SEPARATOR;
+  const items: (Item | null)[] = t.kind === "separator" ? [
+    { label: "Переименовать", icon: Pencil, disabled: props.locked, title: lock, onClick: dialog("rename") },
+    { label: "Цвет", icon: Palette, disabled: props.locked, title: lock, onClick: dialog("color") },
+    { label: "Удалить", icon: Trash2, danger: true, disabled: props.locked, title: lock, onClick: dialog("delete") },
+  ] : t.kind === "overwrite" ? [
+    { label: "Открыть в проводнике", icon: FolderOpen, onClick: () => run(() => api.openFolder("overwrite")) },
+    null,
+    { label: "Сделать модом", icon: PackagePlus, disabled: props.locked, title: lock, onClick: dialog("toMod") },
+    { label: "Очистить", icon: Eraser, danger: true, disabled: props.locked, title: lock, onClick: dialog("clear") },
+  ] : [
     {
       label: "Открыть в проводнике",
       icon: FolderOpen,
@@ -335,6 +532,18 @@ function ModMenu(props: { menu: Menu; locked: boolean; lockReason: string; onDia
       title: !own ? "Мод сборки можно только выключить" : props.locked ? props.lockReason : undefined,
       onClick: dialog("delete"),
     },
+    ...(t.id
+      ? []
+      : [null, { label: "Разделитель над модом", icon: SeparatorHorizontal, disabled: props.locked, title: lock, onClick: dialog("separator", above) }]),
+    // What its Nexus page asks for and the list lacks: a way to the page, the install stays the player's drag.
+    ...(t.needs.length > 0 ? [null] : []),
+    ...t.needs.map((n) => ({
+      label: n.disabled ? `${n.name} — выключен` : n.modId === null ? `Требует: ${n.name}` : `Нет мода: ${n.name}`,
+      icon: ExternalLink,
+      disabled: !n.url,
+      title: [n.disabled && `Включите «${n.disabled}»`, n.notes, n.url].filter(Boolean).join("\n") || undefined,
+      onClick: () => run(() => api.openUrl(n.url)),
+    })),
   ];
 
   // Opened near an edge, the menu flips inside the window.
@@ -387,7 +596,7 @@ function ModMenu(props: { menu: Menu; locked: boolean; lockReason: string; onDia
           <div key={i} className="my-1.5 border-t border-line" />
         ) : (
           <button
-            key={it.label}
+            key={`${i}-${it.label}`}
             role="menuitem"
             disabled={it.disabled}
             title={it.title}
@@ -400,7 +609,7 @@ function ModMenu(props: { menu: Menu; locked: boolean; lockReason: string; onDia
             }`}
           >
             <it.icon size={14} className="shrink-0 opacity-80" />
-            {it.label}
+            <span className="truncate">{it.label}</span>
           </button>
         ),
       )}
@@ -411,7 +620,9 @@ function ModMenu(props: { menu: Menu; locked: boolean; lockReason: string; onDia
 function ModDialog({ dialog, onClose }: { dialog: Dialog; onClose: () => void }) {
   const { run, settings, refreshUserMods, refreshBuild, startRepair } = useApp();
   const t = dialog.target;
-  const [name, setName] = useState(t.folder);
+  const initial = { rename: t.kind === "separator" ? t.label : t.folder, separator: "", toMod: "Overwrite" }[dialog.kind as string] ?? "";
+  const [name, setName] = useState(initial);
+  const [color, setColor] = useState(t.color ?? "#3cf2a0");
   const repair = !!t.id && !settings?.authorMode;
 
   useEffect(() => {
@@ -428,12 +639,34 @@ function ModDialog({ dialog, onClose }: { dialog: Dialog; onClose: () => void })
     });
   };
   const newName = name.trim();
-  const rename = () => {
-    if (newName && newName !== t.folder) act(() => api.renameMod(t.folder, newName));
+  const named = dialog.kind === "rename" || dialog.kind === "separator" || dialog.kind === "toMod";
+  const submit = () => {
+    if (!newName || newName === initial) return;
+    if (dialog.kind === "rename") act(() => api.renameMod(t.folder, newName));
+    if (dialog.kind === "separator") act(() => api.addSeparator(newName, dialog.after ?? null));
+    if (dialog.kind === "toMod") act(() => api.overwriteToMod(newName));
   };
+  const nameInput = (
+    <input
+      autoFocus
+      value={name}
+      onChange={(e) => setName(e.target.value)}
+      onFocus={(e) => e.target.select()}
+      onKeyDown={(e) => e.key === "Enter" && submit()}
+      placeholder={dialog.kind === "separator" ? "Название разделителя" : undefined}
+      spellCheck={false}
+      className="h-9 w-full rounded-lg bg-raised px-3 text-sm text-fg outline-none placeholder:text-faint focus:ring-1 focus:ring-neon/50"
+    />
+  );
 
   const view: Record<Dialog["kind"], { title: string; body: ReactNode; confirm: string; danger?: boolean; ok: () => void }> = {
-    delete: {
+    delete: t.kind === "separator" ? {
+      title: "Удалить разделитель?",
+      body: <p>Моды под ним останутся на своих местах.</p>,
+      confirm: "Удалить",
+      danger: true,
+      ok: () => act(() => api.deleteMod(t.folder)),
+    } : {
       title: "Удалить мод?",
       body: <p>Папка мода удалится с диска вместе со всеми файлами, мод пропадёт из списка во всех профилях. Отменить это нельзя.</p>,
       confirm: "Удалить",
@@ -454,21 +687,46 @@ function ModDialog({ dialog, onClose }: { dialog: Dialog; onClose: () => void })
         void startRepair([t.id!], false, false);
       },
     },
-    rename: {
-      title: "Переименовать мод",
+    rename: { title: t.kind === "separator" ? "Переименовать разделитель" : "Переименовать мод", body: nameInput, confirm: "Переименовать", ok: submit },
+    separator: { title: "Новый разделитель", body: nameInput, confirm: "Добавить", ok: submit },
+    toMod: {
+      title: "Сделать модом",
       body: (
-        <input
-          autoFocus
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          onFocus={(e) => e.target.select()}
-          onKeyDown={(e) => e.key === "Enter" && rename()}
-          spellCheck={false}
-          className="h-9 w-full rounded-lg bg-raised px-3 text-sm text-fg outline-none focus:ring-1 focus:ring-neon/50"
-        />
+        <>
+          <p>Файлы из overwrite станут отдельным модом в конце вашего списка: их можно будет выключить или удалить как обычный мод.</p>
+          {nameInput}
+        </>
       ),
-      confirm: "Переименовать",
-      ok: rename,
+      confirm: "Создать мод",
+      ok: submit,
+    },
+    clear: {
+      title: "Очистить overwrite?",
+      body: (
+        <p>
+          Удалятся все файлы, которые игра и моды создали через Mod Organizer 2: настройки CET и других модов, логи, кэш.
+          Моды создадут их заново с настройками по умолчанию. Отменить это нельзя.
+        </p>
+      ),
+      confirm: "Очистить",
+      danger: true,
+      ok: () => act(() => api.clearOverwrite()),
+    },
+    color: {
+      title: "Цвет разделителя",
+      body: (
+        <div className="flex items-center gap-3">
+          <input type="color" value={color} onChange={(e) => setColor(e.target.value)} className="h-9 w-14 cursor-pointer rounded-lg bg-raised" />
+          <span className="font-mono text-xs">{color}</span>
+          {t.color && (
+            <button onClick={() => act(() => api.setSeparatorColor(t.folder, null))} className="ml-auto text-[13px] text-muted hover:text-fg">
+              Убрать цвет
+            </button>
+          )}
+        </div>
+      ),
+      confirm: "Сохранить",
+      ok: () => act(() => api.setSeparatorColor(t.folder, color)),
     },
   };
   const v = view[dialog.kind];
@@ -492,8 +750,8 @@ function ModDialog({ dialog, onClose }: { dialog: Dialog; onClose: () => void })
           </Button>
           <Button
             variant="primary"
-            autoFocus={dialog.kind !== "rename"}
-            disabled={dialog.kind === "rename" && (!newName || newName === t.folder)}
+            autoFocus={!named}
+            disabled={named && (!newName || newName === initial)}
             onClick={v.ok}
             className={v.danger ? "!bg-bad !text-fg !shadow-none" : ""}
           >
@@ -505,17 +763,91 @@ function ModDialog({ dialog, onClose }: { dialog: Dialog; onClose: () => void })
   );
 }
 
+// By kind: state is plain text, info (what the last build changed) is tinted, pending (what the next
+// update will do) is outlined, problem (needs the player's action) is solid.
+// An insertion line on the row's lower edge with a dot at its start. Drawn on the cells: a <tr> can't hold positioned
+// children. A sticky separator cell keeps `sticky` (it holds the line as well): turned `relative`, it would move away
+// from under the pointer, the line would go, the cell come back, and so on with every pointer move.
+const DROP_LINE =
+  "[&>td:not(.sticky)]:relative [&>td]:after:pointer-events-none [&>td]:after:absolute [&>td]:after:inset-x-0 [&>td]:after:-bottom-px [&>td]:after:z-10 [&>td]:after:h-0.5 [&>td]:after:bg-neon [&>td]:after:shadow-[0_0_8px_var(--color-neon)] " +
+  "[&>td:first-child]:before:pointer-events-none [&>td:first-child]:before:absolute [&>td:first-child]:before:bottom-[-4px] [&>td:first-child]:before:left-2 [&>td:first-child]:before:z-20 [&>td:first-child]:before:size-2 [&>td:first-child]:before:rounded-full [&>td:first-child]:before:bg-neon";
+
 const badgeTones = {
-  muted: "bg-raised text-muted",
-  warn: "bg-warn/10 text-warn",
-  ok: "bg-ok/10 text-ok",
+  state: "text-faint",
+  info: "bg-ok/10 text-ok",
+  pending: "text-muted ring-1 ring-inset ring-line",
+  problem: "bg-warn/15 font-medium text-warn",
 };
 
-function Badge({ children, tone = "muted", title }: { children: string; tone?: keyof typeof badgeTones; title?: string }) {
+function Badge(props: { children: string; tone: keyof typeof badgeTones; icon?: LucideIcon; title?: string }) {
+  const Icon = props.icon;
   return (
-    <span title={title} className={`ml-2 rounded-full px-2 py-0.5 align-[1px] text-[11px] ${badgeTones[tone]}`}>
-      {children}
+    <span
+      title={props.title}
+      className={`inline-flex items-center gap-1 whitespace-nowrap rounded-full text-[11px] leading-4 ${props.tone === "state" ? "" : "px-2 py-0.5"} ${badgeTones[props.tone]}`}
+    >
+      {Icon && <Icon size={11} />}
+      {props.children}
     </span>
+  );
+}
+
+// Only what the launcher can check: links outside Nexus (ReShade, a site) stay in the mod's menu.
+function NeedsBadge({ needs }: { needs?: Need[] }) {
+  const missing = (needs ?? []).filter((n) => n.modId !== null);
+  if (missing.length === 0) return null;
+  const lines = missing.map((n) => (n.disabled ? `${n.name} — выключен` : `${n.name} — не установлен`));
+  return (
+    <Badge tone="problem" icon={TriangleAlert} title={`Требуется на странице Nexus:\n${lines.join("\n")}\n\nСсылки — в меню мода`}>
+      {`не хватает ${missing.length} ${plural(missing.length, "мода", "модов", "модов")}`}
+    </Badge>
+  );
+}
+
+type NexusUpdate = { version: string | null; url: string };
+
+// An outdated version is a link to the mod's files on Nexus; installing the download is the player's drag.
+function VersionCell({ version, update }: { version: string | null; update?: NexusUpdate }) {
+  const { run } = useApp();
+  const [tip, setTip] = useState<{ left: number; top: number } | null>(null);
+  // Fixed, so the cell's truncate and the list's scroll don't clip it; scrolling would leave it behind.
+  useEffect(() => {
+    if (!tip) return;
+    const hide = () => setTip(null);
+    window.addEventListener("scroll", hide, true);
+    return () => window.removeEventListener("scroll", hide, true);
+  }, [tip]);
+  if (!update) return <td className="truncate font-mono text-xs text-muted tabular-nums">{version ?? "—"}</td>;
+  const show = (e: { currentTarget: HTMLElement }) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    setTip({ left: r.left, top: r.bottom + 6 });
+  };
+  return (
+    <td className="truncate" onClick={(e) => e.stopPropagation()}>
+      <button
+        onClick={() => run(() => api.openUrl(update.url))}
+        onMouseEnter={show}
+        onMouseLeave={() => setTip(null)}
+        onFocus={show}
+        onBlur={() => setTip(null)}
+        aria-label={`Новая версия на Nexus: ${update.version ?? "без номера"}`}
+        className="rounded-full bg-warn/10 px-2 py-0.5 font-mono text-xs text-warn tabular-nums transition-colors outline-none hover:bg-warn/20 focus-visible:ring-1 focus-visible:ring-warn/50"
+      >
+        {version ?? "—"}
+      </button>
+      {tip && (
+        <div role="tooltip" style={tip} className="panel pointer-events-none fixed z-50 bg-surface px-3.5 py-2.5 shadow-2xl">
+          <div className="flex items-center gap-2 text-[13px]">
+            <span className="text-muted">Новая версия</span>
+            <span className="font-mono text-xs text-warn tabular-nums">{update.version ?? "без номера"}</span>
+          </div>
+          <div className="mt-1 flex items-center gap-1.5 text-[11px] text-faint">
+            <ExternalLink size={11} />
+            Нажмите, чтобы открыть на Nexus Mods
+          </div>
+        </div>
+      )}
+    </td>
   );
 }
 
@@ -559,18 +891,23 @@ function rowKey(r: UserRow): string {
 }
 
 // The player's own mods: theirs to switch, in MO2's list order. Updates of the build never touch them.
-function UserModRow(props: { row: UserRow; locked: boolean; lockReason: string; lineClass: string; active: boolean; onMenu: (x: number, y: number) => void }) {
+function UserModRow(props: {
+  row: UserMod;
+  update?: NexusUpdate;
+  needs?: Need[];
+  locked: boolean;
+  lockReason: string;
+  lineClass: string;
+  active: boolean;
+  onMenu: (x: number, y: number) => void;
+  onPress: (e: React.PointerEvent) => void;
+}) {
   const { run, refreshUserMods } = useApp();
   const r = props.row;
-  if (r.kind === "separator") {
-    return (
-      <tr data-drop-after={rowKey(r)} className={`h-9 border-b border-line/60 ${props.lineClass}`}>
-        <td colSpan={3} className="pl-5 text-[12px] font-semibold text-muted">
-          {r.title}
-        </td>
-      </tr>
-    );
-  }
+  const menu = (e: MouseEvent) => {
+    e.preventDefault();
+    props.onMenu(e.clientX, e.clientY);
+  };
   const toggle = (enabled: boolean) =>
     run(async () => {
       await api.setUserModEnabled(r.name, enabled);
@@ -579,20 +916,23 @@ function UserModRow(props: { row: UserRow; locked: boolean; lockReason: string; 
   return (
     <tr
       data-drop-after={r.name}
-      onClick={(e) => props.onMenu(e.clientX, e.clientY)}
-      onContextMenu={(e) => {
-        e.preventDefault();
-        props.onMenu(e.clientX, e.clientY);
-      }}
-      className={`h-12 cursor-pointer border-b border-line/60 last:border-b-0 hover:bg-raised/50 ${props.active ? "bg-raised/50" : ""} ${props.lineClass}`}
+      onPointerDown={props.onPress}
+      onClick={menu}
+      onContextMenu={menu}
+      className={`h-10 cursor-pointer border-b border-line/60 last:border-b-0 hover:bg-raised/50 ${props.active ? "bg-raised/50" : ""} ${props.lineClass}`}
     >
-      <td className="truncate pl-5">
-        <span className={r.enabled ? "" : "text-faint"}>{r.name}</span>
-        {!r.enabled && <Badge>выключен</Badge>}
+      <td className="pl-5">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className={`truncate ${r.enabled ? "" : "text-faint"}`}>{r.name}</span>
+          <span className="flex shrink-0 items-center gap-1">
+            {!r.enabled && <Badge tone="state">выключен</Badge>}
+            <NeedsBadge needs={props.needs} />
+          </span>
+        </div>
       </td>
-      <td className="truncate font-mono text-xs text-muted tabular-nums">{r.version ?? "—"}</td>
+      <VersionCell version={r.version} update={props.update} />
       <td className="pr-5">
-        <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
           <Switch
             checked={r.enabled}
             disabled={props.locked}
@@ -606,7 +946,8 @@ function UserModRow(props: { row: UserRow; locked: boolean; lockReason: string; 
   );
 }
 
-// Separators come from the author's MO2 (title, order and color); like in MO2, a click folds the group.
+// Separators of the build come from the author's MO2 (title, order and color), the player's from theirs; like in MO2,
+// a click folds the group. The player's have a menu and are dragged like their mods.
 function SeparatorRow(props: {
   title: string;
   color: string | null;
@@ -615,6 +956,11 @@ function SeparatorRow(props: {
   onToggle: () => void;
   dropKey?: string;
   lineClass?: string;
+  /** One of the build's: nothing of the player's section lands on it. */
+  build?: boolean;
+  active?: boolean;
+  onMenu?: (x: number, y: number) => void;
+  onPress?: (e: React.PointerEvent) => void;
 }) {
   // Opaque background: the row sticks under the table header while its group scrolls by.
   const style: CSSProperties = props.color
@@ -623,25 +969,45 @@ function SeparatorRow(props: {
         color: `color-mix(in srgb, ${props.color} 55%, var(--color-fg))`,
       }
     : { background: "var(--color-raised)" };
+  const onMenu = props.onMenu;
   return (
-    <tr data-drop-after={props.dropKey} className={props.lineClass}>
-      <td colSpan={3} className="sticky top-10 z-[5] p-0">
-        <button
-          onClick={props.onToggle}
-          aria-expanded={props.open}
+    <tr data-drop-after={props.dropKey} data-drop-build={props.build || undefined} className={props.lineClass}>
+      <td colSpan={3} className="sticky top-9 z-[5] p-0">
+        <div
           style={style}
-          className="flex h-10 w-full items-center gap-2 pr-5 pl-4 text-left text-[13px] font-semibold transition-[filter] hover:brightness-125"
+          onPointerDown={props.onPress}
+          onContextMenu={
+            onMenu &&
+            ((e) => {
+              e.preventDefault();
+              onMenu(e.clientX, e.clientY);
+            })
+          }
+          className={`flex h-9 items-center pr-5 transition-[filter] hover:brightness-125 ${props.active ? "brightness-125" : ""}`}
         >
-          <ChevronRight size={14} className={`shrink-0 opacity-70 transition-transform ${props.open ? "rotate-90" : ""}`} />
-          <span className="truncate">{props.title}</span>
-          <span className="font-mono text-[11px] font-normal opacity-60 tabular-nums">{props.count}</span>
-        </button>
+          <button
+            onClick={props.onToggle}
+            aria-expanded={props.open}
+            className="flex h-full min-w-0 flex-1 items-center gap-2 pl-4 text-left text-[13px] font-semibold"
+          >
+            <ChevronRight size={14} className={`shrink-0 opacity-70 transition-transform ${props.open ? "rotate-90" : ""}`} />
+            <span className="truncate">{props.title}</span>
+            <span className="font-mono text-[11px] font-normal opacity-60 tabular-nums">{props.count}</span>
+          </button>
+          {onMenu && (
+            <span onPointerDown={(e) => e.stopPropagation()}>
+              <MenuButton onOpen={onMenu} />
+            </span>
+          )}
+        </div>
       </td>
     </tr>
   );
 }
 
 const COLLAPSED_KEY = "mods.collapsed";
+/** Height of the sticky table header (`h-9`): separators stick under it, jumps land under it. */
+const HEADER_PX = 36;
 
 function loadCollapsed(): Set<string> {
   try {

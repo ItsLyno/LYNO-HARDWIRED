@@ -11,6 +11,7 @@ import {
   type LauncherUpdate,
   type NexusJob,
   type NexusStatus,
+  type OverwriteInfo,
   type RateLimit,
   type Settings,
   type Status,
@@ -20,7 +21,7 @@ import {
   type VerifyReport,
 } from "./api";
 
-export type Page = "home" | "mods" | "updates" | "nexus" | "release" | "settings";
+export type Page = "home" | "mods" | "release" | "settings";
 
 export interface Progress {
   step: { index: number; total: number; label: string } | null;
@@ -52,6 +53,8 @@ interface AppStore {
   verifyProgress: Progress | null;
   verifyReport: VerifyReport | null;
   error: string | null;
+  /** A warning that isn't an error, shown like one (a just-installed mod's missing requirements). */
+  notice: string | null;
   launcherUpdate: LauncherUpdate | null;
   authorRun: AuthorRun | null;
   built: BuiltRelease | null;
@@ -74,8 +77,11 @@ interface AppStore {
   downloads: DownloadItem[] | null;
   /** The player's own section of the mod list; null until loaded. */
   userMods: UserRow[] | null;
-  /** An archive being dragged from the downloads list; `over`: the list entry it would land below. */
-  drag: { file: string; label: string; x: number; y: number; over: DropSpot | null } | null;
+  /** An archive being dragged from the downloads list, or with `move` an entry of the player's section
+   *  (`file`: its folder); `over`: the list entry it would land below. */
+  drag: { file: string; label: string; x: number; y: number; over: DropSpot | null; move?: boolean } | null;
+  /** MO2's `overwrite/`; null until loaded. */
+  overwrite: OverwriteInfo | null;
   /** Files from Explorer are over the window; `outside`: not over the mod list. */
   fileOver: (DropSpot & { outside?: boolean }) | null;
   setPage: (page: Page) => void;
@@ -123,6 +129,7 @@ export const useApp = create<AppStore>((set, get) => ({
   verifyProgress: null,
   verifyReport: null,
   error: null,
+  notice: null,
   launcherUpdate: null,
   authorRun: null,
   built: null,
@@ -137,6 +144,7 @@ export const useApp = create<AppStore>((set, get) => ({
   downloads: null,
   userMods: null,
   drag: null,
+  overwrite: null,
   fileOver: null,
   replaceAsks: [],
   setPage: (page) => set({ page }),
@@ -209,7 +217,7 @@ export const useApp = create<AppStore>((set, get) => ({
     set({ progress: noProgress });
     try {
       await api.startRepair(ids, base, resetSettings);
-      set({ verifyReport: null, page: "updates" });
+      set({ verifyReport: null, page: "home" });
       await get().refreshStatus();
     } catch (e) {
       set({ progress: null, error: String(e) });
@@ -318,6 +326,11 @@ export const useApp = create<AppStore>((set, get) => ({
     if (job.state.kind === "done" && was !== "done") {
       void get().refreshDownloads();
       void get().refreshUserMods();
+      const missing = job.needs.filter((n) => n.modId !== null);
+      if (missing.length > 0) {
+        const names = missing.map((n) => (n.disabled ? `${n.name} (выключен)` : n.name)).join(", ");
+        set({ notice: `«${job.title ?? "Мод"}» требует: ${names}. Без них мод может не работать.` });
+      }
     }
   },
   setFomodJob: (id) => set({ fomodJob: id }),
@@ -331,11 +344,9 @@ export const useApp = create<AppStore>((set, get) => ({
     }
   },
   refreshUserMods: async () => {
-    try {
-      set({ userMods: await api.userMods() });
-    } catch {
-      set({ userMods: [] });
-    }
+    // overwrite/ is the bottom of the player's list in MO2 too.
+    const [userMods, overwrite] = await Promise.all([api.userMods().catch(() => []), api.overwriteInfo().catch(() => null)]);
+    set({ userMods, overwrite });
   },
   installArchive: async (file, after) => {
     // Unknown target (unreadable archive, no build): the install itself reports why.
@@ -384,16 +395,25 @@ export interface ReplaceAsk {
   target: ArchiveTarget;
 }
 
-/** Where a dropped archive lands: below this entry of the list (`after`), `null` for the end of the player's section. */
+/** Where a dropped archive lands: below this entry of the list (`after`), `null` for the end of the player's section.
+ *  `build`: a row of the build's section, where a row of the player's can't go. */
 export interface DropSpot {
   after: string | null;
+  build?: boolean;
 }
 
-/** The drop spot under a point of the window: rows of the mod list carry `data-drop-after`. */
+/** The drop spot under a point of the window: rows of the mod list carry `data-drop-after`. Like in MO2, the gap
+ *  nearest to the pointer: over the upper half of a row it is the one above it, so the line doesn't jump a whole
+ *  row while the pointer crosses one. */
 export function dropSpotAt(x: number, y: number): DropSpot | null {
-  const el = document.elementFromPoint(x, y)?.closest<HTMLElement>("[data-drop-after], [data-drop-zone]");
+  let el = document.elementFromPoint(x, y)?.closest<HTMLElement>("[data-drop-after], [data-drop-zone]");
   if (!el) return null;
-  return { after: el.dataset.dropAfter ?? null };
+  const r = el.getBoundingClientRect();
+  if (el.dataset.dropAfter !== undefined && y < r.top + r.height / 2) {
+    const rows = [...document.querySelectorAll<HTMLElement>("[data-drop-after]")];
+    el = rows[rows.indexOf(el) - 1] ?? el;
+  }
+  return { after: el.dataset.dropAfter ?? null, build: el.dataset.dropBuild !== undefined };
 }
 
 export function isJobActive(job: NexusJob): boolean {

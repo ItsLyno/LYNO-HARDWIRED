@@ -835,6 +835,101 @@ pub fn rename(inst: &Instance, from: &str, to: &str) -> Result<()> {
     })
 }
 
+/// Index of the player's first entry: right under `LYNO USER MODS`, or
+/// without the build past the unmanaged entries (DLC) MO2 keeps lowest.
+/// `None`: the build is installed and the player has no section yet.
+fn user_start(list: &ModList, has_build: bool) -> Option<usize> {
+    match list.entries.iter().position(|e| e.separator_title() == Some(USER_SEPARATOR)) {
+        Some(sep) => Some(sep + 1),
+        None if has_build => None,
+        None => Some(list.entries.iter().take_while(|e| e.state == EntryState::Unmanaged).count()),
+    }
+}
+
+/// Whether `name` (a mod or a separator) is in the player's section.
+pub fn is_users(list: &ModList, has_build: bool, name: &str) -> bool {
+    user_start(list, has_build).is_some_and(|s| list.entries[s..].iter().any(|e| e.name == name && e.state != EntryState::Unmanaged))
+}
+
+/// Moves an entry of the player's section (a mod or a separator) right below
+/// `after`. An `after` outside the section (its header, a build mod) means its
+/// top, `None` its end: the build's section is the build's. `false`: `name`
+/// is not the player's.
+pub fn move_entry(list: &mut ModList, has_build: bool, name: &str, after: Option<&str>) -> bool {
+    let Some(start) = user_start(list, has_build) else { return false };
+    let at = |list: &ModList, n: &str| list.entries[start..].iter().position(|e| e.name == n && e.state != EntryState::Unmanaged);
+    let Some(from) = at(list, name) else { return false };
+    let entry = list.entries.remove(start + from);
+    let to = match after {
+        None => list.entries.len(),
+        Some(a) => at(list, a).map_or(start, |i| start + i + 1),
+    };
+    list.entries.insert(to, entry);
+    true
+}
+
+/// Adds a separator of the player into the profile's list below `after` (as
+/// in [`move_entry`]). MO2 makes one an empty folder `<title>_separator`; it
+/// writes the `meta.ini` itself. Returns the folder.
+pub fn add_separator(inst: &Instance, profile: &str, title: &str, after: Option<&str>) -> Result<String> {
+    let entry = Entry::separator(title);
+    let name = entry.name.clone();
+    let dir = inst.mods_dir().join(&name);
+    std::fs::create_dir_all(&dir).map_err(|e| Error::io(&dir, e))?;
+    let path = inst.modlist_path(profile);
+    let mut list = ModList::load(&path)?;
+    let has_build = crate::install::has_build(inst);
+    if user_start(&list, has_build).is_none() {
+        list.entries.push(Entry::separator(USER_SEPARATOR));
+    }
+    list.entries.push(entry);
+    move_entry(&mut list, has_build, &name, after);
+    list.save(&path)?;
+    Ok(name)
+}
+
+/// Files in `overwrite/`: what the game and its tools wrote through MO2's
+/// virtual file system (CET and RED4ext configs, logs), above every mod.
+pub fn overwrite_files(inst: &Instance) -> Result<Vec<crate::tree::FileEntry>> {
+    let dir = inst.overwrite_dir();
+    if !dir.is_dir() {
+        return Ok(Vec::new());
+    }
+    crate::tree::list_files(&dir)
+}
+
+/// MO2's "Create Mod" of `overwrite/`: its folder becomes the mod `name`,
+/// enabled at the end of the player's section; `overwrite/` starts empty.
+/// `name` passed [`invalid_name`] and names no other mod.
+pub fn overwrite_to_mod(inst: &Instance, profile: &str, name: &str) -> Result<()> {
+    let from = inst.overwrite_dir();
+    let mods = inst.mods_dir();
+    std::fs::create_dir_all(&mods).map_err(|e| Error::io(&mods, e))?;
+    std::fs::rename(&from, mods.join(name)).map_err(|e| Error::io(&from, e))?;
+    std::fs::create_dir_all(&from).map_err(|e| Error::io(&from, e))?;
+    let path = inst.modlist_path(profile);
+    let mut list = ModList::load(&path)?;
+    insert(&mut list, Entry::enabled(name), crate::install::has_build(inst), None);
+    list.save(&path)
+}
+
+/// Empties `overwrite/`. Moved aside first, like [`remove`]: a file held open
+/// fails the whole clear instead of leaving half of it.
+pub fn clear_overwrite(inst: &Instance) -> Result<()> {
+    let dir = inst.overwrite_dir();
+    if !dir.is_dir() {
+        return Ok(());
+    }
+    let trash = inst.root().join(".lyno").join("staging").join("overwrite-cleared");
+    if trash.exists() {
+        std::fs::remove_dir_all(&trash).map_err(|e| Error::io(&trash, e))?;
+    }
+    std::fs::create_dir_all(trash.parent().unwrap()).map_err(|e| Error::io(&trash, e))?;
+    std::fs::rename(&dir, &trash).map_err(|e| Error::io(&dir, e))?;
+    std::fs::create_dir_all(&dir).map_err(|e| Error::io(&dir, e))?;
+    std::fs::remove_dir_all(&trash).map_err(|e| Error::io(&trash, e))
+}
+
 /// Qt reads an unquoted value up to the line end; quotes keep commas and
 /// semicolons, which Qt would otherwise split or cut at.
 fn ini_value(v: &str) -> String {
@@ -1171,4 +1266,52 @@ mod tests {
         assert!(invalid_name("a/b").is_some() && invalid_name("x.").is_some() && invalid_name("Foo_separator").is_some());
         assert!(invalid_name("Cool Mod 1.2").is_none());
     }
+
+    #[test]
+    fn moves_only_within_the_players_section() {
+        let list = |text: &str| ModList::parse(text, Path::new("modlist.txt")).unwrap();
+        let order = |l: &ModList| l.entries.iter().map(|e| e.name.clone()).collect::<Vec<_>>();
+        // Highest priority first in the file; UI order is the reverse.
+        let mut l = list("+C\n+B\n-Mine_separator\n+A\n-LYNO USER MODS_separator\n+Build\n");
+        assert!(move_entry(&mut l, true, "C", Some("A")));
+        assert_eq!(order(&l), ["Build", "LYNO USER MODS_separator", "A", "C", "Mine_separator", "B"]);
+        // Dropped on a build mod or the section's header: the top of the section.
+        assert!(move_entry(&mut l, true, "B", Some("Build")));
+        assert_eq!(order(&l), ["Build", "LYNO USER MODS_separator", "B", "A", "C", "Mine_separator"]);
+        assert!(move_entry(&mut l, true, "B", None));
+        assert_eq!(order(&l)[5], "B");
+        assert!(!move_entry(&mut l, true, "Build", None), "a build mod stays");
+        assert!(is_users(&l, true, "Mine_separator") && !is_users(&l, true, "Build"));
+        assert!(!move_entry(&mut l, true, "LYNO USER MODS_separator", None));
+
+        // Without the build every mod is the player's, DLC entries stay lowest.
+        let mut l = list("+B\n+A\n*DLC: EP1\n");
+        assert!(move_entry(&mut l, false, "B", Some("nothing")));
+        assert_eq!(order(&l), ["DLC: EP1", "B", "A"]);
+        assert!(!move_entry(&mut l, false, "DLC: EP1", None));
+    }
+
+    #[test]
+    fn adds_a_separator_and_makes_a_mod_of_overwrite() {
+        let (_d, inst) = instance("+Build\n");
+        let sep = add_separator(&inst, "LYNO", "Mine", None).unwrap();
+        assert_eq!(sep, "Mine_separator");
+        assert!(inst.mods_dir().join(&sep).is_dir());
+        assert_eq!(names(&inst), ["Build", USER_SEPARATOR_FOLDER, "Mine_separator"]);
+
+        std::fs::create_dir_all(inst.overwrite_dir().join("r6/logs")).unwrap();
+        std::fs::write(inst.overwrite_dir().join("r6/logs/a.log"), b"x").unwrap();
+        assert_eq!(overwrite_files(&inst).unwrap().len(), 1);
+        overwrite_to_mod(&inst, "LYNO", "From Overwrite").unwrap();
+        assert!(inst.mods_dir().join("From Overwrite/r6/logs/a.log").is_file());
+        assert!(overwrite_files(&inst).unwrap().is_empty() && inst.overwrite_dir().is_dir());
+        assert_eq!(names(&inst)[3], "From Overwrite");
+        assert_eq!(ModList::load(&inst.modlist_path("LYNO")).unwrap().get("From Overwrite").unwrap().state, EntryState::Enabled);
+
+        std::fs::write(inst.overwrite_dir().join("b.ini"), b"x").unwrap();
+        clear_overwrite(&inst).unwrap();
+        assert!(overwrite_files(&inst).unwrap().is_empty() && inst.overwrite_dir().is_dir());
+    }
+
+    const USER_SEPARATOR_FOLDER: &str = "LYNO USER MODS_separator";
 }
