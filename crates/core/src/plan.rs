@@ -1,7 +1,7 @@
 //! Turns "what the manifest wants" + "what is installed" into concrete
 //! actions and the resulting `modlist.txt`.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use serde::Serialize;
 
@@ -10,8 +10,9 @@ use crate::modlist::{Entry, EntryState, ModList};
 use crate::state::State;
 use crate::{Error, Result};
 
-/// Separator placed above mods the user added by hand; they stay at the
-/// bottom (highest priority) and updates never touch them.
+/// Separator of the player's section at the bottom (highest priority): where
+/// their new mods and their separators go. Their mods may also sit among the
+/// build's (see `target_modlist`); updates never touch them either way.
 pub const USER_SEPARATOR: &str = "LYNO USER MODS";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -56,7 +57,7 @@ pub fn plan(manifest: &Manifest, state: &State, current: &ModList) -> UpdatePlan
         download_size += manifest.base.download_size();
     }
 
-    for spec in manifest.mod_specs() {
+    for spec in manifest.mod_specs().filter(|m| !is_removed(m, state)) {
         if let Some(a) = action_for(spec, state) {
             if matches!(a, Action::Install { .. } | Action::Update { .. } | Action::Repair { .. }) {
                 download_size += spec.package.download_size();
@@ -88,6 +89,12 @@ fn action_for(spec: &ModSpec, state: &State) -> Option<Action> {
         return Some(Action::Repair { id: spec.id.clone(), from_folder: installed.folder.clone() });
     }
     (installed.folder != spec.name).then(|| Action::Rename { id: spec.id.clone(), from_folder: installed.folder.clone() })
+}
+
+/// The player removed this optional build mod: no update brings it back. One
+/// the author has made core since comes back: the build needs it.
+pub fn is_removed(spec: &ModSpec, state: &State) -> bool {
+    spec.optional && state.removed.contains(&spec.id)
 }
 
 /// Whether a build mod ends up enabled. An installed optional mod keeps its
@@ -122,43 +129,64 @@ pub fn set_enabled(manifest: &Manifest, state: &State, list: &mut ModList, id: &
     Ok(())
 }
 
+/// A player's entry of the list: neither a build mod (installed or coming
+/// with this manifest) nor a build separator, nor one MO2 doesn't manage.
+pub fn is_players(manifest: &Manifest, state: &State, e: &Entry) -> bool {
+    e.state != EntryState::Unmanaged
+        && !state.is_managed_folder(&e.name)
+        && !manifest.mods.iter().any(|m| match m {
+            ModEntry::Separator { title, .. } => Entry::separator(title).name == e.name,
+            ModEntry::Mod(m) => m.name == e.name && !is_removed(m, state),
+        })
+}
+
+/// Build entries follow the manifest; the player's keep their place. A
+/// player's mod in the build section sticks to the build entry right above
+/// it (a mod by id, so a renamed folder keeps it), or to the nearest one above
+/// that the build kept; above every build entry it stays at the top. What is
+/// under `LYNO USER MODS` stays at the bottom, and so do separators of the
+/// player found in the build section: MO2 would put build mods under them.
 fn target_modlist(manifest: &Manifest, state: &State, current: &ModList) -> ModList {
-    let build_separators: HashSet<String> = manifest
-        .mods
-        .iter()
-        .filter_map(|e| match e {
-            ModEntry::Separator { title, .. } => Some(Entry::separator(title).name),
-            ModEntry::Mod(_) => None,
-        })
-        .collect();
-    let build_folders: HashSet<&str> = manifest.mod_specs().map(|m| m.name.as_str()).collect();
+    let folder_of: HashMap<&str, &str> = manifest.mod_specs().map(|m| (m.id.as_str(), m.name.as_str())).collect();
     let user_sep = Entry::separator(USER_SEPARATOR);
+    let tail_at = current.entries.iter().position(|e| e.name == user_sep.name).unwrap_or(current.entries.len());
+    let (head, tail) = current.entries.split_at(tail_at);
 
-    let mut entries: Vec<Entry> = current
-        .entries
-        .iter()
-        .filter(|e| e.state == EntryState::Unmanaged)
-        .cloned()
-        .collect();
+    let mut stuck: HashMap<String, Vec<Entry>> = HashMap::new();
+    let mut user = Vec::new();
+    let mut anchor = String::new();
+    for e in head {
+        if is_players(manifest, state, e) {
+            match e.is_separator() {
+                true => user.push(e.clone()),
+                false => stuck.entry(anchor.clone()).or_default().push(e.clone()),
+            }
+        } else if let Some((id, _)) = state.mods.iter().find(|(_, m)| m.folder == e.name) {
+            // A build mod the manifest dropped goes away: its player's mods move up to the anchor before it.
+            if let Some(folder) = folder_of.get(id.as_str()) {
+                anchor = folder.to_string();
+            }
+        } else if e.state != EntryState::Unmanaged {
+            anchor = e.name.clone();
+        }
+    }
+    user.extend(tail.iter().filter(|e| is_players(manifest, state, e) && e.name != user_sep.name).cloned());
 
-    entries.extend(manifest.mods.iter().map(|e| match e {
-        ModEntry::Separator { title, .. } => Entry::separator(title),
-        ModEntry::Mod(m) if is_enabled(m, state, current) => Entry::enabled(&m.name),
-        ModEntry::Mod(m) => Entry::disabled(&m.name),
-    }));
-
-    let user: Vec<Entry> = current
-        .entries
-        .iter()
-        .filter(|e| {
-            e.state != EntryState::Unmanaged
-                && !state.is_managed_folder(&e.name)
-                && !build_folders.contains(e.name.as_str())
-                && !build_separators.contains(&e.name)
-                && e.name != user_sep.name
-        })
-        .cloned()
-        .collect();
+    let mut entries: Vec<Entry> = current.entries.iter().filter(|e| e.state == EntryState::Unmanaged).cloned().collect();
+    entries.extend(stuck.remove("").unwrap_or_default());
+    for e in &manifest.mods {
+        let entry = match e {
+            ModEntry::Separator { title, .. } => Some(Entry::separator(title)),
+            ModEntry::Mod(m) if is_removed(m, state) => None,
+            ModEntry::Mod(m) if is_enabled(m, state, current) => Some(Entry::enabled(&m.name)),
+            ModEntry::Mod(m) => Some(Entry::disabled(&m.name)),
+        };
+        if let Some(entry) = entry {
+            let mine = stuck.remove(&entry.name).unwrap_or_default();
+            entries.push(entry);
+            entries.extend(mine);
+        }
+    }
     if !user.is_empty() {
         entries.push(user_sep);
         entries.extend(user);
@@ -180,6 +208,7 @@ mod tests {
             base_files: vec![],
             base_damaged: false,
             last_update: None,
+            removed: Default::default(),
             mods: mods
                 .iter()
                 .map(|(id, folder, hash)| (id.to_string(), InstalledMod { folder: folder.to_string(), hash: hash.to_string(), damaged: false, reset_settings: false }))
@@ -237,10 +266,7 @@ mod tests {
         );
         assert_eq!(p.download_size, 5);
         let names: Vec<_> = p.modlist.entries.iter().map(|e| e.name.as_str()).collect();
-        assert_eq!(
-            names,
-            ["DLC: EP1", "cet folder", "r4x folder", "keep folder", "LYNO USER MODS_separator", "My Tweak"]
-        );
+        assert_eq!(names, ["DLC: EP1", "cet folder", "r4x folder", "keep folder", "My Tweak"], "the player's mod keeps its place");
         assert_eq!(p.modlist.get("My Tweak").unwrap().state, EntryState::Disabled);
     }
 
@@ -274,6 +300,65 @@ mod tests {
         assert_eq!(p.download_size, 15);
     }
 
+    #[test]
+    fn players_mods_stick_to_the_build_entry_above_them() {
+        let m = manifest(vec![
+            ModEntry::Separator { title: "Weapons".into(), color: None },
+            ModEntry::Mod(spec("gun", "g")),
+            ModEntry::Mod(spec("new", "n")),
+            ModEntry::Mod(spec("knife", "k")),
+            ModEntry::Separator { title: "Cars".into(), color: None },
+            ModEntry::Mod(spec("car", "c")),
+        ]);
+        let st = state(
+            Some("base"),
+            &[("gun", "old gun", "g"), ("gone", "gone", "x"), ("knife", "knife folder", "k"), ("car", "car folder", "c")],
+        );
+        let current = ModList {
+            entries: vec![
+                Entry::enabled("At Top"),
+                Entry::separator("Weapons"),
+                Entry::enabled("My Sight"),
+                Entry::enabled("old gun"),
+                Entry::disabled("My Ammo"),
+                Entry::enabled("gone"),
+                Entry::enabled("After Gone"),
+                Entry::enabled("knife folder"),
+                Entry::separator("My Stuff in MO2"),
+                Entry::separator("Cars"),
+                Entry::enabled("car folder"),
+                Entry::separator(USER_SEPARATOR),
+                Entry::enabled("Mine"),
+            ],
+        };
+
+        let p = plan(&m, &st, &current);
+        let names: Vec<_> = p.modlist.entries.iter().map(|e| e.name.as_str()).collect();
+        assert_eq!(
+            names,
+            [
+                "At Top",
+                "Weapons_separator",
+                "My Sight",
+                "gun folder",
+                "My Ammo",
+                "After Gone",
+                "new folder",
+                "knife folder",
+                "Cars_separator",
+                "car folder",
+                "LYNO USER MODS_separator",
+                "My Stuff in MO2_separator",
+                "Mine",
+            ],
+            "renamed anchor keeps its mods, a removed one hands them up, separators of the player go down"
+        );
+        assert_eq!(p.modlist.get("My Ammo").unwrap().state, EntryState::Disabled);
+
+        let st = state(Some("base"), &[("gun", "gun folder", "g"), ("new", "new folder", "n"), ("knife", "knife folder", "k"), ("car", "car folder", "c")]);
+        assert!(plan(&m, &st, &p.modlist).is_up_to_date(), "the player's places are not an update");
+    }
+
     fn optional(id: &str, hash: &str, enabled: bool) -> ModSpec {
         ModSpec { optional: true, enabled, ..spec(id, hash) }
     }
@@ -298,6 +383,27 @@ mod tests {
         assert_eq!(state_of("hd folder"), EntryState::Disabled, "choice survives an update with a rename");
         assert_eq!(state_of("lut folder"), EntryState::Enabled);
         assert_eq!(state_of("fresh folder"), EntryState::Enabled, "new optional mod gets the author's default");
+    }
+
+    #[test]
+    fn removed_optional_mods_stay_away() {
+        let m = manifest(vec![
+            ModEntry::Mod(spec("cet", "h")),
+            ModEntry::Mod(optional("hd", "new", true)),
+            ModEntry::Mod(optional("lut", "l", true)),
+        ]);
+        let mut st = state(Some("base"), &[("cet", "cet folder", "h")]);
+        st.removed = ["hd".to_string(), "cet".to_string()].into();
+        let current = ModList { entries: vec![Entry::enabled("cet folder"), Entry::enabled("hd folder")] };
+
+        let p = plan(&m, &st, &current);
+        assert_eq!(p.actions, [Action::Install { id: "lut".into() }], "an update of a removed mod is not for this player");
+        let names: Vec<_> = p.modlist.entries.iter().map(|e| e.name.as_str()).collect();
+        assert_eq!(
+            names,
+            ["cet folder", "hd folder", "lut folder"],
+            "a core mod ignores the mark; a folder by the removed mod's name is the player's own and stays"
+        );
     }
 
     #[test]

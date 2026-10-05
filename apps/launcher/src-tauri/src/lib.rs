@@ -99,6 +99,8 @@ pub fn run() {
             commands::cancel_verify,
             commands::start_repair,
             commands::set_mod_enabled,
+            commands::remove_build_mod,
+            commands::restore_build_mod,
             author::author_changes,
             author::author_adopt,
             author::author_secrets,

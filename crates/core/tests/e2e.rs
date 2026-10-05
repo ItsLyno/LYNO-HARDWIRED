@@ -168,6 +168,57 @@ fn install(user: &Instance, manifest: &Manifest) -> Vec<Action> {
     actions
 }
 
+/// The player removes optional build mods, in the launcher or in MO2: updates
+/// leave them out until the player brings them back. Core mods stay.
+#[test]
+fn players_remove_optional_build_mods() {
+    use lyno_core::install::{load_state, remove_mod, restore_mod};
+    let tmp = tempfile::tempdir().unwrap();
+    let author = tmp.path().join("author");
+    let release = tmp.path().join("release");
+    author_instance(&author);
+    let (base_url, _) = serve(release.clone());
+    let out = tmp.path().join("out");
+    let mut no_info = |_: &ModMeta| ModInfo { author: None, title: None };
+    let m1 = build(&author, &options("1.0.0", &base_url, &out, None), &mut no_info, &mut |_| {}).unwrap();
+    upload(&m1, &release);
+    let m1 = m1.manifest;
+    let user = Instance::new(tmp.path().join("user"));
+    install(&user, &m1);
+    let up_to_date = |m: &Manifest| {
+        let list = ModList::load(&user.modlist_path("LYNO")).unwrap();
+        plan(m, &load_state(&user, m, &list).unwrap(), &list).is_up_to_date()
+    };
+
+    remove_mod(&user, &m1, "redmod-thing").unwrap();
+    assert!(!user.mods_dir().join("REDmod Thing").exists());
+    assert!(ModList::load(&user.modlist_path("LYNO")).unwrap().get("REDmod Thing").is_none());
+    assert!(up_to_date(&m1), "removing is not damage");
+    assert!(remove_mod(&user, &m1, "cet").is_err(), "the build needs its core");
+
+    // The author updates the removed mod: not for this player.
+    write(&author, "mods/REDmod Thing/mods/Thing/info.json", b"{\"name\":\"Thing 2\"}");
+    let m2 = build(&author, &options("1.1.0", &base_url, &out, Some(m1.clone())), &mut no_info, &mut |_| {}).unwrap();
+    upload(&m2, &release);
+    let m2 = m2.manifest;
+    assert!(install(&user, &m2).is_empty());
+    assert!(!user.mods_dir().join("REDmod Thing").exists());
+
+    // Deleted in MO2: the folder and its entry are gone.
+    std::fs::remove_dir_all(user.mods_dir().join("Archive Mod")).unwrap();
+    let mut list = ModList::load(&user.modlist_path("LYNO")).unwrap();
+    list.entries.retain(|e| e.name != "Archive Mod");
+    list.save(&user.modlist_path("LYNO")).unwrap();
+    assert!(up_to_date(&m2));
+    assert!(State::load(&state_path(&user)).unwrap().removed.contains("archive-mod"));
+
+    restore_mod(&user, "redmod-thing").unwrap();
+    assert_eq!(install(&user, &m2), [Action::Install { id: "redmod-thing".into() }]);
+    assert!(user.mods_dir().join("REDmod Thing/mods/Thing/info.json").is_file());
+    let st = State::load(&state_path(&user)).unwrap();
+    assert!(!st.removed.contains("redmod-thing") && st.removed.contains("archive-mod"));
+}
+
 /// A download fails halfway through a first install (here: an asset is
 /// missing; a lost connection that outlasts the retries ends the same way).
 /// What was complete is installed, what was downloaded stays, and the next
@@ -366,7 +417,8 @@ fn build_install_update() {
     );
     assert!(user_root.join("mods/My Tweak/x.archive").exists());
     let list = ModList::load(&user.modlist_path("LYNO")).unwrap();
-    assert_eq!(list.entries.last().unwrap().name, "My Tweak");
+    let tail: Vec<_> = list.entries.iter().rev().take(2).rev().map(|e| e.name.as_str()).collect();
+    assert_eq!(tail, ["My Tweak", "LYNO Settings"], "the player's mod stays under the build mod it was under");
     assert_eq!(list.get("Archive Mod").unwrap().state, EntryState::Disabled, "player's choice survives the update");
     assert_eq!(list.get("CET").unwrap().state, EntryState::Enabled);
     let st = State::load(&state_path(&user)).unwrap();
@@ -958,7 +1010,7 @@ fn nexus_updates_are_tracked_and_installed_from_nxm_links() {
     let api = NexusApi::with_base(&base, "key");
     let downloader = Downloader::new();
     let never = || false;
-    let player = Context { inst: &user, profile: "LYNO", author: false, now };
+    let player = Context { inst: &user, profile: "LYNO", author: false, manifest: None, now };
 
     // The player's own mod: the new file only goes to MO2's downloads, the
     // installed folder stays until the player drags the archive onto the list.
@@ -1034,6 +1086,28 @@ fn nexus_updates_are_tracked_and_installed_from_nxm_links() {
     let archive = fresh.root().join("downloads/mod-11.zip");
     let target = Target::New { personal: true, after: None };
     assert_eq!(install(&fresh, "LYNO", &archive, &dl, &target).unwrap(), Outcome::Installed { folder: "Old Mod - Main File".into() });
+
+    // A build where CET is optional: the player may put their own version over it, and the build lets go of it.
+    let pkg = r#"{"hash":"h","size":0,"parts":[]}"#;
+    let m = Manifest::from_json(&format!(
+        r#"{{"schema":3,"name":"B","buildVersion":"1.0.0","gameVersion":"2.31","mo2Version":"2.5.2","profile":"LYNO","base":{{"hash":"x","size":0,"parts":[]}},
+        "mods":[{{"kind":"mod","id":"cet","name":"CET","enabled":true,"optional":true,"package":{pkg}}}]}}"#
+    ))
+    .unwrap();
+    let own = Context { manifest: Some(&m), ..player };
+    let (dl, outcome) = fetch(&api, &downloader, &own, &cet, &never, &mut |_| {}).unwrap().unwrap();
+    assert_eq!(outcome, Outcome::Downloaded { replaces: Some("CET".into()) });
+    let target = lyno_core::mod_install::target_for(&user, "LYNO", &dl, false, Some(&m), None).unwrap().unwrap();
+    assert_eq!(target, Target::Own { folder: "CET".into(), id: "cet".into() });
+    install(&user, "LYNO", &root.join("downloads/mod-2.zip"), &dl, &target).unwrap();
+    let st = State::load(&state_path(&user)).unwrap();
+    assert!(!st.mods.contains_key("cet") && st.removed.contains("cet"));
+    let list = ModList::load(&user.modlist_path("LYNO")).unwrap();
+    let p = plan(&m, &st, &list);
+    assert!(p.actions.is_empty() && p.modlist.get("CET").is_some(), "the player's version stays: {:?}", p.actions);
+    lyno_core::install::restore_mod(&user, "cet").unwrap();
+    let st = State::load(&state_path(&user)).unwrap();
+    assert_eq!(plan(&m, &st, &list).actions, [Action::Install { id: "cet".into() }], "the build's version comes back over it");
 }
 
 #[test]
@@ -1078,7 +1152,7 @@ fn nexus_fomod_update_keeps_the_players_choice() {
     let now = 1_800_000_000;
     fake_nexus(&nexus_dir, &base, now, &buf.into_inner());
     let api = NexusApi::with_base(&base, "key");
-    let player = Context { inst: &user, profile: "LYNO", author: false, now };
+    let player = Context { inst: &user, profile: "LYNO", author: false, manifest: None, now };
 
     let link = NxmLink::parse("nxm://cyberpunk2077/mods/42/files/11?key=abc&expires=99").unwrap();
     let (dl, outcome) = fetch(&api, &Downloader::new(), &player, &link, &|| false, &mut |_| {}).unwrap().unwrap();

@@ -37,7 +37,7 @@ export function pressToDrag(e: React.PointerEvent, drag: (ev: PointerEvent) => v
   window.addEventListener("pointerup", cleanup);
 }
 
-/** What is dragged, under the pointer: an archive from the downloads list, or a row of the player's section. */
+/** What is dragged, under the pointer: an archive from the downloads list, or a row of the player's own mods. */
 export function DragGhost() {
   const drag = useApp((s) => s.drag);
   const active = drag !== null;
@@ -57,7 +57,8 @@ export function DragGhost() {
       const d = useApp.getState().drag;
       useApp.setState({ drag: null });
       const spot = dropSpotAt(e.clientX, e.clientY);
-      if (!d || !spot || (d.move && spot.build)) return;
+      // A separator of the player stays in their section; their mods go among the build's too.
+      if (!d || !spot || (d.move && d.file.endsWith("_separator") && spot.build)) return;
       const { run, refreshUserMods, installArchive } = useApp.getState();
       if (!d.move) void installArchive(d.file, spot.after);
       else if (spot.after !== d.file)

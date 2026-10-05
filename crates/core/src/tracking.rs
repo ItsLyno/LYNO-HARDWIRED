@@ -14,7 +14,7 @@
 //!
 //! Who updates what: build mods of a player come from the build (an update
 //! from Nexus would be damage to [`crate::verify`] and be undone by the next
-//! build update), so a player updates only mods under `LYNO USER MODS`. The
+//! build update), so a player updates only their own mods, wherever they sit in the list. The
 //! author updates build mods too: that is how the next release gets them.
 
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
@@ -25,7 +25,6 @@ use serde::{Deserialize, Serialize};
 use crate::mo2::Instance;
 use crate::modlist::{EntryState, ModList};
 use crate::nexus::{FileInfo, ModFiles, ModPage, NexusApi, Period, Requirement};
-use crate::publish::split_user_section;
 use crate::state::State;
 use crate::{Error, Result};
 
@@ -41,7 +40,7 @@ pub struct Tracked {
     pub file_id: Option<u64>,
     /// Installed version from `meta.ini`.
     pub version: Option<String>,
-    /// Under `LYNO USER MODS`: the player's own mod.
+    /// The player's own mod: not from the build.
     pub personal: bool,
     /// Installed by the launcher from the build (in `state.json`).
     pub managed: bool,
@@ -65,29 +64,26 @@ pub fn tracked_mods(inst: &Instance, profile: &str) -> Result<(Vec<Tracked>, Vec
     let metas = inst.scan_mods()?;
     let state = State::load(&crate::install::state_path(inst))?;
     let managed: HashSet<&str> = state.mods.values().map(|m| m.folder.as_str()).collect();
-    let (build, personal) = split_user_section(&list);
     let mut tracked = Vec::new();
     let mut untracked = Vec::new();
-    // Without the build nothing is above the player's section: it is all theirs.
-    let sections = [(build, state.build_version.is_none()), (personal, true)];
-    for (entries, personal) in sections {
-        for e in entries.iter().filter(|e| e.state != EntryState::Unmanaged && !e.is_separator()) {
-            let meta = metas.get(&e.name).cloned().unwrap_or_default();
-            let Some(mod_id) = meta.mod_id else {
-                untracked.push(e.name.clone());
-                continue;
-            };
-            tracked.push(Tracked {
-                folder: e.name.clone(),
-                game: meta.game_name.map_or_else(|| DEFAULT_GAME.to_owned(), |g| g.to_lowercase()),
-                mod_id,
-                file_id: meta.file_id,
-                version: meta.version,
-                personal,
-                managed: managed.contains(e.name.as_str()),
-                enabled: e.state == EntryState::Enabled,
-            });
-        }
+    for e in list.entries.iter().filter(|e| e.state != EntryState::Unmanaged && !e.is_separator()) {
+        let meta = metas.get(&e.name).cloned().unwrap_or_default();
+        let Some(mod_id) = meta.mod_id else {
+            untracked.push(e.name.clone());
+            continue;
+        };
+        let managed = managed.contains(e.name.as_str());
+        tracked.push(Tracked {
+            folder: e.name.clone(),
+            game: meta.game_name.map_or_else(|| DEFAULT_GAME.to_owned(), |g| g.to_lowercase()),
+            mod_id,
+            file_id: meta.file_id,
+            version: meta.version,
+            // Without the build every mod is the player's; with it, wherever it sits in the list.
+            personal: state.build_version.is_none() || !managed,
+            managed,
+            enabled: e.state == EntryState::Enabled,
+        });
     }
     Ok((tracked, untracked))
 }

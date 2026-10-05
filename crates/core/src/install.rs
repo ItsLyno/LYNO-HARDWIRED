@@ -15,7 +15,8 @@ use crate::files::{self, FileList};
 use crate::manifest::{Manifest, ModEntry, ModSpec, Package};
 use crate::meta;
 use crate::mo2::Instance;
-use crate::modlist::Entry;
+use crate::mod_install;
+use crate::modlist::{Entry, ModList};
 use crate::package;
 use crate::prefetch::{self, Job, Prefetch, Report};
 use crate::rules;
@@ -46,6 +47,91 @@ pub fn state_path(inst: &Instance) -> PathBuf {
 /// the player's: there is no `LYNO USER MODS` section to keep apart.
 pub fn has_build(inst: &Instance) -> bool {
     State::load(&state_path(inst)).is_ok_and(|s| s.build_version.is_some())
+}
+
+/// The installed state, with optional build mods the player deleted in MO2
+/// (gone from `list` and from `mods/`) recorded as removed, as by
+/// [`remove_mod`]. Not while an update is unfinished: it has installed mods
+/// that aren't in the list yet. Nor for a mod marked for repair: the player
+/// asked for it back.
+pub fn load_state(inst: &Instance, manifest: &Manifest, list: &ModList) -> Result<State> {
+    let path = state_path(inst);
+    let mut state = State::load(&path)?;
+    let finished = state.build_version.is_some()
+        && state.last_update.as_ref().is_none_or(|u| state.build_version.as_deref() == Some(u.to.as_str()));
+    if !finished {
+        return Ok(state);
+    }
+    let gone: Vec<String> = manifest
+        .mod_specs()
+        .filter(|m| m.optional)
+        .filter(|m| {
+            state.mods.get(&m.id).is_some_and(|i| !i.damaged && list.get(&i.folder).is_none() && !inst.mods_dir().join(&i.folder).exists())
+        })
+        .map(|m| m.id.clone())
+        .collect();
+    for id in &gone {
+        files::remove(inst, id)?;
+        state.mods.remove(id);
+        state.removed.insert(id.clone());
+    }
+    if !gone.is_empty() {
+        state.save(&path)?;
+    }
+    Ok(state)
+}
+
+/// Deletes an optional build mod at the player's wish: its folder and its
+/// entry in every profile. Updates no longer bring it back
+/// ([`crate::plan::is_removed`]) until [`restore_mod`].
+pub fn remove_mod(inst: &Instance, manifest: &Manifest, id: &str) -> Result<()> {
+    let spec = manifest.mod_specs().find(|m| m.id == id).ok_or_else(|| Error::Manifest(format!("mod {id:?} is not in the manifest")))?;
+    if !spec.optional {
+        return Err(Error::Manifest(format!("mod {id:?} is not optional")));
+    }
+    let path = state_path(inst);
+    let mut state = State::load(&path)?;
+    if let Some(m) = state.mods.get(id) {
+        mod_install::remove(inst, &m.folder)?;
+        files::remove(inst, id)?;
+        state.mods.remove(id);
+    }
+    state.removed.insert(id.to_owned());
+    state.save(&path)
+}
+
+/// Id of the optional build mod installed in `folder` (`manifest`: the
+/// installed build): the player may put their own version there
+/// ([`detach`]). `None`: no build mod, or one the build needs.
+pub fn optional_in(inst: &Instance, manifest: &Manifest, folder: &str) -> Result<Option<String>> {
+    let state = State::load(&state_path(inst))?;
+    let id = state.mods.iter().find(|(_, m)| m.folder == folder).map(|(id, _)| id);
+    Ok(id.filter(|id| manifest.mod_specs().any(|m| m.id == **id && m.optional)).cloned())
+}
+
+/// The player puts their own version of build mod `id` into its folder: the
+/// build lets go of it as of a removed one ([`remove_mod`]), and the folder by
+/// its name is the player's (see [`crate::plan::is_players`]).
+/// [`restore_mod`] brings the build's version back over it.
+pub fn detach(inst: &Instance, id: &str) -> Result<()> {
+    let path = state_path(inst);
+    let mut state = State::load(&path)?;
+    if state.mods.remove(id).is_some() {
+        files::remove(inst, id)?;
+    }
+    state.removed.insert(id.to_owned());
+    state.save(&path)
+}
+
+/// Undoes [`remove_mod`] or [`detach`]: the next update installs the build's
+/// version again, over the player's one.
+pub fn restore_mod(inst: &Instance, id: &str) -> Result<()> {
+    let path = state_path(inst);
+    let mut state = State::load(&path)?;
+    if state.removed.remove(id) {
+        state.save(&path)?;
+    }
+    Ok(())
 }
 
 pub struct Installer<'a> {
@@ -190,6 +276,8 @@ impl Installer<'_> {
                         reset_settings: false,
                     };
                     state.mods.insert(spec.id.clone(), installed);
+                    // Back by the player's wish, or made core by the author.
+                    state.removed.remove(id);
                     // A repaired mod is the same version: no "updated" mark.
                     if !matches!(action, Action::Repair { .. }) {
                         let record = state.begin_update(&self.manifest.build_version);

@@ -1,6 +1,6 @@
 //! What the launcher has installed, kept at `<instance>/.lyno/state.json`.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
 use serde::{Deserialize, Serialize};
@@ -22,6 +22,10 @@ pub struct State {
     pub base_damaged: bool,
     /// Keyed by manifest mod id.
     pub mods: BTreeMap<String, InstalledMod>,
+    /// Optional build mods the player removed (manifest ids): updates don't
+    /// bring them back until the player asks (see [`crate::plan::is_removed`]).
+    #[serde(default, skip_serializing_if = "BTreeSet::is_empty")]
+    pub removed: BTreeSet<String>,
     /// What the latest update changed, for "added / updated in 1.4.0" marks.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last_update: Option<LastUpdate>,

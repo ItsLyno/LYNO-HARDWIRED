@@ -65,6 +65,8 @@ export type ModRow =
       recent: "added" | "updated" | null;
       /** Marked for repair; the next update downloads it again. */
       damaged: boolean;
+      /** An optional mod the player removed: updates leave it out until they bring it back. */
+      removed: boolean;
     };
 
 export interface LastUpdate {
@@ -303,6 +305,8 @@ export interface ArchiveTarget {
   version: string | null;
   /** The installed mod folder the archive goes over; `null`: a new mod. */
   replaces: string | null;
+  /** That folder is an optional build mod: the player's version takes its place, updates leave it be. */
+  build: boolean;
   installedVersion: string | null;
 }
 
@@ -346,10 +350,20 @@ export interface ArchiveRoot {
   valid: boolean;
 }
 
-/** The player's own section of the list (under LYNO USER MODS), in MO2's order. */
+/** The player's own mods, in MO2's order: among the build's, then their section (under LYNO USER MODS). */
 export type UserRow =
   | { kind: "separator"; title: string; color: string | null }
-  | { kind: "mod"; name: string; enabled: boolean; version: string | null; nexusUrl: string | null };
+  | {
+      kind: "mod";
+      name: string;
+      enabled: boolean;
+      version: string | null;
+      nexusUrl: string | null;
+      /** Among the build's: under this build row (a mod's name or `<title>_separator`), "" above them all; null: in their section. */
+      after: string | null;
+      /** The player's version of this optional build mod (its id): "Вернуть версию сборки" puts the build's back. */
+      buildId: string | null;
+    };
 
 /** What the game and its tools wrote through MO2's virtual file system. */
 export interface OverwriteInfo {
@@ -439,6 +453,9 @@ export const api = isTauri()
       startRepair: (ids: string[], base: boolean, resetSettings: boolean) =>
         invoke<void>("start_repair", { ids, base, resetSettings }),
       setModEnabled: (id: string, enabled: boolean) => invoke<void>("set_mod_enabled", { id, enabled }),
+      removeBuildMod: (id: string) => invoke<void>("remove_build_mod", { id }),
+      /** The next update installs it again. */
+      restoreBuildMod: (id: string) => invoke<void>("restore_build_mod", { id }),
       authorChanges: () => invoke<Pending>("author_changes"),
       /** Records the published build as installed: the author has just released it from this instance. */
       authorAdopt: () => invoke<void>("author_adopt"),

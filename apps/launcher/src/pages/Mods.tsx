@@ -1,4 +1,4 @@
-import { ChevronRight, ExternalLink, FolderOpen, Lock, MoreHorizontal, Pencil, RefreshCw, Search, Trash2, X, type LucideIcon, TriangleAlert, ArrowUp, Plus, Wrench, Palette, Eraser, PackagePlus, SeparatorHorizontal } from "lucide-react";
+import { ChevronRight, ExternalLink, FolderOpen, Lock, MoreHorizontal, Pencil, RefreshCw, Search, Trash2, X, type LucideIcon, TriangleAlert, Undo2, ArrowUp, Plus, Wrench, Palette, Eraser, PackagePlus, SeparatorHorizontal } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from "react";
 import { api, type ModRow, type Need, type UserRow } from "../api";
 import { Button } from "../components/Button";
@@ -8,8 +8,9 @@ import { formatBytes, plural } from "../format";
 import { activeInstance, useApp } from "../store";
 
 type Mod = Extract<ModRow, { kind: "mod" }>;
-type Group = { title: string | null; color: string | null; mods: Mod[] };
 type UserMod = Extract<UserRow, { kind: "mod" }>;
+/** A build group shows the player's mods placed among the build's too. */
+type Group = { title: string | null; color: string | null; mods: (Mod | UserMod)[] };
 type UserSeparator = Extract<UserRow, { kind: "separator" }>;
 /** The player's mods under one of their separators; `sep` null: right under the section's header. */
 type UserGroup = { sep: UserSeparator | null; mods: UserMod[] };
@@ -22,6 +23,11 @@ type Target = {
   id: string | null;
   nexusUrl: string | null;
   installed: boolean;
+  /** A build mod the player may remove (not core), and one they removed. */
+  optional: boolean;
+  removed: boolean;
+  /** The player's version of this optional build mod. */
+  buildId: string | null;
   needs: Need[];
   color: string | null;
 };
@@ -33,10 +39,12 @@ type Dialog = { kind: "delete" | "reinstall" | "rename" | "color" | "separator" 
 const USER_SEPARATOR = "LYNO USER MODS_separator";
 
 export function Mods() {
-  const { build, buildError, status, progress, setModEnabled, settings, nexus, nexusUpdates, nexusChecking, checkNexus, userMods, refreshUserMods, drag, fileOver, overwrite } =
+  const { build, buildError, status, progress, setModEnabled, settings, nexus, nexusUpdates, nexusChecking, checkNexus, userMods, refreshUserMods, refreshBuild, drag, fileOver, overwrite } =
     useApp();
+  // Both sections mirror MO2, where mods may have changed since the launcher last looked.
   useEffect(() => {
     void refreshUserMods();
+    void refreshBuild();
   }, []);
   // A player's build mods come with the build: only the author (`canUpdate`) is shown their Nexus updates.
   const nexusUpdate = new Map(
@@ -51,13 +59,16 @@ export function Mods() {
     id: m.id,
     nexusUrl: m.nexusUrl,
     installed: m.installed,
+    optional: m.optional,
+    removed: m.removed,
+    buildId: null,
     needs: needs.get(m.name) ?? [],
   });
   const userTarget = (r: UserRow): Target =>
     r.kind === "mod"
-      ? { kind: "mod", color: null, folder: r.name, label: r.name, id: null, nexusUrl: r.nexusUrl, installed: true, needs: needs.get(r.name) ?? [] }
-      : { kind: "separator", color: r.color, folder: rowKey(r), label: r.title, id: null, nexusUrl: null, installed: true, needs: [] };
-  const overwriteTarget: Target = { kind: "overwrite", color: null, folder: "overwrite", label: "Overwrite", id: null, nexusUrl: null, installed: true, needs: [] };
+      ? { kind: "mod", color: null, folder: r.name, label: r.name, id: null, nexusUrl: r.nexusUrl, installed: true, optional: false, removed: false, buildId: r.buildId, needs: needs.get(r.name) ?? [] }
+      : { kind: "separator", color: r.color, folder: rowKey(r), label: r.title, id: null, nexusUrl: null, installed: true, optional: false, removed: false, buildId: null, needs: [] };
+  const overwriteTarget: Target = { kind: "overwrite", color: null, folder: "overwrite", label: "Overwrite", id: null, nexusUrl: null, installed: true, optional: false, removed: false, buildId: null, needs: [] };
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const [collapsed, setCollapsed] = useState<Set<string>>(loadCollapsed);
@@ -104,12 +115,15 @@ export function Mods() {
     setCurrent(key);
   };
 
-  const isChange = (m: Mod) => !!m.recent || m.outdated || m.damaged || (!m.installed && !!build?.installedVersion);
-  const keep = (m: Mod) => filter === "all" || (filter === "off" ? !m.enabled : isChange(m));
-  const groups = groupMods(build?.mods ?? [], query, keep);
+  const isChange = (m: Mod) => !!m.recent || m.outdated || m.damaged || (!m.installed && !m.removed && !!build?.installedVersion);
+  const isOff = (m: Mod) => !m.enabled || m.removed;
+  const keep = (m: Mod) => filter === "all" || (filter === "off" ? isOff(m) : isChange(m));
+  const keepUser = (r: UserMod) => filter === "all" || (filter === "off" && !r.enabled);
+  const amongBuild = (userMods ?? []).filter((r): r is UserMod => r.kind === "mod" && r.after !== null);
+  const groups = groupMods(build?.mods ?? [], amongBuild, query, keep, keepUser);
   const all = (build?.mods ?? []).filter((m): m is Mod => m.kind === "mod");
   const shown = groups.reduce((n, g) => n + g.mods.length, 0);
-  const offCount = all.filter((m) => !m.enabled).length;
+  const offCount = all.filter(isOff).length;
   const changeCount = all.filter(isChange).length;
   // MO2 rewrites modlist.txt on exit, so switching mods while it runs would be lost.
   const locked = !!progress || !!status?.gameRunning || !!status?.mo2Running;
@@ -123,14 +137,13 @@ export function Mods() {
     return <p className="text-muted">{buildError ?? "Загрузка списка модов…"}</p>;
   }
   const last = build?.lastUpdate ?? null;
-  // Where an archive being dragged or dropped from Explorer would land. A player's mod never goes among the
-  // build's: over those it lands at the top of their own section, which is what the core does with it too.
+  // Where an archive being dragged or dropped from Explorer, or a row of the player, would land: a mod anywhere,
+  // among the build's too (updates keep it under the build row above it).
   const spot = drag?.over ?? (fileOver && !fileOver.outside ? fileOver : null);
   const dropping = !!drag || (!!fileOver && !fileOver.outside);
-  // A row of the player's section moves only within it: over the build's rows there is nowhere to drop it.
-  const lineAfter =
-    spot && !(drag?.move && spot.build) && (spot.after === null ? "end" : !settings?.authorMode && spot.build ? USER_SEPARATOR : spot.after);
-  const userRows = (userMods ?? []).filter((r) => r.kind === "separator" || filter === "all" || (filter === "off" && !r.enabled));
+  // A separator of the player moves only within their section: MO2 would put build mods under it.
+  const lineAfter = spot && !(drag?.move && isSeparator(drag.file) && spot.build) && (spot.after === null ? "end" : spot.after);
+  const userRows = (userMods ?? []).filter((r) => r.kind === "separator" || (r.after === null && keepUser(r)));
   const q = query.trim().toLowerCase();
   const shownUser = userRows.filter((r) => !q || r.kind === "separator" || r.name.toLowerCase().includes(q));
   const userModCount = (userMods ?? []).filter((r) => r.kind === "mod").length;
@@ -166,6 +179,7 @@ export function Mods() {
     <UserModRow
       key={r.name}
       row={r}
+      build={r.after !== null}
       update={nexusUpdate.get(r.name)}
       needs={needs.get(r.name)}
       locked={locked}
@@ -239,8 +253,9 @@ export function Mods() {
 
       {filter === "off" && (
         <p className="mt-3 text-[13px] text-muted">
-          Выбор сохраняется при обновлениях сборки. Выключенный мод остаётся установленным. Если от мода зависят
-          другие, выключите и их: лаунчер зависимостей не проверяет.
+          Выбор сохраняется при обновлениях сборки. Выключенный мод остаётся установленным, удалённый обновления не
+          вернут, пока вы сами не вернёте его через меню мода. Если от мода зависят другие, выключите и их: лаунчер
+          зависимостей не проверяет.
         </p>
       )}
       {filter === "changes" && last && last.removed.length > 0 && (
@@ -317,7 +332,7 @@ export function Mods() {
                     onToggle={() => toggleGroup(g.title!)}
                   />
                 )}
-                {(!g.title || query.trim() || !collapsed.has(g.title)) && g.mods.map((m) => (
+                {(!g.title || query.trim() || !collapsed.has(g.title)) && g.mods.map((m) => !isBuildMod(m) ? userRow(m) : (
                   <tr
                     key={m.id}
                     data-drop-after={m.name}
@@ -328,9 +343,10 @@ export function Mods() {
                   >
                     <td className="pl-5">
                      <div className="flex min-w-0 items-center gap-2">
-                      <span className={`truncate ${m.enabled ? "" : "text-faint"}`}>{m.title ?? m.name}</span>
+                      <span className={`truncate ${m.enabled && !m.removed ? "" : "text-faint"}`}>{m.title ?? m.name}</span>
                       <span className="flex shrink-0 items-center gap-1">
-                      {!m.enabled && <Badge tone="state">выключен</Badge>}
+                      {m.removed && <Badge tone="state" title="Вы удалили этот мод: обновления сборки его не вернут">удалён</Badge>}
+                      {!m.enabled && !m.removed && <Badge tone="state">выключен</Badge>}
                       {m.recent && last && (
                         <Badge tone="info" icon={m.recent === "added" ? Plus : ArrowUp} title={`В версии ${last.to}`}>
                           {m.recent === "added" ? "добавлен" : "обновлён"}
@@ -342,7 +358,7 @@ export function Mods() {
                           восстановится
                         </Badge>
                       )}
-                      {!m.installed && build?.installedVersion && <Badge tone="pending" icon={Plus}>новый</Badge>}
+                      {!m.installed && !m.removed && build?.installedVersion && <Badge tone="pending" icon={Plus}>новый</Badge>}
                       <NeedsBadge needs={needs.get(m.name)} />
                       </span>
                      </div>
@@ -472,19 +488,23 @@ type Item = { label: string; icon: LucideIcon; onClick: () => void; disabled?: b
 // Like MO2's right-click menu on a mod. Deleting and renaming are for the player's own mods: a build mod
 // would come back with the next update, so the player only switches it off (the author changes any).
 function ModMenu(props: { menu: Menu; locked: boolean; lockReason: string; onDialog: (d: Dialog) => void; onClose: () => void }) {
-  const { run, settings, userMods } = useApp();
+  const { run, settings, userMods, refreshBuild, refreshUserMods } = useApp();
   const ref = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState({ left: props.menu.x, top: props.menu.y });
   const t = props.menu.target;
   const author = !!settings?.authorMode;
   const own = !t.id || author;
+  // A player's optional build mod goes for good: updates leave it out (`remove_build_mod`).
+  const removable = own || (t.optional && t.installed);
   const dialog = (kind: Dialog["kind"], after?: string | null) => () => props.onDialog({ kind, target: t, after });
   // A player's build mod comes again with the build (repair), which needs MO2 closed; an archive install waits for it.
   const repair = !!t.id && !author;
   const lock = props.locked ? props.lockReason : undefined;
   // Above the mod, as MO2's "Create separator": below the row before it, or at the top of the section.
-  const at = (userMods ?? []).findIndex((r) => rowKey(r) === t.folder);
-  const above = at > 0 ? rowKey(userMods![at - 1]) : USER_SEPARATOR;
+  // Not among the build's: MO2 would put build mods under it.
+  const section = (userMods ?? []).filter((r) => r.kind === "separator" || r.after === null);
+  const at = section.findIndex((r) => rowKey(r) === t.folder);
+  const above = at > 0 ? rowKey(section[at - 1]) : USER_SEPARATOR;
   const items: (Item | null)[] = t.kind === "separator" ? [
     { label: "Переименовать", icon: Pencil, disabled: props.locked, title: lock, onClick: dialog("rename") },
     { label: "Цвет", icon: Palette, disabled: props.locked, title: lock, onClick: dialog("color") },
@@ -524,15 +544,42 @@ function ModMenu(props: { menu: Menu; locked: boolean; lockReason: string; onDia
       title: !own ? "Мод сборки можно только выключить" : props.locked ? props.lockReason : undefined,
       onClick: dialog("rename"),
     },
-    {
-      label: "Удалить",
-      icon: Trash2,
-      danger: true,
-      disabled: !own || props.locked,
-      title: !own ? "Мод сборки можно только выключить" : props.locked ? props.lockReason : undefined,
-      onClick: dialog("delete"),
-    },
-    ...(t.id
+    ...(t.buildId
+      ? [
+          {
+            label: "Вернуть версию сборки",
+            icon: Undo2,
+            disabled: props.locked,
+            title: props.locked ? props.lockReason : "Версия сборки скачается со следующим обновлением и заменит вашу",
+            onClick: () =>
+              void run(async () => {
+                await api.restoreBuildMod(t.buildId!);
+                await Promise.all([refreshBuild(), refreshUserMods()]);
+              }),
+          },
+        ]
+      : []),
+    t.removed
+      ? {
+          label: "Вернуть в сборку",
+          icon: Undo2,
+          disabled: props.locked,
+          title: props.locked ? props.lockReason : "Мод установится со следующим обновлением сборки",
+          onClick: () =>
+            void run(async () => {
+              await api.restoreBuildMod(t.id!);
+              await refreshBuild();
+            }),
+        }
+      : {
+          label: "Удалить",
+          icon: Trash2,
+          danger: true,
+          disabled: !removable || props.locked,
+          title: !removable ? (t.installed ? "Основа сборки: от этого мода зависят другие, удалить его нельзя" : "Мод ещё не установлен") : props.locked ? props.lockReason : undefined,
+          onClick: dialog("delete"),
+        },
+    ...(t.id || at < 0
       ? []
       : [null, { label: "Разделитель над модом", icon: SeparatorHorizontal, disabled: props.locked, title: lock, onClick: dialog("separator", above) }]),
     // What its Nexus page asks for and the list lacks: a way to the page, the install stays the player's drag.
@@ -666,6 +713,17 @@ function ModDialog({ dialog, onClose }: { dialog: Dialog; onClose: () => void })
       confirm: "Удалить",
       danger: true,
       ok: () => act(() => api.deleteMod(t.folder)),
+    } : repair ? {
+      title: "Удалить мод сборки?",
+      body: (
+        <p>
+          Папка мода удалится с диска, мод пропадёт из списка, и обновления сборки его не вернут. Передумаете — «Вернуть в сборку»
+          в меню мода, и он скачается заново со следующим обновлением. Если от мода зависят другие, удалите или выключите и их.
+        </p>
+      ),
+      confirm: "Удалить",
+      danger: true,
+      ok: () => act(() => api.removeBuildMod(t.id!)),
     } : {
       title: "Удалить мод?",
       body: <p>Папка мода удалится с диска вместе со всеми файлами, мод пропадёт из списка во всех профилях. Отменить это нельзя.</p>,
@@ -890,9 +948,12 @@ function rowKey(r: UserRow): string {
   return r.kind === "mod" ? r.name : `${r.title}_separator`;
 }
 
-// The player's own mods: theirs to switch, in MO2's list order. Updates of the build never touch them.
+// The player's own mods: theirs to switch, in MO2's list order, in their section or among the build's. Updates of
+// the build never touch them.
 function UserModRow(props: {
   row: UserMod;
+  /** Among the build's: a separator of the player doesn't land on it. */
+  build: boolean;
   update?: NexusUpdate;
   needs?: Need[];
   locked: boolean;
@@ -916,6 +977,7 @@ function UserModRow(props: {
   return (
     <tr
       data-drop-after={r.name}
+      data-drop-build={props.build || undefined}
       onPointerDown={props.onPress}
       onClick={menu}
       onContextMenu={menu}
@@ -925,6 +987,11 @@ function UserModRow(props: {
         <div className="flex min-w-0 items-center gap-2">
           <span className={`truncate ${r.enabled ? "" : "text-faint"}`}>{r.name}</span>
           <span className="flex shrink-0 items-center gap-1">
+            {r.buildId && (
+              <Badge tone="info" title="Ваша версия мода сборки: обновления сборки её не трогают. Вернуть версию сборки — в меню мода">
+                своя версия
+              </Badge>
+            )}
             {!r.enabled && <Badge tone="state">выключен</Badge>}
             <NeedsBadge needs={props.needs} />
           </span>
@@ -1025,14 +1092,38 @@ function saveCollapsed(titles: Set<string>) {
   }
 }
 
-function groupMods(rows: ModRow[], query: string, keep: (m: Mod) => boolean): Group[] {
+function isBuildMod(m: Mod | UserMod): m is Mod {
+  return "id" in m;
+}
+
+function isSeparator(folder: string): boolean {
+  return folder.endsWith("_separator");
+}
+
+/** Build rows by separator, each followed by the player's mods placed under it (`after`). */
+function groupMods(rows: ModRow[], user: UserMod[], query: string, keep: (m: Mod) => boolean, keepUser: (m: UserMod) => boolean): Group[] {
   const q = query.trim().toLowerCase();
-  const matches = (m: Mod) =>
-    keep(m) && (!q || [m.name, m.title].some((s) => s?.toLowerCase().includes(q)));
+  const matches = (m: Mod | UserMod) =>
+    (isBuildMod(m) ? keep(m) : keepUser(m)) && (!q || [m.name, isBuildMod(m) ? m.title : null].some((s) => s?.toLowerCase().includes(q)));
+  const under = new Map<string, UserMod[]>();
+  for (const u of user) under.set(u.after!, [...(under.get(u.after!) ?? []), u]);
   const groups: Group[] = [{ title: null, color: null, mods: [] }];
+  const add = (m: Mod | UserMod) => matches(m) && groups[groups.length - 1].mods.push(m);
+  const addUnder = (key: string) => {
+    for (const u of under.get(key) ?? []) add(u);
+    under.delete(key);
+  };
+  addUnder("");
   for (const r of rows) {
-    if (r.kind === "separator") groups.push({ title: r.title, color: r.color, mods: [] });
-    else if (matches(r)) groups[groups.length - 1].mods.push(r);
+    if (r.kind === "separator") {
+      groups.push({ title: r.title, color: r.color, mods: [] });
+      addUnder(`${r.title}_separator`);
+    } else {
+      add(r);
+      addUnder(r.name);
+    }
   }
+  // Under a row the build list no longer shows: the end of the build section, where MO2 has them too.
+  for (const key of [...under.keys()]) addUnder(key);
   return groups.filter((g) => g.mods.length > 0);
 }

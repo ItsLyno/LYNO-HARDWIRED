@@ -178,7 +178,94 @@ pub enum ModRow {
         recent: Option<&'static str>,
         /// Marked for repair by an integrity check; the next update downloads it again.
         damaged: bool,
+        /// An optional mod the player removed (`remove_build_mod`): updates leave it out.
+        removed: bool,
     },
+}
+
+/// The build section as it is in MO2: the player or the author removes, renames and updates
+/// build mods there, and the manifest only learns of it with the next release. Mods the
+/// manifest adds and the player doesn't have yet go after the entry they follow in the manifest.
+/// A player's own mods there are in [`user_mods`]; the author's are the next release.
+fn build_rows(
+    inst: &Instance,
+    manifest: &Manifest,
+    installed: &State,
+    current: &ModList,
+    author: bool,
+    spec_row: impl Fn(&lyno_core::manifest::ModSpec) -> ModRow,
+) -> Vec<ModRow> {
+    let metas = inst.scan_mods().unwrap_or_default();
+    let specs: std::collections::HashMap<&str, &lyno_core::manifest::ModSpec> =
+        manifest.mod_specs().map(|m| (m.id.as_str(), m)).collect();
+    let mut rows: Vec<ModRow> = lyno_core::publish::split_user_section(current)
+        .0
+        .iter()
+        .filter(|e| e.state != EntryState::Unmanaged && (author || e.is_separator() || !plan::is_players(manifest, installed, e)))
+        .map(|e| {
+            let meta = metas.get(&e.name).cloned().unwrap_or_default();
+            if let Some(title) = e.separator_title() {
+                return ModRow::Separator { title: title.to_owned(), color: meta.color };
+            }
+            let id = lyno_core::publish::mod_id(&e.name, &meta);
+            let spec = specs.get(id.as_str());
+            let mut row = match spec {
+                Some(m) => spec_row(m),
+                None => {
+                    let game = meta.game_name.clone().unwrap_or_else(|| "cyberpunk2077".into()).to_lowercase();
+                    ModRow::Mod {
+                        id: id.clone(),
+                        name: e.name.clone(),
+                        title: None,
+                        version: None,
+                        author: None,
+                        nexus_url: meta.mod_id.map(|n| format!("https://www.nexusmods.com/{game}/mods/{n}")),
+                        enabled: false,
+                        optional: true,
+                        size: 0,
+                        outdated: false,
+                        installed: true,
+                        recent: None,
+                        damaged: false,
+                        removed: false,
+                    }
+                }
+            };
+            if let ModRow::Mod { name, version, enabled, .. } = &mut row {
+                *name = e.name.clone();
+                *enabled = e.state == EntryState::Enabled;
+                // What is installed: updated in MO2 or from Nexus ahead of the published manifest.
+                if meta.version.is_some() {
+                    version.clone_from(&meta.version);
+                }
+            }
+            row
+        })
+        .collect();
+
+    let key = |r: &ModRow| match r {
+        ModRow::Separator { title, .. } => format!("s:{title}"),
+        ModRow::Mod { id, .. } => format!("m:{id}"),
+    };
+    let mut after: Option<String> = None;
+    for e in &manifest.mods {
+        let k = match e {
+            ModEntry::Separator { title, .. } => format!("s:{title}"),
+            ModEntry::Mod(m) => format!("m:{}", m.id),
+        };
+        if let ModEntry::Mod(m) = e {
+            // A removed mod the player has their own version of shows as theirs (`user_mods`).
+            let own = plan::is_removed(m, installed) && current.get(&m.name).is_some();
+            if !installed.mods.contains_key(&m.id) && !own && !rows.iter().any(|r| key(r) == k) {
+                let at = after.as_ref().and_then(|a| rows.iter().position(|r| key(r) == *a)).map_or(0, |i| i + 1);
+                rows.insert(at, spec_row(m));
+            }
+        }
+        if rows.iter().any(|r| key(r) == k) {
+            after = Some(k);
+        }
+    }
+    rows
 }
 
 /// Fetches the latest manifest from GitHub and compares it with what is installed.
@@ -213,8 +300,13 @@ pub async fn fetch_build(app: AppHandle) -> CmdResult<Option<BuildInfo>> {
     };
     *state.manifest.lock().unwrap() = online.then(|| manifest.clone());
 
-    let installed = State::load(&install::state_path(&inst)).map_err(err)?;
     let current = ModList::load(&inst.modlist_path(&manifest.profile)).unwrap_or_default();
+    // A build mod the author deleted in MO2 is a change for the next release, not the player's choice.
+    let installed = match settings.author_mode {
+        true => State::load(&install::state_path(&inst)),
+        false => install::load_state(&inst, &manifest, &current),
+    }
+    .map_err(err)?;
     let plan = plan::plan(&manifest, &installed, &current);
     let downloaded = install::cached_bytes(&inst, &manifest, &plan);
     log::info!(
@@ -239,37 +331,38 @@ pub async fn fetch_build(app: AppHandle) -> CmdResult<Option<BuildInfo>> {
         }
     };
 
-    let mods = manifest
-        .mods
-        .iter()
-        .map(|e| match e {
-            ModEntry::Separator { title, color } => ModRow::Separator { title: title.clone(), color: color.clone() },
-            ModEntry::Mod(m) => {
-                let have = installed.mods.get(&m.id);
-                // What is installed: the author updates build mods from Nexus or the
-                // downloads list between releases, ahead of the published manifest.
-                let installed_version = have
-                    .and_then(|h| lyno_core::meta::ModMeta::load(&inst.mods_dir().join(&h.folder).join("meta.ini")).ok())
-                    .and_then(|meta| meta.version);
-                ModRow::Mod {
-                    id: m.id.clone(),
-                    name: m.name.clone(),
-                    title: m.title.clone(),
-                    // Builds published before `meta::display_version` carry MO2's padded `1.35.0`.
-                    version: installed_version.or_else(|| m.version.as_deref().map(lyno_core::meta::display_version)),
-                    author: m.author.clone(),
-                    nexus_url: m.nexus.as_ref().map(|n| n.url()),
-                    enabled: plan::is_enabled(m, &installed, &current),
-                    optional: m.optional,
-                    size: m.package.size,
-                    outdated: have.is_some_and(|h| h.hash != m.package.hash),
-                    installed: have.is_some(),
-                    recent: recent(&m.id),
-                    damaged: have.is_some_and(|h| h.damaged),
-                }
-            }
-        })
-        .collect();
+    let spec_row = |m: &lyno_core::manifest::ModSpec| {
+        let have = installed.mods.get(&m.id);
+        ModRow::Mod {
+            id: m.id.clone(),
+            name: m.name.clone(),
+            title: m.title.clone(),
+            // Builds published before `meta::display_version` carry MO2's padded `1.35.0`.
+            version: m.version.as_deref().map(lyno_core::meta::display_version),
+            author: m.author.clone(),
+            nexus_url: m.nexus.as_ref().map(|n| n.url()),
+            enabled: plan::is_enabled(m, &installed, &current),
+            optional: m.optional,
+            size: m.package.size,
+            outdated: have.is_some_and(|h| h.hash != m.package.hash),
+            installed: have.is_some(),
+            recent: recent(&m.id),
+            damaged: have.is_some_and(|h| h.damaged),
+            removed: plan::is_removed(m, &installed),
+        }
+    };
+    let mods = match installed.build_version {
+        // First install: nothing in MO2 yet, the list is the manifest's.
+        None => manifest
+            .mods
+            .iter()
+            .map(|e| match e {
+                ModEntry::Separator { title, color } => ModRow::Separator { title: title.clone(), color: color.clone() },
+                ModEntry::Mod(m) => spec_row(m),
+            })
+            .collect(),
+        Some(_) => build_rows(&inst, &manifest, &installed, &current, settings.author_mode, spec_row),
+    };
 
     Ok(Some(BuildInfo {
         name: manifest.name.clone(),
@@ -371,8 +464,8 @@ pub fn start_update(app: AppHandle) -> CmdResult<()> {
 
 fn run_update(app: &AppHandle, manifest: &Manifest, settings: &Settings, cancel: &AtomicBool) -> lyno_core::Result<()> {
     let inst = Instance::new(&settings.instance_dir);
-    let state = State::load(&install::state_path(&inst))?;
     let current = ModList::load(&inst.modlist_path(&manifest.profile)).unwrap_or_default();
+    let state = install::load_state(&inst, manifest, &current)?;
     let plan = plan::plan(manifest, &state, &current);
 
     let downloader = Downloader::new();
@@ -512,8 +605,8 @@ const NOT_BUILD: &str = "Выбран ваш Mod Organizer 2, а сборка с
 /// The game and MO2 write into the instance being packed.
 const AUTHOR_JOB_RUNNING: &str = "Идёт сборка или публикация выпуска: дождитесь окончания";
 
-/// Both would undo the author's work: an update puts mods it doesn't know
-/// under `LYNO USER MODS`, a repair downloads edited mods again.
+/// Both would undo the author's work: an update takes mods it doesn't know
+/// for the player's, a repair downloads edited mods again.
 const AUTHOR_MODE_NO_UPDATE: &str =
     "В режиме автора обновление и починка выключены: они откатили бы ваши правки модов. \
      Выключите режим автора в настройках, если нужно поставить опубликованную версию.";
@@ -550,48 +643,111 @@ pub fn set_mod_enabled(state: TauriState<'_, AppState>, id: String, enabled: boo
     Ok(())
 }
 
-/// A row of the player's own section (under `LYNO USER MODS`), in MO2's order.
+/// Deletes an optional build mod for good: updates no longer bring it back. MO2 would write
+/// the list back on exit, so it must be closed.
+#[tauri::command]
+pub fn remove_build_mod(state: TauriState<'_, AppState>, id: String) -> CmdResult<()> {
+    let inst = editable(&state)?;
+    let manifest = state.manifest.lock().unwrap().clone().or_else(|| installed_manifest(&inst)).ok_or("Сборка не установлена")?;
+    install::remove_mod(&inst, &manifest, &id).map_err(|e| {
+        log::error!("remove build mod {id}: {e}");
+        match e {
+            lyno_core::Error::Manifest(_) => "Этот мод нужен сборке: его можно только оставить".to_owned(),
+            e => format!("Не удалось удалить мод: {e}"),
+        }
+    })?;
+    log::info!("removed build mod {id}");
+    Ok(())
+}
+
+/// Brings a removed build mod back with the next update.
+#[tauri::command]
+pub fn restore_build_mod(state: TauriState<'_, AppState>, id: String) -> CmdResult<()> {
+    let inst = editable(&state)?;
+    install::restore_mod(&inst, &id).map_err(err)?;
+    log::info!("restored build mod {id}");
+    Ok(())
+}
+
+/// A row of the player's own mods, in MO2's order.
 #[derive(Serialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum UserRow {
     Separator { title: String, color: Option<String> },
     #[serde(rename_all = "camelCase")]
-    Mod { name: String, enabled: bool, version: Option<String>, nexus_url: Option<String> },
+    Mod {
+        name: String,
+        enabled: bool,
+        version: Option<String>,
+        nexus_url: Option<String>,
+        /// Among the build's: under this build entry (a mod's folder or a separator's), after
+        /// the player's mods already there; `""`: above every build entry.
+        /// `None`: under `LYNO USER MODS`.
+        after: Option<String>,
+        /// The player's version of this optional build mod (manifest id): `restore_build_mod`
+        /// brings the build's back over it.
+        build_id: Option<String>,
+    },
 }
 
 /// The player's own mods: not in the manifest, so the build's list doesn't show them.
+/// Their section, and their mods among the build's (`plan::target_modlist` keeps them there).
 #[tauri::command]
 pub fn user_mods(state: TauriState<'_, AppState>) -> CmdResult<Vec<UserRow>> {
-    let inst = Instance::new(&state.settings.lock().unwrap().instance_dir);
+    let settings = state.settings.lock().unwrap().clone();
+    let inst = Instance::new(&settings.instance_dir);
     let path = inst.modlist_path(&profile(&inst));
     if !path.is_file() {
         return Ok(Vec::new());
     }
     let list = ModList::load(&path).map_err(err)?;
-    let user = match install::has_build(&inst) {
-        true => lyno_core::publish::split_user_section(&list).1.get(1..).unwrap_or_default(),
-        false => &list.entries[..],
+    let (build, user) = match install::has_build(&inst) {
+        true => {
+            let (build, user) = lyno_core::publish::split_user_section(&list);
+            (build, user.get(1..).unwrap_or_default())
+        }
+        false => (&[][..], &list.entries[..]),
     };
-    Ok(user
-        .iter()
-        .filter(|e| e.state != EntryState::Unmanaged)
-        .map(|e| {
-            let meta = inst.mods_dir().join(&e.name).join("meta.ini");
-            let meta = lyno_core::meta::ModMeta::load(&meta).unwrap_or_default();
-            match e.separator_title() {
-                Some(title) => UserRow::Separator { title: title.to_owned(), color: meta.color },
-                None => {
-                    let game = meta.game_name.clone().unwrap_or_else(|| "cyberpunk2077".into()).to_lowercase();
-                    UserRow::Mod {
-                        name: e.name.clone(),
-                        enabled: e.state == EntryState::Enabled,
-                        version: meta.version,
-                        nexus_url: meta.mod_id.map(|id| format!("https://www.nexusmods.com/{game}/mods/{id}")),
-                    }
+    // The author's mods in the build section are the next release: the build's list shows them.
+    let manifest = match settings.author_mode {
+        true => None,
+        false => state.manifest.lock().unwrap().clone().or_else(|| installed_manifest(&inst)),
+    };
+    let installed = State::load(&install::state_path(&inst)).map_err(err)?;
+    let row = |e: &Entry, after: Option<String>| {
+        let meta = inst.mods_dir().join(&e.name).join("meta.ini");
+        let meta = lyno_core::meta::ModMeta::load(&meta).unwrap_or_default();
+        match e.separator_title() {
+            Some(title) => UserRow::Separator { title: title.to_owned(), color: meta.color },
+            None => {
+                let game = meta.game_name.clone().unwrap_or_else(|| "cyberpunk2077".into()).to_lowercase();
+                UserRow::Mod {
+                    name: e.name.clone(),
+                    enabled: e.state == EntryState::Enabled,
+                    version: meta.version,
+                    nexus_url: meta.mod_id.map(|id| format!("https://www.nexusmods.com/{game}/mods/{id}")),
+                    after,
+                    build_id: manifest
+                        .as_ref()
+                        .and_then(|m| m.mod_specs().find(|m| m.name == e.name && plan::is_removed(m, &installed)))
+                        .map(|m| m.id.clone()),
                 }
             }
-        })
-        .collect())
+        }
+    };
+    let mut rows = Vec::new();
+    if let Some(manifest) = manifest.as_ref().filter(|_| !build.is_empty()) {
+        let mut anchor = String::new();
+        for e in build.iter().filter(|e| e.state != EntryState::Unmanaged) {
+            if !e.is_separator() && plan::is_players(manifest, &installed, e) {
+                rows.push(row(e, Some(anchor.clone())));
+            } else {
+                anchor = e.name.clone();
+            }
+        }
+    }
+    rows.extend(user.iter().filter(|e| e.state != EntryState::Unmanaged).map(|e| row(e, None)));
+    Ok(rows)
 }
 
 /// Switches a mod of the player's own section on or off.
@@ -606,12 +762,11 @@ pub fn set_user_mod_enabled(state: TauriState<'_, AppState>, folder: String, ena
     let inst = Instance::new(&state.settings.lock().unwrap().instance_dir);
     let path = inst.modlist_path(&profile(&inst));
     let mut list = ModList::load(&path).map_err(err)?;
-    let at = match install::has_build(&inst) {
-        true => list.entries.iter().position(|e| e.separator_title() == Some(plan::USER_SEPARATOR)),
-        false => Some(0),
-    };
-    let entry = at
-        .and_then(|at| list.entries[at..].iter_mut().find(|e| e.name == folder && !e.is_separator()))
+    let installed = State::load(&install::state_path(&inst)).map_err(err)?;
+    let entry = list
+        .entries
+        .iter_mut()
+        .find(|e| e.name == folder && !e.is_separator() && e.state != EntryState::Unmanaged && !installed.is_managed_folder(&e.name))
         .ok_or("Это не ваш мод: моды сборки включаются в её списке")?;
     entry.state = if enabled { EntryState::Enabled } else { EntryState::Disabled };
     list.save(&path).map_err(err)?;
@@ -708,14 +863,15 @@ fn separator_folder(title: &str) -> CmdResult<String> {
     Ok(Entry::separator(title).name)
 }
 
-/// Drags a mod or separator of the player's section below `after` (`None`: the end),
-/// in the current profile only: the order is a profile's, as in MO2.
+/// Drags a mod or separator of the player below `after` (`None`: the end), in the current
+/// profile only: the order is a profile's, as in MO2. A mod may go among the build's.
 #[tauri::command]
 pub fn move_user_mod(state: TauriState<'_, AppState>, folder: String, after: Option<String>) -> CmdResult<()> {
     let inst = editable(&state)?;
     let path = inst.modlist_path(&profile(&inst));
     let mut list = ModList::load(&path).map_err(err)?;
-    if !mod_install::move_entry(&mut list, install::has_build(&inst), &folder, after.as_deref()) {
+    let installed = State::load(&install::state_path(&inst)).map_err(err)?;
+    if !mod_install::move_entry(&mut list, install::has_build(&inst), |f| installed.is_managed_folder(f), &folder, after.as_deref()) {
         return Err("Перетаскивать можно только ваши моды: порядок сборки задаёт её автор".into());
     }
     list.save(&path).map_err(err)?;

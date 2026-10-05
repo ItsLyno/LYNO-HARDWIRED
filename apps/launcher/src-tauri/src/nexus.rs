@@ -32,7 +32,7 @@ use lyno_core::tracking::{self, Cache, Need, Status, Tracked};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, State as TauriState};
 
-use crate::commands::{err, profile, running_processes, CmdResult};
+use crate::commands::{err, installed_manifest, profile, running_processes, CmdResult};
 use crate::secrets::{self, Secret};
 use crate::AppState;
 
@@ -606,7 +606,7 @@ fn work(app: &AppHandle) {
                 JobState::Done { outcome }
             }
             Ok(Err(BuildMod(folder))) => JobState::Failed {
-                error: format!("«{folder}» входит в сборку: он обновляется вместе со сборкой, а не с Nexus"),
+                error: format!("«{folder}» — основа сборки: от него зависят другие моды, поэтому его версию задаёт сборка"),
             },
             Err(lyno_core::Error::Cancelled) => JobState::Cancelled,
             Err(e) => {
@@ -693,7 +693,8 @@ fn run_job(app: &AppHandle, job: &Job) -> lyno_core::Result<Result<Next, BuildMo
         Work::Fetch(link) => {
             let key = secrets::get(Secret::NexusKey).ok_or_else(|| lyno_core::Error::Nexus { status: 401, message: String::new() })?;
             let api = NexusApi::new(&key);
-            let ctx = Context { inst: &inst, profile: &profile, author: settings.author_mode, now: now() };
+            let installed = installed_manifest(&inst);
+            let ctx = Context { inst: &inst, profile: &profile, author: settings.author_mode, manifest: installed.as_ref(), now: now() };
             let mut last_emit = std::time::Instant::now() - Duration::from_secs(1);
             let result = mod_install::fetch(&api, &Downloader::new(), &ctx, &link, &cancelled, &mut |p| match p {
                 Progress::Resolved { mod_name, file_title, version, size, replaces } => update_job(app, id, |j| {
@@ -724,7 +725,7 @@ fn run_job(app: &AppHandle, job: &Job) -> lyno_core::Result<Result<Next, BuildMo
             update_job(app, id, |j| j.describe(&download));
             let target = match into {
                 Some(folder) => Target::Replace(folder),
-                None => match mod_install::target_for(&inst, &profile, &download, settings.author_mode, after)? {
+                None => match mod_install::target_for(&inst, &profile, &download, settings.author_mode, installed_manifest(&inst).as_ref(), after)? {
                     Ok(t) => t,
                     Err(build_mod) => return Ok(Err(build_mod)),
                 },
@@ -859,6 +860,8 @@ pub struct ArchiveTarget {
     version: Option<String>,
     /// The installed mod folder the archive goes over.
     replaces: Option<String>,
+    /// That folder is an optional build mod: the player's version takes its place for good.
+    build: bool,
     installed_version: Option<String>,
 }
 
@@ -870,10 +873,11 @@ pub async fn archive_target(app: AppHandle, file: String) -> CmdResult<ArchiveTa
     tauri::async_runtime::spawn_blocking(move || {
         let archive = archive_path(&inst, &file)?;
         let download = mod_install::download_for(&archive);
-        // A player's build mod: the install itself says why it can't go there.
-        let replaces = match mod_install::target_for(&inst, &profile, &download, author, None).map_err(err)? {
-            Ok(Target::Replace(folder)) => Some(folder),
-            _ => None,
+        // A player's core build mod: the install itself says why it can't go there.
+        let (replaces, build) = match mod_install::target_for(&inst, &profile, &download, author, installed_manifest(&inst).as_ref(), None).map_err(err)? {
+            Ok(Target::Replace(folder)) => (Some(folder), false),
+            Ok(Target::Own { folder, .. }) => (Some(folder), true),
+            _ => (None, false),
         };
         let installed_version = replaces
             .as_ref()
@@ -883,6 +887,7 @@ pub async fn archive_target(app: AppHandle, file: String) -> CmdResult<ArchiveTa
             mod_name: download.mod_name,
             version: download.version.as_deref().map(lyno_core::meta::display_version),
             replaces,
+            build,
             installed_version,
         })
     })

@@ -3,7 +3,7 @@
 //! instance is ahead of the published build on purpose: mods added, removed,
 //! edited or reordered. For a player these are damage or foreign mods; for the
 //! author they are the next release. An update or a repair would undo them
-//! ([`crate::plan`] moves unknown mods under `LYNO USER MODS` and downloads
+//! ([`crate::plan`] takes unknown mods for the player's and downloads
 //! edited ones again), so the launcher keeps both off in author mode.
 //!
 //! Content changes inside build mods come from [`crate::verify`], which already
@@ -155,6 +155,7 @@ pub fn adopt(inst: &Instance, manifest: &Manifest, out_dir: Option<&Path>) -> Re
         base_files: base_files(inst.root(), &manifest.profile, out_dir)?.into_iter().map(|f| f.path).collect(),
         base_damaged: false,
         mods,
+        removed: Default::default(),
         last_update: Some(record),
     };
     state.save(&path)?;

@@ -56,6 +56,7 @@ function mod(name: string, author: string, version: string, size: number, nexusI
     installed: true,
     recent: null,
     damaged: false,
+    removed: false,
     ...extra,
   } as ModRow;
 }
@@ -386,12 +387,23 @@ let downloads: DownloadItem[] = [
   { fileName: "Weird Layout Pack.rar", size: 40 * MB, modified: now() - 90000, modName: "Weird Layout Pack", fileTitle: null, version: null, modId: 0, fileId: 0, installed: false },
 ];
 let userMods: UserRow[] = [
-  { kind: "mod", name: "Better Lightning", enabled: true, version: "3.1", nexusUrl: "https://www.nexusmods.com/cyberpunk2077/mods/15520" },
+  { kind: "mod", name: "Darker Nights", enabled: true, version: "1.4", nexusUrl: null, after: "Nova LUT", buildId: null },
+  { kind: "mod", name: "Better Lightning", enabled: true, version: "3.1", nexusUrl: "https://www.nexusmods.com/cyberpunk2077/mods/15520", after: null, buildId: null },
   { kind: "separator", title: "Мои текстуры", color: "#3cf2a0" },
-  { kind: "mod", name: "Photo Mode Unlocker", enabled: false, version: "1.0", nexusUrl: "https://www.nexusmods.com/cyberpunk2077/mods/2711" },
+  { kind: "mod", name: "Photo Mode Unlocker", enabled: false, version: "1.0", nexusUrl: "https://www.nexusmods.com/cyberpunk2077/mods/2711", after: null, buildId: null },
 ];
 let overwrite: OverwriteInfo = { files: 14, size: 182_000 };
 const userKey = (r: UserRow) => (r.kind === "mod" ? r.name : `${r.title}_separator`);
+/** Below `after`: a row of the player's (taking its place), a build row (a mod goes among the build's) or the end. */
+function place(row: UserRow, after: string | null) {
+  const at = after === null ? -1 : userMods.findIndex((r) => userKey(r) === after);
+  const prev = userMods[at];
+  const among = after !== null && at < 0 && after !== "LYNO USER MODS_separator" && row.kind === "mod";
+  if (row.kind === "mod") row = { ...row, after: among ? after : prev?.kind === "mod" ? prev.after : null };
+  if (after === "LYNO USER MODS_separator") userMods = [...userMods.filter((r) => r.kind === "mod" && r.after !== null), row, ...userMods.filter((r) => r.kind === "separator" || r.after === null)];
+  else if (at < 0) userMods = among ? [row, ...userMods] : [...userMods, row];
+  else userMods = [...userMods.slice(0, at + 1), row, ...userMods.slice(at + 1)];
+}
 const mockRoots: ArchiveRoot[] = [
   { path: "", files: 6, valid: false },
   { path: "Pack/", files: 6, valid: false },
@@ -417,12 +429,9 @@ async function simulateInstall(id: number, file: string, after: string | null) {
   emitJob(id, { state: { kind: "installing" } });
   await delay(600);
   const version = downloads.find((d) => d.fileName === file)?.version ?? null;
-  const row: UserRow = { kind: "mod", name, enabled: true, version, nexusUrl: null };
-  const at = after === null ? -1 : userMods.findIndex((r) => (r.kind === "mod" ? r.name : `${r.title}_separator`) === after);
+  const row: UserRow = { kind: "mod", name, enabled: true, version, nexusUrl: null, after: null, buildId: null };
   userMods = userMods.filter((r) => r.kind !== "mod" || r.name !== name);
-  if (after === "LYNO USER MODS_separator") userMods = [row, ...userMods];
-  else if (at < 0) userMods = [...userMods, row];
-  else userMods = [...userMods.slice(0, at + 1), row, ...userMods.slice(at + 1)];
+  place(row, after);
   downloads = downloads.map((d) => (d.fileName === file ? { ...d, installed: true } : d));
   emitJob(id, { state: { kind: "done", outcome: { kind: "installed", folder: name } } });
   limits = { ...limits, daily: (limits.daily ?? 0) - 2 };
@@ -562,6 +571,12 @@ export const mock = {
     cancelled = false;
     status = { ...status, updating: true };
     void simulateUpdate();
+  },
+  removeBuildMod: async (id: string) => {
+    build = { ...build, mods: build.mods.map((m) => (m.kind === "mod" && m.id === id ? { ...m, removed: true, installed: false } : m)) };
+  },
+  restoreBuildMod: async (id: string) => {
+    build = { ...build, mods: build.mods.map((m) => (m.kind === "mod" && m.id === id ? { ...m, removed: false } : m)) };
   },
   setModEnabled: async (id: string, enabled: boolean) => {
     if (status.gameRunning || status.mo2Running) throw new Error("Закройте игру и Mod Organizer 2, чтобы включать и выключать моды");
@@ -722,7 +737,7 @@ export const mock = {
     const d = downloads.find((x) => x.fileName === file);
     const modName = d?.modName ?? file.split(/[\\/]/).pop() ?? file;
     const have = userMods.find((r): r is Extract<UserRow, { kind: "mod" }> => r.kind === "mod" && r.name === modName);
-    return { modName, version: d?.version ?? null, replaces: have?.name ?? null, installedVersion: have?.version ?? null };
+    return { modName, version: d?.version ?? null, replaces: have?.name ?? null, build: false, installedVersion: have?.version ?? null };
   },
   installRoots: async (_id: number) => {
     await delay(200);
@@ -751,8 +766,7 @@ export const mock = {
     const row = userMods.find((r) => userKey(r) === folder);
     if (!row) throw new Error("Перетаскивать можно только ваши моды: порядок сборки задаёт её автор");
     userMods = userMods.filter((r) => r !== row);
-    const at = after === null ? userMods.length : userMods.findIndex((r) => userKey(r) === after) + 1;
-    userMods.splice(at, 0, row);
+    place(row, after);
   },
   addSeparator: async (title: string, after: string | null) => {
     if (userMods.some((r) => r.kind === "separator" && r.title === title)) throw new Error(`Разделитель «${title}» уже есть`);
@@ -764,7 +778,7 @@ export const mock = {
   },
   overwriteInfo: async (): Promise<OverwriteInfo> => overwrite,
   overwriteToMod: async (name: string) => {
-    userMods = [...userMods, { kind: "mod", name, enabled: true, version: null, nexusUrl: null }];
+    userMods = [...userMods, { kind: "mod", name, enabled: true, version: null, nexusUrl: null, after: null, buildId: null }];
     overwrite = { files: 0, size: 0 };
   },
   clearOverwrite: async () => {

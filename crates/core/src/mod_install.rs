@@ -28,6 +28,7 @@ use base64::Engine;
 use crate::archive::{self, Kind, Layout};
 use crate::download::{Downloader, PartEvent};
 use crate::fomod::{self, FileItem, FileState, Installer, Selection};
+use crate::manifest::Manifest;
 use crate::meta::ModMeta;
 use crate::mo2::Instance;
 use crate::modlist::{Entry, EntryState, ModList};
@@ -108,6 +109,9 @@ pub enum Target {
     /// Replace this mod folder: an update or a reinstall. Keeps its place and
     /// state in `modlist.txt` and the rest of its `meta.ini` (`[LYNO] id`).
     Replace(String),
+    /// The player's own version of optional build mod `id`, over its folder
+    /// as [`Target::Replace`]: the build lets go of it ([`crate::install::detach`]).
+    Own { folder: String, id: String },
     /// A new folder. `personal`: under `LYNO USER MODS`; otherwise at the end
     /// of the build section (the author's next release). `after`: right
     /// after this entry of the list (dropped there), within the player's
@@ -167,13 +171,15 @@ pub enum Progress {
 pub struct Context<'a> {
     pub inst: &'a Instance,
     pub profile: &'a str,
-    /// The author updates build mods; a player only their own.
+    /// The author updates build mods; a player only their own and the optional build mods
+    /// of `manifest` (the installed build), which then become theirs.
     pub author: bool,
+    pub manifest: Option<&'a Manifest>,
     pub now: u64,
 }
 
-/// The build mod an nxm link would replace on a player's instance: updated
-/// with the build, not from Nexus.
+/// The core build mod an nxm link would replace on a player's instance: the
+/// build needs its version.
 #[derive(Debug)]
 pub struct BuildMod(pub String);
 
@@ -203,7 +209,9 @@ pub fn fetch(
     };
     let replaces = tracking::target(&tracked, &files, &link.game, link.mod_id, link.file_id);
     if let Some(t) = replaces.filter(|t| t.managed && !ctx.author) {
-        return Ok(Err(BuildMod(t.folder.clone())));
+        if ctx.manifest.map(|m| crate::install::optional_in(ctx.inst, m, &t.folder)).transpose()?.flatten().is_none() {
+            return Ok(Err(BuildMod(t.folder.clone())));
+        }
     }
     let dl = Download {
         game: link.game.clone(),
@@ -345,7 +353,7 @@ fn place(
     let mods = inst.mods_dir();
     std::fs::create_dir_all(&mods).map_err(|e| Error::io(&mods, e))?;
     let folder = match target {
-        Target::Replace(f) => f.clone(),
+        Target::Replace(f) | Target::Own { folder: f, .. } => f.clone(),
         Target::New { .. } => free_folder(&mods, &folder_name(&dl.folder())),
     };
     let staging = inst.root().join(".lyno").join("staging").join("nexus");
@@ -356,7 +364,7 @@ fn place(
 
     let old_meta = mods.join(&folder).join("meta.ini");
     let meta_path = staging.join("meta.ini");
-    if matches!(target, Target::Replace(_)) && old_meta.is_file() {
+    if !matches!(target, Target::New { .. }) && old_meta.is_file() {
         std::fs::copy(&old_meta, &meta_path).map_err(|e| Error::io(&old_meta, e))?;
     }
     // An archive from disk with no Nexus name records only itself.
@@ -372,6 +380,11 @@ fn place(
     };
     meta.save(&meta_path)?;
     crate::meta::save_fomod(&meta_path, fomod)?;
+    // Before the swap: a crash in between leaves the build's files as the player's, never the
+    // player's as a damaged build mod that a repair would overwrite.
+    if let Target::Own { id, .. } = target {
+        crate::install::detach(inst, id)?;
+    }
     package::swap_folder(&staging, &mods.join(&folder))?;
 
     let list_path = inst.modlist_path(profile);
@@ -379,7 +392,7 @@ fn place(
     if list.get(&folder).is_none() {
         let (personal, after) = match target {
             Target::New { personal, after } => (*personal, after.as_deref()),
-            Target::Replace(_) => (true, None),
+            Target::Replace(_) | Target::Own { .. } => (true, None),
         };
         let personal = personal && crate::install::has_build(inst);
         insert(&mut list, Entry::enabled(&folder), personal, after);
@@ -425,7 +438,7 @@ pub fn open_fomod(inst: &Instance, archive_path: &Path, target: &Target) -> Resu
         .ok_or_else(|| Error::Fomod("ModuleConfig.xml is too big".into()))?;
     let installer = Installer::parse(&bytes)?;
     let previous = match target {
-        Target::Replace(folder) => {
+        Target::Replace(folder) | Target::Own { folder, .. } => {
             let meta = inst.mods_dir().join(folder).join("meta.ini");
             let saved = meta.is_file().then(|| ModMeta::load(&meta)).transpose()?.and_then(|m| m.lyno_fomod);
             saved.and_then(|v| fomod::decode_saved(&v)).map(|s| installer.restore(&s))
@@ -557,21 +570,14 @@ pub fn install_fomod(inst: &Instance, profile: &str, fomod: &Fomod, dl: &Downloa
 
 /// A new mod of the player goes to the very bottom (highest priority, like
 /// MO2 does), under `LYNO USER MODS`; one of the author's build to the end
-/// of the build section. Dropped on the list (`after`), it goes there, but a
-/// player's mod never above their separator: the build section is the build's.
+/// of the build section. Dropped on the list (`after`), it goes there: a
+/// player's mod among the build's too, [`crate::plan`] keeps it in place.
 fn insert(list: &mut ModList, entry: Entry, personal: bool, after: Option<&str>) {
-    let user = list.entries.iter().position(|e| e.separator_title() == Some(USER_SEPARATOR));
     if let Some(at) = after.and_then(|a| list.entries.iter().position(|e| e.name == a)) {
-        match user {
-            Some(sep) if personal && at < sep => list.entries.insert(sep + 1, entry),
-            None if personal => {
-                list.entries.push(Entry::separator(USER_SEPARATOR));
-                list.entries.push(entry);
-            }
-            _ => list.entries.insert(at + 1, entry),
-        }
+        list.entries.insert(at + 1, entry);
         return;
     }
+    let user = list.entries.iter().position(|e| e.separator_title() == Some(USER_SEPARATOR));
     match (personal, user) {
         (true, Some(_)) => list.entries.push(entry),
         (true, None) => {
@@ -742,8 +748,16 @@ pub fn download_for(path: &Path) -> Download {
 
 /// Which mod a downloaded archive goes to, without asking Nexus: the mod
 /// installed from the same file or one it replaces (by the files the last
-/// check recorded), else a new one. `Err`: a build mod of a player.
-pub fn target_for(inst: &Instance, profile: &str, dl: &Download, author: bool, after: Option<String>) -> Result<std::result::Result<Target, BuildMod>> {
+/// check recorded), else a new one. A player's optional build mod (`manifest`:
+/// the installed build) becomes theirs; `Err`: a core one.
+pub fn target_for(
+    inst: &Instance,
+    profile: &str,
+    dl: &Download,
+    author: bool,
+    manifest: Option<&Manifest>,
+    after: Option<String>,
+) -> Result<std::result::Result<Target, BuildMod>> {
     let new = Target::New { personal: !author, after };
     if dl.mod_id == 0 || !inst.modlist_path(profile).is_file() {
         return Ok(Ok(new));
@@ -754,7 +768,10 @@ pub fn target_for(inst: &Instance, profile: &str, dl: &Download, author: bool, a
     // A file id of 0 (guessed from the name) matches no install: a new mod, as MO2 does.
     let replaces = (dl.file_id != 0).then(|| tracking::target(&tracked, &files, &dl.game, dl.mod_id, dl.file_id)).flatten();
     Ok(match replaces {
-        Some(t) if t.managed && !author => Err(BuildMod(t.folder.clone())),
+        Some(t) if t.managed && !author => match manifest.map(|m| crate::install::optional_in(inst, m, &t.folder)).transpose()?.flatten() {
+            Some(id) => Ok(Target::Own { folder: t.folder.clone(), id }),
+            None => Err(BuildMod(t.folder.clone())),
+        },
         Some(t) => Ok(Target::Replace(t.folder.clone())),
         None => Ok(new),
     })
@@ -795,8 +812,12 @@ pub fn remove(inst: &Instance, folder: &str) -> Result<()> {
     if trash.exists() {
         std::fs::remove_dir_all(&trash).map_err(|e| Error::io(&trash, e))?;
     }
-    std::fs::create_dir_all(trash.parent().unwrap()).map_err(|e| Error::io(&trash, e))?;
-    std::fs::rename(&dir, &trash).map_err(|e| Error::io(&dir, e))?;
+    std::fs::create_dir_all(&trash).map_err(|e| Error::io(&trash, e))?;
+    // Already gone from the disk: only the lists still name it.
+    if dir.exists() {
+        std::fs::remove_dir(&trash).map_err(|e| Error::io(&trash, e))?;
+        std::fs::rename(&dir, &trash).map_err(|e| Error::io(&dir, e))?;
+    }
     each_modlist(inst, |list| {
         let len = list.entries.len();
         list.entries.retain(|e| e.name != folder);
@@ -851,18 +872,28 @@ pub fn is_users(list: &ModList, has_build: bool, name: &str) -> bool {
     user_start(list, has_build).is_some_and(|s| list.entries[s..].iter().any(|e| e.name == name && e.state != EntryState::Unmanaged))
 }
 
-/// Moves an entry of the player's section (a mod or a separator) right below
-/// `after`. An `after` outside the section (its header, a build mod) means its
-/// top, `None` its end: the build's section is the build's. `false`: `name`
-/// is not the player's.
-pub fn move_entry(list: &mut ModList, has_build: bool, name: &str, after: Option<&str>) -> bool {
-    let Some(start) = user_start(list, has_build) else { return false };
-    let at = |list: &ModList, n: &str| list.entries[start..].iter().position(|e| e.name == n && e.state != EntryState::Unmanaged);
-    let Some(from) = at(list, name) else { return false };
-    let entry = list.entries.remove(start + from);
-    let to = match after {
-        None => list.entries.len(),
-        Some(a) => at(list, a).map_or(start, |i| start + i + 1),
+/// Moves an entry of the player right below `after` (`None`: the end of the
+/// list). Their mod goes anywhere, among the build's too ([`crate::plan`]
+/// keeps it there); their separator only within their section, or MO2 would
+/// put build mods under it: an `after` outside means the section's top, as
+/// does one not in the list. `false`: `name` is the build's (`managed`: a
+/// build mod's folder; the build's separators are the ones above the section).
+pub fn move_entry(list: &mut ModList, has_build: bool, managed: impl Fn(&str) -> bool, name: &str, after: Option<&str>) -> bool {
+    let pos = |list: &ModList, n: &str| list.entries.iter().position(|e| e.name == n && e.state != EntryState::Unmanaged);
+    let Some(from) = pos(list, name) else { return false };
+    let separator = list.entries[from].is_separator();
+    if managed(name) || separator && !user_start(list, has_build).is_some_and(|s| from >= s) {
+        return false;
+    }
+    let entry = list.entries.remove(from);
+    let start = user_start(list, has_build);
+    let to = match (after, after.and_then(|a| pos(list, a))) {
+        (_, Some(i)) if !separator || start.is_some_and(|s| i + 1 >= s) => i + 1,
+        (None, _) => list.entries.len(),
+        _ => start.unwrap_or_else(|| {
+            list.entries.push(Entry::separator(USER_SEPARATOR));
+            list.entries.len()
+        }),
     };
     list.entries.insert(to, entry);
     true
@@ -883,7 +914,7 @@ pub fn add_separator(inst: &Instance, profile: &str, title: &str, after: Option<
         list.entries.push(Entry::separator(USER_SEPARATOR));
     }
     list.entries.push(entry);
-    move_entry(&mut list, has_build, &name, after);
+    move_entry(&mut list, has_build, |_| false, &name, after);
     list.save(&path)?;
     Ok(name)
 }
@@ -1162,14 +1193,12 @@ mod tests {
         let mut l = list(base);
         insert(&mut l, Entry::enabled("New"), true, Some("Mine"));
         assert_eq!(names(&l), ["A", "B", "LYNO USER MODS_separator", "Mine", "New", "Other"]);
-        // A player's mod dropped among build mods lands at the top of their section.
-        let mut l = list(base);
-        insert(&mut l, Entry::enabled("New"), true, Some("A"));
-        assert_eq!(names(&l), ["A", "B", "LYNO USER MODS_separator", "New", "Mine", "Other"]);
-        // The author places a build mod anywhere.
-        let mut l = list(base);
-        insert(&mut l, Entry::enabled("New"), false, Some("A"));
-        assert_eq!(names(&l), ["A", "New", "B", "LYNO USER MODS_separator", "Mine", "Other"]);
+        // Among build mods too, the player's and the author's alike.
+        for personal in [true, false] {
+            let mut l = list(base);
+            insert(&mut l, Entry::enabled("New"), personal, Some("A"));
+            assert_eq!(names(&l), ["A", "New", "B", "LYNO USER MODS_separator", "Mine", "Other"]);
+        }
         let mut l = list(base);
         insert(&mut l, Entry::enabled("New"), true, Some("Gone"));
         assert_eq!(names(&l).last().unwrap(), "New");
@@ -1215,10 +1244,10 @@ mod tests {
         // The same file again replaces its mod; another file of the page is a new mod.
         let same = download_for(&inst.downloads_dir().join("Cool Mod-42-7.zip"));
         assert_eq!((same.mod_id, same.file_id, same.local), (42, 7, false));
-        assert_eq!(target_for(&inst, "LYNO", &same, false, None).unwrap().unwrap(), Target::Replace("Cool_ Mod".into()));
+        assert_eq!(target_for(&inst, "LYNO", &same, false, None, None).unwrap().unwrap(), Target::Replace("Cool_ Mod".into()));
         let other = download_for(&inst.downloads_dir().join("Other-9-2-0-1735000000.rar"));
         assert_eq!((other.mod_name.as_str(), other.file_id, other.version.as_deref()), ("Other, the mod", 90, Some("2.0")));
-        assert_eq!(target_for(&inst, "LYNO", &other, false, Some("x".into())).unwrap().unwrap(), Target::New { personal: true, after: Some("x".into()) });
+        assert_eq!(target_for(&inst, "LYNO", &other, false, None, Some("x".into())).unwrap().unwrap(), Target::New { personal: true, after: Some("x".into()) });
 
         // Installing MO2's download keeps its `.meta` and only flips the flag.
         let p = inst.downloads_dir().join("Other-9-2-0-1735000000.rar");
@@ -1268,27 +1297,32 @@ mod tests {
     }
 
     #[test]
-    fn moves_only_within_the_players_section() {
+    fn moves_players_entries() {
         let list = |text: &str| ModList::parse(text, Path::new("modlist.txt")).unwrap();
         let order = |l: &ModList| l.entries.iter().map(|e| e.name.clone()).collect::<Vec<_>>();
+        let managed = |n: &str| n.starts_with("Build");
         // Highest priority first in the file; UI order is the reverse.
-        let mut l = list("+C\n+B\n-Mine_separator\n+A\n-LYNO USER MODS_separator\n+Build\n");
-        assert!(move_entry(&mut l, true, "C", Some("A")));
-        assert_eq!(order(&l), ["Build", "LYNO USER MODS_separator", "A", "C", "Mine_separator", "B"]);
-        // Dropped on a build mod or the section's header: the top of the section.
-        assert!(move_entry(&mut l, true, "B", Some("Build")));
-        assert_eq!(order(&l), ["Build", "LYNO USER MODS_separator", "B", "A", "C", "Mine_separator"]);
-        assert!(move_entry(&mut l, true, "B", None));
-        assert_eq!(order(&l)[5], "B");
-        assert!(!move_entry(&mut l, true, "Build", None), "a build mod stays");
+        let mut l = list("+C\n+B\n-Mine_separator\n+A\n-LYNO USER MODS_separator\n+Build 2\n-Guns_separator\n+Build\n");
+        assert!(move_entry(&mut l, true, managed, "C", Some("A")));
+        assert_eq!(order(&l), ["Build", "Guns_separator", "Build 2", "LYNO USER MODS_separator", "A", "C", "Mine_separator", "B"]);
+        // A mod goes among the build's, under a build separator too.
+        assert!(move_entry(&mut l, true, managed, "B", Some("Guns_separator")));
+        assert_eq!(order(&l), ["Build", "Guns_separator", "B", "Build 2", "LYNO USER MODS_separator", "A", "C", "Mine_separator"]);
+        assert!(move_entry(&mut l, true, managed, "B", None));
+        assert_eq!(order(&l)[7], "B");
+        // A separator of the player stays in their section: dropped on the build's, it goes to its top.
+        assert!(move_entry(&mut l, true, managed, "Mine_separator", Some("Build")));
+        assert_eq!(order(&l)[4], "Mine_separator");
+        assert!(!move_entry(&mut l, true, managed, "Build", None), "a build mod stays");
+        assert!(!move_entry(&mut l, true, managed, "Guns_separator", None), "so does a build separator");
         assert!(is_users(&l, true, "Mine_separator") && !is_users(&l, true, "Build"));
-        assert!(!move_entry(&mut l, true, "LYNO USER MODS_separator", None));
+        assert!(!move_entry(&mut l, true, managed, "LYNO USER MODS_separator", None));
 
         // Without the build every mod is the player's, DLC entries stay lowest.
         let mut l = list("+B\n+A\n*DLC: EP1\n");
-        assert!(move_entry(&mut l, false, "B", Some("nothing")));
+        assert!(move_entry(&mut l, false, |_| false, "B", Some("nothing")));
         assert_eq!(order(&l), ["DLC: EP1", "B", "A"]);
-        assert!(!move_entry(&mut l, false, "DLC: EP1", None));
+        assert!(!move_entry(&mut l, false, |_| false, "DLC: EP1", None));
     }
 
     #[test]

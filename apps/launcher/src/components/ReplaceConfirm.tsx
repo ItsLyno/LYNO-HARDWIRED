@@ -43,6 +43,12 @@ export function ReplaceConfirm() {
             <span className="text-accent">{to}</span>
           </p>
           <p>Файлы мода заменятся целиком, место в списке и включённость сохранятся.</p>
+          {target.build && (
+            <p className="text-fg">
+              Это мод сборки. Ваша версия займёт его место, и обновления сборки её больше не тронут. Вернуть версию сборки
+              можно в меню мода.
+            </p>
+          )}
         </div>
         <div className="flex justify-end gap-2 border-t border-line px-5 py-3">
           <Button variant="ghost" onClick={() => answerReplace(false)}>

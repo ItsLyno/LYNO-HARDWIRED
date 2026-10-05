@@ -77,9 +77,12 @@ updater reads. Launcher logs go through `log::` macros to `tauri-plugin-log`.
   `launcher-release.yml`.
 - **Reused packages keep URLs into older releases.** Old `build-*` releases must
   never be deleted; nothing in code may assume all assets are in the latest release.
-- **Player mods are untouchable**: anything not in `state.json` stays under the
+- **Player mods are untouchable**: anything not in `state.json` (`plan::is_players`) keeps its
+  place. Among build mods it sticks to the build entry above it across updates
+  (`plan::target_modlist`); the player's separators and new mods live under the
   `LYNO USER MODS` separator (`plan::USER_SEPARATOR`). `build` never ships what is
-  under it: the author may build from a launcher instance with personal mods.
+  under it: the author may build from a launcher instance with personal mods
+  (for the author, a mod in the build section is the next release).
 - **The author's disk is the bottleneck** of `lyno-pack` (hundreds of mods,
   hundreds of GB; zstd skips the already Oodle-compressed `.archive` data).
   `publish::Packer` reads each file at most once (hash while packing), trusts
@@ -90,8 +93,10 @@ updater reads. Launcher logs go through `log::` macros to `tauri-plugin-log`.
   (`package::swap_folder`), save `state.json` after every action.
 - `modlist.txt` is stored highest-priority-first; `ModList` holds UI order
   (lowest first). Easy to get backwards — see `docs/mo2-instance.md`.
-- **Nexus updates never touch a player's build mods**: they come with the build (`tracking`, `mod_install::BuildMod`);
-  the author may update them, keeping `[LYNO] id`. A Nexus download only goes to `downloads/` (`mod_install::fetch`);
+- **Nexus updates never touch a player's build mods** on their own: they come with the build (`tracking`). The
+  player may put their own version over an optional one (`mod_install::Target::Own`): the build lets go of it
+  (`install::detach`, `state.removed`) until `restore_mod`; a core one never (`mod_install::BuildMod`).
+  The author may update any, keeping `[LYNO] id`. A Nexus download only goes to `downloads/` (`mod_install::fetch`);
   the player installs it by dragging it onto the list and confirms a replace. Installs that write `modlist.txt` need MO2 closed.
 - MO2 executable titles come from the author's `ModOrganizer.ini`; the launcher
   uses `Cyberpunk 2077` / `Cyberpunk 2077 (REDmod)` (`mo2::game_executable`).
