@@ -154,21 +154,23 @@ pub fn strip_ui_state(ini: &str) -> String {
 }
 
 fn rewrite_game_path(ini: &str, new: &str) -> String {
+    // MO2 saves gamePath with native separators, Qt-escaped: `D:\\Games\\Cyberpunk 2077`.
+    // Normalized to forward slashes so the `binary=D:/Games/...` form of the executables matches too.
     let old = ini.lines().find_map(|l| {
-        l.trim()
-            .strip_prefix("gamePath=")
-            .map(|v| v.trim_start_matches("@ByteArray(").trim_end_matches(')').trim_end_matches('/').to_owned())
+        l.trim().strip_prefix("gamePath=").map(|v| {
+            let v = v.trim_start_matches("@ByteArray(").trim_end_matches(')');
+            v.replace("\\\\", "/").replace('\\', "/").trim_end_matches('/').to_owned()
+        })
     });
     let new_line = format!("gamePath=@ByteArray({new})");
     let mut out = match old.as_deref() {
-        Some(old) if !old.is_empty() => {
-            let old_fwd = old.replace('\\', "/");
+        Some(old_fwd) if !old_fwd.is_empty() => {
             // Qt ini escapes backslashes, so paths may appear as C:\\Games\\...
             let old_bs = old_fwd.replace('/', "\\");
             let old_bs2 = old_fwd.replace('/', "\\\\");
             let new_bs = new.replace('/', "\\");
             let new_bs2 = new.replace('/', "\\\\");
-            ini.replace(&old_bs2, &new_bs2).replace(&old_bs, &new_bs).replace(&old_fwd, new)
+            ini.replace(&old_bs2, &new_bs2).replace(&old_bs, &new_bs).replace(old_fwd, new)
         }
         _ => ini.to_owned(),
     };
@@ -301,6 +303,18 @@ mod tests {
         assert!(out.contains("1\\binary=C:/Games/Cyberpunk 2077/bin/x64/Cyberpunk2077.exe"), "{out}");
         assert!(out.contains("2\\workingDirectory=C:\\\\Games\\\\Cyberpunk 2077"), "{out}");
         assert!(!out.contains("SteamLibrary"));
+    }
+
+    #[test]
+    fn rewrites_game_paths_saved_with_backslashes() {
+        let ini = "[General]\r\ngamePath=@ByteArray(D:\\\\SteamLibrary\\\\steamapps\\\\common\\\\Cyberpunk 2077)\r\n\
+            [customExecutables]\r\n1\\binary=D:/SteamLibrary/steamapps/common/Cyberpunk 2077/bin/x64/Cyberpunk2077.exe\r\n\
+            1\\workingDirectory=D:\\\\SteamLibrary\\\\steamapps\\\\common\\\\Cyberpunk 2077\r\n";
+        let out = rewrite_game_path(ini, "C:/Games/Cyberpunk 2077");
+        assert!(out.contains("gamePath=@ByteArray(C:/Games/Cyberpunk 2077)\r\n"), "{out}");
+        assert!(out.contains("1\\binary=C:/Games/Cyberpunk 2077/bin/x64/Cyberpunk2077.exe"), "{out}");
+        assert!(out.contains("1\\workingDirectory=C:\\\\Games\\\\Cyberpunk 2077"), "{out}");
+        assert!(!out.contains("SteamLibrary"), "{out}");
     }
 
     #[test]
