@@ -951,6 +951,20 @@ pub fn clear_overwrite(state: TauriState<'_, AppState>) -> CmdResult<()> {
     Ok(())
 }
 
+/// Logs the game's frameworks wrote into `overwrite/`, newest first.
+#[tauri::command]
+pub fn overwrite_logs(state: TauriState<'_, AppState>) -> Vec<report::LogFile> {
+    report::overwrite_logs(&Instance::new(&state.settings.lock().unwrap().instance_dir))
+}
+
+#[tauri::command]
+pub fn read_overwrite_log(state: TauriState<'_, AppState>, path: String) -> CmdResult<String> {
+    let inst = Instance::new(&state.settings.lock().unwrap().instance_dir);
+    report::read_overwrite_log(&inst, &path)
+        .map_err(|e| format!("Не удалось прочитать лог: {e}"))?
+        .ok_or_else(|| format!("Лога {path} больше нет"))
+}
+
 #[tauri::command]
 pub fn open_mod_folder(state: TauriState<'_, AppState>, id: String) -> CmdResult<()> {
     let settings = state.settings.lock().unwrap().clone();

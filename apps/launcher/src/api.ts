@@ -24,6 +24,8 @@ export interface Settings {
   authorRepo: string;
   /** Where builds are packed; null: release-out in the launcher's data folder. */
   authorOutDir: string | null;
+  /** Automatic update checks while the launcher runs; 0: off. */
+  updateCheckHours: number;
 }
 
 export interface Status {
@@ -371,6 +373,15 @@ export interface OverwriteInfo {
   size: number;
 }
 
+/** A `*.log` the game's frameworks wrote into overwrite/ (RED4ext, CET, redscript, TweakXL). */
+export interface LogFile {
+  /** Relative to overwrite/, with `/`. */
+  path: string;
+  size: number;
+  /** Unix time, ms. */
+  modified: number;
+}
+
 /** An entry of MO2's executables list. */
 export interface Executable {
   title: string;
@@ -524,6 +535,10 @@ export const api = isTauri()
       overwriteInfo: () => invoke<OverwriteInfo>("overwrite_info"),
       overwriteToMod: (name: string) => invoke<void>("overwrite_to_mod", { name }),
       clearOverwrite: () => invoke<void>("clear_overwrite"),
+      /** Newest first. */
+      overwriteLogs: () => invoke<LogFile[]>("overwrite_logs"),
+      /** The tail of a listed log (up to 1 MB). */
+      readOverwriteLog: (path: string) => invoke<string>("read_overwrite_log", { path }),
       /** From the archive in MO2's downloads, as a queued job; a player's build mod is repaired instead (`startRepair`). */
       reinstallMod: (folder: string) => invoke<number>("reinstall_mod", { folder }),
       instanceSelect: (dir: string) => invoke<void>("instance_select", { dir }),

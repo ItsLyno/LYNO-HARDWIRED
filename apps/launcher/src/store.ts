@@ -21,7 +21,7 @@ import {
   type VerifyReport,
 } from "./api";
 
-export type Page = "home" | "mods" | "release" | "settings";
+export type Page = "mods" | "release" | "settings";
 
 export interface Progress {
   step: { index: number; total: number; label: string } | null;
@@ -78,8 +78,8 @@ interface AppStore {
   /** The player's own section of the mod list; null until loaded. */
   userMods: UserRow[] | null;
   /** An archive being dragged from the downloads list, or with `move` an entry of the player's section
-   *  (`file`: its folder); `over`: the list entry it would land below. */
-  drag: { file: string; label: string; x: number; y: number; over: DropSpot | null; move?: boolean } | null;
+   *  (`file`: its folder; `files`: every selected one, in list order); `over`: the list entry it would land below. */
+  drag: { file: string; files?: string[]; label: string; x: number; y: number; over: DropSpot | null; move?: boolean } | null;
   /** MO2's `overwrite/`; null until loaded. */
   overwrite: OverwriteInfo | null;
   /** Files from Explorer are over the window; `outside`: not over the mod list. */
@@ -104,6 +104,11 @@ interface AppStore {
   onAuthorEvent: (e: AuthorEvent) => void;
   refreshNexus: () => Promise<void>;
   checkNexus: (force: boolean) => Promise<void>;
+  /** New versions of the build and the launcher; Nexus mods are checked from the mod list (`checkNexus`). */
+  checkUpdates: () => Promise<void>;
+  updatesChecking: boolean;
+  /** Last update check of all three, ms since epoch. */
+  lastCheck: number | null;
   onNexusJob: (job: NexusJob) => void;
   setFomodJob: (id: number | null) => void;
   setRootJob: (id: number | null) => void;
@@ -120,7 +125,7 @@ interface AppStore {
 }
 
 export const useApp = create<AppStore>((set, get) => ({
-  page: "home",
+  page: "mods",
   settings: null,
   status: null,
   build: null,
@@ -137,6 +142,8 @@ export const useApp = create<AppStore>((set, get) => ({
   nexus: null,
   nexusUpdates: null,
   nexusChecking: null,
+  lastCheck: readLastCheck(),
+  updatesChecking: false,
   nexusJobs: [],
   fomodJob: null,
   rootJob: null,
@@ -217,7 +224,7 @@ export const useApp = create<AppStore>((set, get) => ({
     set({ progress: noProgress });
     try {
       await api.startRepair(ids, base, resetSettings);
-      set({ verifyReport: null, page: "home" });
+      set({ verifyReport: null, page: "mods" });
       await get().refreshStatus();
     } catch (e) {
       set({ progress: null, error: String(e) });
@@ -315,6 +322,19 @@ export const useApp = create<AppStore>((set, get) => ({
       set({ nexusChecking: null });
     }
   },
+  // Both keep their errors to themselves (`buildError`, no launcher update): a timed check never pops up a toast.
+  checkUpdates: async () => {
+    if (get().updatesChecking) return;
+    set({ updatesChecking: true });
+    await Promise.all([activeInstance(get().settings)?.build ? get().refreshBuild() : null, get().checkLauncherUpdate()]);
+    const at = Date.now();
+    set({ updatesChecking: false, lastCheck: at });
+    try {
+      localStorage.setItem(LAST_CHECK_KEY, String(at));
+    } catch {
+      // Without storage the next start just checks again.
+    }
+  },
   onNexusJob: (job) => {
     const jobs = get().nexusJobs;
     const was = jobs.find((j) => j.id === job.id)?.state.kind;
@@ -383,6 +403,21 @@ export const useApp = create<AppStore>((set, get) => ({
   },
   clearError: () => set({ error: null }),
 }));
+
+const LAST_CHECK_KEY = "lyno.lastUpdateCheck";
+
+function readLastCheck(): number | null {
+  try {
+    return Number(localStorage.getItem(LAST_CHECK_KEY)) || null;
+  } catch {
+    return null;
+  }
+}
+
+/** A timed update check is due: the interval passed since the last one, also across restarts. */
+export function checkDue(hours: number, last: number | null): boolean {
+  return hours > 0 && (last === null || Date.now() - last >= hours * 3_600_000);
+}
 
 /** The active instance; none before the first setup. */
 export function activeInstance(settings: Settings | null): InstanceEntry | null {

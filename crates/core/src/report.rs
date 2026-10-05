@@ -74,6 +74,45 @@ pub fn write_report(dest: &Path, input: &ReportInput) -> Result<Vec<String>> {
     Ok(names)
 }
 
+/// The launcher's log viewer renders the whole text, so less than a report keeps.
+const VIEW_MAX: u64 = 1024 * 1024;
+
+/// A log the game's frameworks wrote into `overwrite/`, for the launcher's viewer.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LogFile {
+    /// Relative to `overwrite/`, with `/`.
+    pub path: String,
+    pub size: u64,
+    /// Unix time in milliseconds.
+    pub modified: u64,
+}
+
+/// `*.log` files in `overwrite/`, newest first: the one of the last run is on top.
+pub fn overwrite_logs(inst: &Instance) -> Vec<LogFile> {
+    let dir = inst.overwrite_dir();
+    let mut logs: Vec<LogFile> = logs_in(&dir, usize::MAX)
+        .into_iter()
+        .filter_map(|p| {
+            let meta = std::fs::metadata(&p).ok()?;
+            let modified = meta.modified().ok()?.duration_since(std::time::UNIX_EPOCH).ok()?.as_millis() as u64;
+            Some(LogFile { path: crate::tree::to_slash(p.strip_prefix(&dir).ok()?), size: meta.len(), modified })
+        })
+        .collect();
+    logs.sort_by(|a, b| b.modified.cmp(&a.modified).then_with(|| a.path.cmp(&b.path)));
+    logs
+}
+
+/// The tail of a log of [`overwrite_logs`]; `rel` names only a listed one, never a file elsewhere.
+pub fn read_overwrite_log(inst: &Instance, rel: &str) -> Result<Option<String>> {
+    if !overwrite_logs(inst).iter().any(|l| l.path == rel) {
+        return Ok(None);
+    }
+    let path = crate::tree::from_slash(&inst.overwrite_dir(), rel);
+    let data = read_tail(&path, VIEW_MAX).map_err(|e| Error::io(&path, e))?;
+    Ok(Some(String::from_utf8_lossy(&data).into_owned()))
+}
+
 /// `*.log` files under `dir`, at most `depth` levels deep.
 fn logs_in(dir: &Path, depth: usize) -> Vec<PathBuf> {
     walkdir::WalkDir::new(dir)
@@ -159,6 +198,21 @@ mod tests {
         let mut text = String::new();
         zip.by_name("instance/overwrite/red4ext/logs/red4ext.log").unwrap().read_to_string(&mut text).unwrap();
         assert_eq!(text, "r4e");
+    }
+
+    #[test]
+    fn reads_only_listed_overwrite_logs() {
+        let tmp = tempfile::tempdir().unwrap();
+        let root = tmp.path().join("inst");
+        write(&root, "overwrite/red4ext/logs/red4ext.log", b"r4e");
+        write(&root, "overwrite/r6/cache/final.redscripts", b"not a log");
+        write(&root, "logs/mo_interface.log", b"outside");
+        let inst = Instance::new(&root);
+        let paths: Vec<_> = overwrite_logs(&inst).into_iter().map(|l| l.path).collect();
+        assert_eq!(paths, ["red4ext/logs/red4ext.log"]);
+        assert_eq!(read_overwrite_log(&inst, "red4ext/logs/red4ext.log").unwrap().as_deref(), Some("r4e"));
+        assert_eq!(read_overwrite_log(&inst, "r6/cache/final.redscripts").unwrap(), None);
+        assert_eq!(read_overwrite_log(&inst, "../logs/mo_interface.log").unwrap(), None);
     }
 
     #[test]

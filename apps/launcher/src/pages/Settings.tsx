@@ -1,12 +1,13 @@
-import { Check, FileArchive, FolderOpen, Loader2, Search } from "lucide-react";
-import { useEffect, useState } from "react";
+import { AppWindow, Check, Download, FileArchive, FolderOpen, Layers, Loader2, RotateCw, Search } from "lucide-react";
+import { useEffect, useState, type ReactNode } from "react";
 import { api, type Folder, type Settings as SettingsT } from "../api";
 import { Button } from "../components/Button";
 import { InstanceSetup } from "../components/InstanceSetup";
 import { Integrity } from "../components/Integrity";
 import { NexusAccount } from "../components/NexusAccount";
 import { PageTitle } from "../components/PageTitle";
-import { activeInstance, useApp } from "../store";
+import { downloadLabel, plural } from "../format";
+import { activeInstance, isRepairOnly, useApp } from "../store";
 
 export function Settings() {
   const { settings, saveSettings, run, setPage } = useApp();
@@ -20,8 +21,8 @@ export function Settings() {
   }, [settings, draft]);
   if (!draft) return null;
 
-  // Instances change through their own calls, not the Save button.
-  const editable = (s: SettingsT | null) => s && { ...s, instanceDir: null, instances: null };
+  // Instances and the check interval change through their own calls, not the Save button.
+  const editable = (s: SettingsT | null) => s && { ...s, instanceDir: null, instances: null, updateCheckHours: null };
   const dirty = JSON.stringify(editable(draft)) !== JSON.stringify(editable(settings));
   const isBuild = !!activeInstance(settings)?.build;
   // Applied at once, not through the Save button; the draft follows so a later save doesn't undo it.
@@ -101,7 +102,7 @@ export function Settings() {
           variant="primary"
           disabled={!dirty}
           onClick={async () => {
-            if (await saveSettings(draft)) setSaved(true);
+            if (settings && (await saveSettings({ ...draft, updateCheckHours: settings.updateCheckHours }))) setSaved(true);
           }}
         >
           Сохранить
@@ -113,6 +114,8 @@ export function Settings() {
           </span>
         )}
       </div>
+      <h2 className="pt-4 text-base font-semibold">Обновления</h2>
+      <Updates />
       <h2 className="pt-4 text-base font-semibold">Nexus Mods</h2>
       <NexusAccount />
       <h2 className="pt-4 text-base font-semibold">Папки</h2>
@@ -223,6 +226,170 @@ function Profiles() {
     </section>
   );
 }
+
+/** Versions of everything the launcher updates, and how often it looks for new ones by itself. */
+function Updates() {
+  const { settings, status, build, progress, launcherUpdate, updatesChecking, lastCheck, saveSettings, checkUpdates, startUpdate, setPage, run } =
+    useApp();
+  const [version, setVersion] = useState<string | null>(null);
+  const [installing, setInstalling] = useState(false);
+  useEffect(() => {
+    api.launcherVersion().then(setVersion, () => {});
+  }, []);
+  if (!settings) return null;
+  const isBuild = !!activeInstance(settings)?.build;
+  const busy = !!progress || !!status?.updating;
+  // Applied at once, like the author mode switch: a timer setting has nothing to review before saving.
+  const setHours = (hours: number) => void saveSettings({ ...settings, updateCheckHours: hours });
+  const checked = lastCheck
+    ? new Date(lastCheck).toLocaleString("ru-RU", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })
+    : "ещё не было";
+  // The installer closes the launcher and starts the new version, so there is no "done" state.
+  const installLauncher = () =>
+    run(async () => {
+      setInstalling(true);
+      try {
+        await api.installLauncherUpdate();
+      } finally {
+        setInstalling(false);
+      }
+    });
+  const updateBuild = () => {
+    setPage("mods");
+    void startUpdate();
+  };
+
+  const installed = status?.installedVersion ?? null;
+  const buildRow: Omit<VersionRowProps, "icon" | "title" | "hint"> = !build
+    ? { current: installed, state: { tone: "muted", text: "Загрузка…" } }
+    : settings.authorMode
+      ? { current: installed, state: { tone: "muted", text: "Режим автора: не обновляется" } }
+      : !build.online
+        ? { current: installed, state: { tone: "muted", text: "Нет связи с GitHub" } }
+        : build.upToDate
+          ? { current: installed, state: { tone: "ok", text: "Последняя версия" } }
+          : {
+              current: installed,
+              next: isRepairOnly(build) ? undefined : build.latestVersion,
+              state: { tone: "accent", text: isRepairOnly(build) ? "Нужно восстановить файлы" : installed ? "Есть обновление" : "Не установлена" },
+              detail: `${build.changes} ${plural(build.changes, "изменение", "изменения", "изменений")} · ${downloadLabel(build)}`,
+              action: (
+                <Button className="h-8 text-[13px]" disabled={busy} onClick={updateBuild}>
+                  {installed ? "Обновить" : "Установить"}
+                </Button>
+              ),
+            };
+
+  return (
+    <div className="panel">
+      <div className="flex items-center gap-4 px-5 pt-5 pb-3">
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-medium">Версии</div>
+          <div className="mt-0.5 text-[13px] text-muted">Последняя проверка: {checked}</div>
+        </div>
+        <Button onClick={() => void checkUpdates()} disabled={updatesChecking}>
+          <RotateCw size={15} className={updatesChecking ? "animate-spin" : ""} />
+          {updatesChecking ? "Проверка…" : "Проверить сейчас"}
+        </Button>
+      </div>
+      <ul className="mx-5 divide-y divide-line/60 border-y border-line/60">
+        <VersionRow
+          icon={<AppWindow size={17} />}
+          title="Лаунчер"
+          hint="Это приложение"
+          current={version}
+          next={launcherUpdate?.version}
+          state={launcherUpdate ? { tone: "accent", text: "Есть обновление" } : { tone: "ok", text: "Последняя версия" }}
+          detail={launcherUpdate?.notes ?? undefined}
+          action={
+            launcherUpdate && (
+              <Button className="h-8 text-[13px]" onClick={installLauncher} disabled={installing || busy}>
+                {installing ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+                {installing ? "Загрузка…" : "Обновить"}
+              </Button>
+            )
+          }
+        />
+        {isBuild && (
+          <VersionRow icon={<Layers size={17} />} title="Сборка модов" hint={build ? `Для патча игры ${build.gameVersion}` : "LYNO//HARDWIRED"} {...buildRow} />
+        )}
+      </ul>
+      <div className="px-5 py-5">
+        <div className="text-sm font-medium">Проверять автоматически</div>
+        <div className="mt-0.5 text-[13px] text-muted">
+          Лаунчер и сборка: пока лаунчер открыт, а если он был закрыт дольше — сразу при запуске. Найденное появится над списком модов. Версии модов с Nexus проверяются кнопкой на странице «Моды».
+        </div>
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {CHECK_HOURS.map(([hours, label]) => (
+            <button
+              key={hours}
+              onClick={() => setHours(hours)}
+              aria-pressed={settings.updateCheckHours === hours}
+              className={`h-8 rounded-full px-3.5 text-[13px] transition-colors ${
+                settings.updateCheckHours === hours ? "bg-raised text-fg ring-1 ring-neon/50" : "text-muted hover:bg-raised hover:text-fg"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+type Tone = "ok" | "accent" | "muted";
+
+const toneClass: Record<Tone, string> = {
+  ok: "bg-ok/10 text-ok",
+  accent: "bg-accent/10 text-accent",
+  muted: "bg-raised text-muted",
+};
+
+interface VersionRowProps {
+  icon: ReactNode;
+  title: string;
+  hint: string;
+  current: string | null;
+  next?: string;
+  state: { tone: Tone; text: string };
+  detail?: string;
+  action?: ReactNode;
+}
+
+function VersionRow({ icon, title, hint, current, next, state, detail, action }: VersionRowProps) {
+  return (
+    <li className="grid grid-cols-[minmax(0,1fr)_8rem_minmax(0,1.4fr)_7rem] items-center gap-4 py-3.5">
+      <div className="flex min-w-0 items-center gap-3">
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-raised text-muted">{icon}</span>
+        <div className="min-w-0">
+          <div className="truncate text-sm">{title}</div>
+          <div className="text-[12px] text-faint">{hint}</div>
+        </div>
+      </div>
+      <div className="font-mono text-[13px] tabular-nums">
+        <span className={next ? "text-muted" : ""}>{current ?? "—"}</span>
+        {next && <span className="text-accent"> → {next}</span>}
+      </div>
+      <div className="min-w-0">
+        <span className={`inline-block rounded-full px-2.5 py-0.5 text-[12px] ${toneClass[state.tone]}`}>{state.text}</span>
+        {detail && (
+          <div className="mt-1 line-clamp-2 text-[12px] text-faint" title={detail}>
+            {detail}
+          </div>
+        )}
+      </div>
+      <div className="flex justify-end">{action}</div>
+    </li>
+  );
+}
+
+const CHECK_HOURS: [number, string][] = [
+  [1, "Каждый час"],
+  [6, "Каждые 6 часов"],
+  [24, "Раз в день"],
+  [0, "Только вручную"],
+];
 
 const folders: [Folder, string][] = [
   ["saves", "Сохранения"],

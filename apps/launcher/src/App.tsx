@@ -2,29 +2,38 @@ import { X } from "lucide-react";
 import { useEffect } from "react";
 import { api } from "./api";
 import { DragGhost } from "./components/DragGhost";
+import { InstanceSetup } from "./components/InstanceSetup";
+import { PageTitle } from "./components/PageTitle";
 import { FomodWizard } from "./components/FomodWizard";
 import { Footer } from "./components/Footer";
 import { ReplaceConfirm } from "./components/ReplaceConfirm";
 import { RootPicker } from "./components/RootPicker";
 import { Header } from "./components/Header";
-import { Home } from "./pages/Home";
 import { Mods } from "./pages/Mods";
 import { Release } from "./pages/Release";
 import { Settings } from "./pages/Settings";
-import { dropSpotAt, useApp, type Page } from "./store";
+import { checkDue, dropSpotAt, primaryAction, useApp, type Page } from "./store";
 
 const STATUS_POLL_MS = 3000;
+// How often the launcher asks itself whether a timed update check is due; the interval itself is a setting.
+const CHECK_TICK_MS = 10 * 60_000;
+
+function checkIfDue() {
+  const { settings, lastCheck, checkUpdates } = useApp.getState();
+  if (settings && checkDue(settings.updateCheckHours, lastCheck)) void checkUpdates();
+}
 
 const pages: Record<Page, () => React.JSX.Element | null> = {
-  home: Home,
   mods: Mods,
   release: Release,
   settings: Settings,
 };
 
 export default function App() {
-  const { page, error, clearError, notice, fomodJob, setFomodJob, rootJob, setRootJob } = useApp();
-  const PageView = pages[page];
+  const { page, error, clearError, notice, fomodJob, setFomodJob, rootJob, setRootJob, status, build, progress, settings } = useApp();
+  // No MO2 yet: there is no mod list to show, only where to get one.
+  const setup = page === "mods" && primaryAction(status, build, !!progress, settings) === "setup";
+  const PageView = setup ? FirstRun : pages[page];
 
   useEffect(() => {
     const {
@@ -40,15 +49,17 @@ export default function App() {
       refreshDownloads,
       refreshUserMods,
     } = useApp.getState();
-    void refreshStatus();
     void refreshBuild();
     void checkLauncherUpdate();
     // The launcher may have been started by an nxm link: its download is already queued and shows in the footer.
     void refreshNexus();
+    // The interval is a setting: due or not is known once settings are loaded.
+    void refreshStatus().then(checkIfDue);
     void refreshDownloads();
     void refreshUserMods();
     void api.nexusLimits().then((l) => l && useApp.setState({ nexusLimits: l }));
     const poll = setInterval(refreshStatus, STATUS_POLL_MS);
+    const checks = setInterval(checkIfDue, CHECK_TICK_MS);
     const unlisten = api.onUpdate(onUpdateEvent, (f) => onUpdateFinished(f.ok, f.error));
     const unlistenVerify = api.onVerifyProgress(onVerifyEvent);
     const unlistenAuthor = api.onAuthorEvent(onAuthorEvent);
@@ -78,6 +89,7 @@ export default function App() {
     });
     return () => {
       clearInterval(poll);
+      clearInterval(checks);
       void unlisten.then((f) => f());
       void unlistenVerify.then((f) => f());
       void unlistenAuthor.then((f) => f());
@@ -112,6 +124,17 @@ export default function App() {
       </main>
       <Footer />
       <DragGhost />
+    </div>
+  );
+}
+
+function FirstRun() {
+  return (
+    <div className="mx-auto max-w-3xl space-y-6">
+      <PageTitle sub="Cyberpunk 2077 · откуда взять Mod Organizer 2">Начало</PageTitle>
+      <div className="panel">
+        <InstanceSetup />
+      </div>
     </div>
   );
 }

@@ -33,6 +33,7 @@ import type {
   RateLimit,
   UserRow,
   OverwriteInfo,
+  LogFile,
   Executable,
   FileDropHandlers,
 } from "./api";
@@ -124,6 +125,7 @@ let settings: Settings = {
   authorMode: false,
   authorRepo: "ItsLyno/LYNO-HARDWIRED",
   authorOutDir: null,
+  updateCheckHours: 6,
 };
 
 const AUTHOR_MODE_NO_UPDATE =
@@ -393,6 +395,22 @@ let userMods: UserRow[] = [
   { kind: "mod", name: "Photo Mode Unlocker", enabled: false, version: "1.0", nexusUrl: "https://www.nexusmods.com/cyberpunk2077/mods/2711", after: null, buildId: null },
 ];
 let overwrite: OverwriteInfo = { files: 14, size: 182_000 };
+const mockLogs: Record<string, string> = {
+  "red4ext/logs/red4ext-2026-10-05-12-00-01.log": [
+    "[2026-10-05 12:00:01.120] [RED4ext] [info] RED4ext (v1.27.0) is initializing...",
+    "[2026-10-05 12:00:01.240] [RED4ext] [info] Loading plugins...",
+    "[2026-10-05 12:00:01.300] [RED4ext] [warning] ArchiveXL (v1.21.0) is compiled for an older game version",
+    "[2026-10-05 12:00:01.410] [RED4ext] [error] Could not load plugin 'Codeware'. Error code: 126",
+    "[2026-10-05 12:00:01.500] [RED4ext] [info] 7 plugin(s) loaded",
+  ].join("\n"),
+  "r6/logs/redscript_rCURRENT.log": [
+    "[INFO - Sun, 5 Oct 2026 12:00:00] Compiling files in r6/scripts",
+    "[WARN - Sun, 5 Oct 2026 12:00:02] At LynoEconomy/Prices.reds:42:7: unused variable 'base'",
+    "[ERROR - Sun, 5 Oct 2026 12:00:02] At SomeMod/Hud.reds:10:1: function 'Foo' is not defined",
+    "[INFO - Sun, 5 Oct 2026 12:00:03] Output successfully saved",
+  ].join("\n"),
+  "bin/x64/plugins/cyber_engine_tweaks/cyber_engine_tweaks.log": "[12:00:05] [info] CET version v1.35.0\n[12:00:06] [info] Mods loaded: 12",
+};
 const userKey = (r: UserRow) => (r.kind === "mod" ? r.name : `${r.title}_separator`);
 /** Below `after`: a row of the player's (taking its place), a build row (a mod goes among the build's) or the end. */
 function place(row: UserRow, after: string | null) {
@@ -784,6 +802,8 @@ export const mock = {
   clearOverwrite: async () => {
     overwrite = { files: 0, size: 0 };
   },
+  overwriteLogs: async (): Promise<LogFile[]> => (overwrite.files ? Object.keys(mockLogs).map((path, i) => ({ path, size: mockLogs[path].length, modified: Date.now() - i * 60_000 })) : []),
+  readOverwriteLog: async (path: string) => mockLogs[path] ?? "",
   reinstallMod: async (folder: string): Promise<number> => {
     throw new Error(`Архива мода «${folder}» нет в загрузках Mod Organizer 2: скачайте мод заново и перетащите его в список`);
   },

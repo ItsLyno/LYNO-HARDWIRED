@@ -44,6 +44,10 @@ pub struct Settings {
     /// folder, next to the default instance rather than inside it.
     #[serde(default)]
     pub author_out_dir: Option<PathBuf>,
+    /// How often the launcher looks for new versions of the build, itself and
+    /// Nexus mods while it runs; 0: only when asked.
+    #[serde(default = "default_update_check_hours")]
+    pub update_check_hours: u32,
 }
 
 pub const BUILD_NAME: &str = "LYNO//HARDWIRED";
@@ -55,6 +59,10 @@ pub fn build_dir(data_dir: &Path) -> PathBuf {
 
 fn default_repo() -> String {
     DEFAULT_REPO.into()
+}
+
+fn default_update_check_hours() -> u32 {
+    6
 }
 
 fn default_manifest_url() -> String {
@@ -71,6 +79,7 @@ impl Settings {
             author_mode: false,
             author_repo: default_repo(),
             author_out_dir: None,
+            update_check_hours: default_update_check_hours(),
         }
     }
 

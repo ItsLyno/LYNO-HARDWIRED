@@ -58,12 +58,18 @@ export function DragGhost() {
       useApp.setState({ drag: null });
       const spot = dropSpotAt(e.clientX, e.clientY);
       // A separator of the player stays in their section; their mods go among the build's too.
-      if (!d || !spot || (d.move && d.file.endsWith("_separator") && spot.build)) return;
+      if (!d || !spot || (d.move && movesSeparator(d) && spot.build)) return;
       const { run, refreshUserMods, installArchive } = useApp.getState();
+      const files = d.files ?? [d.file];
       if (!d.move) void installArchive(d.file, spot.after);
-      else if (spot.after !== d.file)
+      else if (!(spot.after && files.includes(spot.after)))
+        // Each one under the one before it: the selection lands as a block, in its order.
         void run(async () => {
-          await api.moveUserMod(d.file, spot.after);
+          let after = spot.after;
+          for (const f of files) {
+            await api.moveUserMod(f, after);
+            after = f;
+          }
           await refreshUserMods();
         });
     };
@@ -80,7 +86,7 @@ export function DragGhost() {
 
   if (!drag) return null;
   const Icon = drag.move ? ArrowDownUp : Package;
-  const blocked = drag.move && drag.over?.build;
+  const blocked = drag.move && movesSeparator(drag) && drag.over?.build;
   return (
     <div
       ref={ghost}
@@ -102,4 +108,9 @@ export function DragGhost() {
       </span>
     </div>
   );
+}
+
+/** A separator of the player moves only within their section: MO2 would put build mods under it. */
+export function movesSeparator(d: { file: string; files?: string[] }): boolean {
+  return (d.files ?? [d.file]).some((f) => f.endsWith("_separator"));
 }

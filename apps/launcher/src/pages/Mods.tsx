@@ -1,8 +1,11 @@
-import { ChevronRight, ExternalLink, FolderOpen, Lock, MoreHorizontal, Pencil, RefreshCw, Search, Trash2, X, type LucideIcon, TriangleAlert, Undo2, ArrowUp, Plus, Wrench, Palette, Eraser, PackagePlus, SeparatorHorizontal } from "lucide-react";
+import { ChevronRight, ExternalLink, Power, PowerOff, FolderOpen, Lock, MoreHorizontal, Pencil, RefreshCw, Search, Trash2, X, type LucideIcon, TriangleAlert, Undo2, ArrowUp, Plus, Wrench, Palette, Eraser, PackagePlus, SeparatorHorizontal, ScrollText } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from "react";
 import { api, type ModRow, type Need, type UserRow } from "../api";
 import { Button } from "../components/Button";
-import { pressToDrag } from "../components/DragGhost";
+import { Chip } from "../components/Chip";
+import { LogViewer } from "../components/LogViewer";
+import { movesSeparator, pressToDrag } from "../components/DragGhost";
+import { Notices } from "../components/Notices";
 import { PageTitle } from "../components/PageTitle";
 import { formatBytes, plural } from "../format";
 import { activeInstance, useApp } from "../store";
@@ -23,6 +26,7 @@ type Target = {
   id: string | null;
   nexusUrl: string | null;
   installed: boolean;
+  enabled: boolean;
   /** A build mod the player may remove (not core), and one they removed. */
   optional: boolean;
   removed: boolean;
@@ -33,13 +37,14 @@ type Target = {
 };
 type Menu = { target: Target; x: number; y: number };
 /** `after`: where a new separator goes. */
-type Dialog = { kind: "delete" | "reinstall" | "rename" | "color" | "separator" | "toMod" | "clear"; target: Target; after?: string | null };
+/** `many`: every selected row a delete goes to. */
+type Dialog = { kind: "delete" | "reinstall" | "rename" | "color" | "separator" | "toMod" | "clear" | "logs"; target: Target; after?: string | null; many?: Target[] };
 
 /** MO2's folder of the separator above the player's own mods (`plan::USER_SEPARATOR`). */
 const USER_SEPARATOR = "LYNO USER MODS_separator";
 
 export function Mods() {
-  const { build, buildError, status, progress, setModEnabled, settings, nexus, nexusUpdates, nexusChecking, checkNexus, userMods, refreshUserMods, refreshBuild, drag, fileOver, overwrite } =
+  const { run, build, buildError, status, progress, setModEnabled, settings, nexus, nexusUpdates, nexusChecking, checkNexus, userMods, refreshUserMods, refreshBuild, drag, fileOver, overwrite } =
     useApp();
   // Both sections mirror MO2, where mods may have changed since the launcher last looked.
   useEffect(() => {
@@ -59,6 +64,7 @@ export function Mods() {
     id: m.id,
     nexusUrl: m.nexusUrl,
     installed: m.installed,
+    enabled: m.enabled,
     optional: m.optional,
     removed: m.removed,
     buildId: null,
@@ -66,9 +72,9 @@ export function Mods() {
   });
   const userTarget = (r: UserRow): Target =>
     r.kind === "mod"
-      ? { kind: "mod", color: null, folder: r.name, label: r.name, id: null, nexusUrl: r.nexusUrl, installed: true, optional: false, removed: false, buildId: r.buildId, needs: needs.get(r.name) ?? [] }
-      : { kind: "separator", color: r.color, folder: rowKey(r), label: r.title, id: null, nexusUrl: null, installed: true, optional: false, removed: false, buildId: null, needs: [] };
-  const overwriteTarget: Target = { kind: "overwrite", color: null, folder: "overwrite", label: "Overwrite", id: null, nexusUrl: null, installed: true, optional: false, removed: false, buildId: null, needs: [] };
+      ? { kind: "mod", color: null, folder: r.name, label: r.name, id: null, nexusUrl: r.nexusUrl, installed: true, enabled: r.enabled, optional: false, removed: false, buildId: r.buildId, needs: needs.get(r.name) ?? [] }
+      : { kind: "separator", color: r.color, folder: rowKey(r), label: r.title, id: null, nexusUrl: null, installed: true, enabled: true, optional: false, removed: false, buildId: null, needs: [] };
+  const overwriteTarget: Target = { kind: "overwrite", color: null, folder: "overwrite", label: "Overwrite", id: null, nexusUrl: null, installed: true, enabled: true, optional: false, removed: false, buildId: null, needs: [] };
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const [collapsed, setCollapsed] = useState<Set<string>>(loadCollapsed);
@@ -76,8 +82,30 @@ export function Mods() {
   const listRef = useRef<HTMLDivElement>(null);
   const [current, setCurrent] = useState<string | null>(null);
   const [dialog, setDialog] = useState<Dialog | null>(null);
+  // Like MO2's list: a click selects a mod, Ctrl adds or takes one away, Shift a range of the rows shown.
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const anchor = useRef<string | null>(null);
+  const shownRows = () => [...(listRef.current?.querySelectorAll<HTMLElement>("[data-row]") ?? [])].map((el) => el.dataset.row!);
+  const select = (e: MouseEvent, key: string) => {
+    const add = e.ctrlKey || e.metaKey;
+    const next = add ? new Set(selected) : new Set<string>();
+    const rows = shownRows();
+    const [a, b] = [rows.indexOf(anchor.current ?? ""), rows.indexOf(key)];
+    if (e.shiftKey && a >= 0) {
+      for (const k of rows.slice(Math.min(a, b), Math.max(a, b) + 1)) next.add(k);
+    } else {
+      if (!add || !next.delete(key)) next.add(key);
+      anchor.current = key;
+    }
+    setSelected(next);
+  };
   const openMenu = (e: MouseEvent, target: Target) => {
     e.preventDefault();
+    // A right click outside the selection selects that row, as in MO2.
+    if (target.kind === "mod" && !selected.has(target.folder)) {
+      setSelected(new Set([target.folder]));
+      anchor.current = target.folder;
+    }
     setMenu({ target, x: e.clientX, y: e.clientY });
   };
   const toggleGroup = (title: string) => {
@@ -130,11 +158,45 @@ export function Mods() {
   const lockReason = progress
     ? "Дождитесь окончания обновления"
     : "Закройте игру и Mod Organizer 2, чтобы включать и выключать моды";
+  const targets = new Map<string, Target>([
+    ...(build?.mods ?? []).flatMap((m) => (m.kind === "mod" ? [[m.name, buildTarget(m)] as const] : [])),
+    ...(userMods ?? []).flatMap((r) => (r.kind === "mod" ? [[r.name, userTarget(r)] as const] : [])),
+  ]);
+  const picked = [...targets.values()].filter((t) => selected.has(t.folder));
+  const author = !!settings?.authorMode;
+  const switchable = (t: Target) => t.installed && !t.removed && (!t.id || t.optional);
+  // The player's own, any in author mode; a player's optional build mod leaves the build (`remove_build_mod`).
+  const deletable = (t: Target) => !t.id || author || (t.optional && t.installed && !t.removed);
+  const switchMany = (ts: Target[], enabled: boolean) =>
+    void run(async () => {
+      for (const t of ts.filter((t) => switchable(t) && t.enabled !== enabled)) {
+        if (t.id) await setModEnabled(t.id, enabled);
+        else await api.setUserModEnabled(t.folder, enabled);
+      }
+      await refreshUserMods();
+    });
+  // Space switches the selection as its first mod goes, Delete removes it.
+  const onKey = (e: React.KeyboardEvent) => {
+    if (e.target !== e.currentTarget) return;
+    if (e.key === "Escape") setSelected(new Set());
+    else if (e.key === "a" && (e.ctrlKey || e.metaKey)) setSelected(new Set(shownRows()));
+    else if (e.key === " " && picked.length > 0 && !locked) switchMany(picked, !picked[0].enabled);
+    else if (e.key === "Delete" && !locked && picked.some(deletable)) {
+      const many = picked.filter(deletable);
+      setDialog({ kind: "delete", target: many[0], many });
+    } else return;
+    e.preventDefault();
+  };
 
   // The player's own MO2: the whole list is their section.
   const isBuild = !!activeInstance(settings)?.build;
   if (!build && isBuild) {
-    return <p className="text-muted">{buildError ?? "Загрузка списка модов…"}</p>;
+    return (
+      <div className="mx-auto max-w-[1600px]">
+        <p className="text-muted">{buildError ?? "Загрузка списка модов…"}</p>
+        <Notices />
+      </div>
+    );
   }
   const last = build?.lastUpdate ?? null;
   // Where an archive being dragged or dropped from Explorer, or a row of the player, would land: a mod anywhere,
@@ -142,7 +204,7 @@ export function Mods() {
   const spot = drag?.over ?? (fileOver && !fileOver.outside ? fileOver : null);
   const dropping = !!drag || (!!fileOver && !fileOver.outside);
   // A separator of the player moves only within their section: MO2 would put build mods under it.
-  const lineAfter = spot && !(drag?.move && isSeparator(drag.file) && spot.build) && (spot.after === null ? "end" : spot.after);
+  const lineAfter = spot && !(drag?.move && movesSeparator(drag) && spot.build) && (spot.after === null ? "end" : spot.after);
   const userRows = (userMods ?? []).filter((r) => r.kind === "separator" || (r.after === null && keepUser(r)));
   const q = query.trim().toLowerCase();
   const shownUser = userRows.filter((r) => !q || r.kind === "separator" || r.name.toLowerCase().includes(q));
@@ -172,9 +234,19 @@ export function Mods() {
   const showOverwrite = !!overwrite && overwrite.files > 0 && filter === "all" && !q;
   const showUser = (shownUser.length > 0 || dropping || showOverwrite) && filter !== "changes";
   // A drag reorders the player's own rows; MO2 would overwrite the list on exit, so it waits for it to close.
+  // A selected mod takes the player's other selected mods along (build mods keep their places); an unselected one becomes the selection.
   const startMove = (e: React.PointerEvent, target: Target) =>
     !locked &&
-    pressToDrag(e, (ev) => useApp.setState({ drag: { file: target.folder, label: target.label, x: ev.clientX, y: ev.clientY, over: null, move: true } }));
+    pressToDrag(e, (ev) => {
+      const together = target.kind === "mod" && selected.has(target.folder);
+      const files = together ? (userMods ?? []).flatMap((r) => (r.kind === "mod" && selected.has(r.name) ? [r.name] : [])) : [target.folder];
+      if (target.kind === "mod" && !together) {
+        setSelected(new Set(files));
+        anchor.current = target.folder;
+      }
+      const label = files.length > 1 ? `${files.length} ${plural(files.length, "мод", "мода", "модов")}` : target.label;
+      useApp.setState({ drag: { file: target.folder, files, label, x: ev.clientX, y: ev.clientY, over: null, move: true } });
+    });
   const userRow = (r: UserMod) => (
     <UserModRow
       key={r.name}
@@ -186,6 +258,9 @@ export function Mods() {
       lockReason={lockReason}
       lineClass={line(r.name)}
       active={menu?.target.folder === r.name}
+      selected={selected.has(r.name)}
+      onSelect={(e) => select(e, r.name)}
+      onContext={(e) => openMenu(e, userTarget(r))}
       onMenu={(x, y) => setMenu({ target: userTarget(r), x, y })}
       onPress={(e) => startMove(e, userTarget(r))}
     />
@@ -251,6 +326,7 @@ export function Mods() {
         </div>
       </div>
 
+      <Notices />
       {filter === "off" && (
         <p className="mt-3 text-[13px] text-muted">
           Выбор сохраняется при обновлениях сборки. Выключенный мод остаётся установленным, удалённый обновления не
@@ -301,10 +377,12 @@ export function Mods() {
         <div
           ref={listRef}
           onScroll={trackCurrent}
+          onKeyDown={onKey}
+          tabIndex={0}
           data-drop-zone
-          className={`panel min-h-0 flex-1 overflow-y-auto transition-shadow ${dropping ? "ring-1 ring-neon/40" : ""}`}
+          className={`panel min-h-0 flex-1 overflow-y-auto outline-none transition-shadow ${dropping ? "ring-1 ring-neon/40" : ""}`}
         >
-          <table className="w-full table-fixed text-left">
+          <table className="w-full table-fixed text-left select-none">
             <colgroup>
               <col />
               <col className="w-32" />
@@ -337,9 +415,10 @@ export function Mods() {
                     key={m.id}
                     data-drop-after={m.name}
                     data-drop-build
-                    onClick={(e) => openMenu(e, buildTarget(m))}
+                    data-row={m.name}
+                    onClick={(e) => select(e, m.name)}
                     onContextMenu={(e) => openMenu(e, buildTarget(m))}
-                    className={`h-10 cursor-pointer border-b border-line/60 last:border-b-0 hover:bg-raised/50 ${menu?.target.folder === m.name ? "bg-raised/50" : ""} ${line(m.name)}`}
+                    className={`h-10 cursor-pointer border-b border-line/60 last:border-b-0 ${rowTone(selected.has(m.name), menu?.target.folder === m.name)} ${line(m.name)}`}
                   >
                     <td className="pl-5">
                      <div className="flex min-w-0 items-center gap-2">
@@ -461,8 +540,20 @@ export function Mods() {
         </div>
       </div>
 
-      {menu && <ModMenu menu={menu} locked={locked} lockReason={lockReason} onDialog={setDialog} onClose={() => setMenu(null)} />}
-      {dialog && <ModDialog dialog={dialog} onClose={() => setDialog(null)} />}
+      {menu && (
+        <ModMenu
+          menu={menu}
+          many={menu.target.kind === "mod" && picked.length > 1 && selected.has(menu.target.folder) ? picked : null}
+          switchable={switchable}
+          deletable={deletable}
+          onSwitch={switchMany}
+          locked={locked}
+          lockReason={lockReason}
+          onDialog={setDialog}
+          onClose={() => setMenu(null)}
+        />
+      )}
+      {dialog?.kind === "logs" ? <LogViewer onClose={() => setDialog(null)} /> : dialog && <ModDialog dialog={dialog} onClose={() => setDialog(null)} />}
     </div>
   );
 }
@@ -487,7 +578,18 @@ type Item = { label: string; icon: LucideIcon; onClick: () => void; disabled?: b
 
 // Like MO2's right-click menu on a mod. Deleting and renaming are for the player's own mods: a build mod
 // would come back with the next update, so the player only switches it off (the author changes any).
-function ModMenu(props: { menu: Menu; locked: boolean; lockReason: string; onDialog: (d: Dialog) => void; onClose: () => void }) {
+function ModMenu(props: {
+  menu: Menu;
+  /** Several selected mods: the menu acts on all of them. */
+  many: Target[] | null;
+  switchable: (t: Target) => boolean;
+  deletable: (t: Target) => boolean;
+  onSwitch: (ts: Target[], enabled: boolean) => void;
+  locked: boolean;
+  lockReason: string;
+  onDialog: (d: Dialog) => void;
+  onClose: () => void;
+}) {
   const { run, settings, userMods, refreshBuild, refreshUserMods } = useApp();
   const ref = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState({ left: props.menu.x, top: props.menu.y });
@@ -505,11 +607,28 @@ function ModMenu(props: { menu: Menu; locked: boolean; lockReason: string; onDia
   const section = (userMods ?? []).filter((r) => r.kind === "separator" || r.after === null);
   const at = section.findIndex((r) => rowKey(r) === t.folder);
   const above = at > 0 ? rowKey(section[at - 1]) : USER_SEPARATOR;
-  const items: (Item | null)[] = t.kind === "separator" ? [
+  const many = props.many;
+  const off = many?.filter((m) => props.switchable(m) && !m.enabled).length ?? 0;
+  const on = many?.filter((m) => props.switchable(m) && m.enabled).length ?? 0;
+  const gone = many?.filter(props.deletable) ?? [];
+  const items: (Item | null)[] = many ? [
+    { label: `Включить (${off})`, icon: Power, disabled: off === 0 || props.locked, title: lock, onClick: () => props.onSwitch(many, true) },
+    { label: `Выключить (${on})`, icon: PowerOff, disabled: on === 0 || props.locked, title: lock, onClick: () => props.onSwitch(many, false) },
+    null,
+    {
+      label: `Удалить (${gone.length})`,
+      icon: Trash2,
+      danger: true,
+      disabled: gone.length === 0 || props.locked,
+      title: lock ?? (gone.length < many.length ? "Основу сборки удалить нельзя" : undefined),
+      onClick: () => props.onDialog({ kind: "delete", target: gone[0], many: gone }),
+    },
+  ] : t.kind === "separator" ? [
     { label: "Переименовать", icon: Pencil, disabled: props.locked, title: lock, onClick: dialog("rename") },
     { label: "Цвет", icon: Palette, disabled: props.locked, title: lock, onClick: dialog("color") },
     { label: "Удалить", icon: Trash2, danger: true, disabled: props.locked, title: lock, onClick: dialog("delete") },
   ] : t.kind === "overwrite" ? [
+    { label: "Логи игры", icon: ScrollText, onClick: dialog("logs") },
     { label: "Открыть в проводнике", icon: FolderOpen, onClick: () => run(() => api.openFolder("overwrite")) },
     null,
     { label: "Сделать модом", icon: PackagePlus, disabled: props.locked, title: lock, onClick: dialog("toMod") },
@@ -637,7 +756,9 @@ function ModMenu(props: { menu: Menu; locked: boolean; lockReason: string; onDia
       onContextMenu={(e) => e.preventDefault()}
       className="panel fixed z-50 w-60 bg-surface py-1.5 shadow-2xl"
     >
-      <div className="truncate px-3.5 pt-1 pb-2 text-[12px] font-semibold text-muted">{t.label}</div>
+      <div className="truncate px-3.5 pt-1 pb-2 text-[12px] font-semibold text-muted">
+        {many ? `Выбрано: ${many.length} ${plural(many.length, "мод", "мода", "модов")}` : t.label}
+      </div>
       {items.map((it, i) =>
         it === null ? (
           <div key={i} className="my-1.5 border-t border-line" />
@@ -706,7 +827,7 @@ function ModDialog({ dialog, onClose }: { dialog: Dialog; onClose: () => void })
     />
   );
 
-  const view: Record<Dialog["kind"], { title: string; body: ReactNode; confirm: string; danger?: boolean; ok: () => void }> = {
+  const view: Record<Exclude<Dialog["kind"], "logs">, { title: string; body: ReactNode; confirm: string; danger?: boolean; ok: () => void }> = {
     delete: t.kind === "separator" ? {
       title: "Удалить разделитель?",
       body: <p>Моды под ним останутся на своих местах.</p>,
@@ -787,7 +908,33 @@ function ModDialog({ dialog, onClose }: { dialog: Dialog; onClose: () => void })
       ok: () => act(() => api.setSeparatorColor(t.folder, color)),
     },
   };
-  const v = view[dialog.kind];
+  const many = dialog.many && dialog.many.length > 1 ? dialog.many : null;
+  if (many) {
+    // A player's build mods leave the build, the rest goes from the disk.
+    const fromBuild = (m: Target) => !!m.id && !settings?.authorMode;
+    view.delete = {
+      title: `Удалить ${many.length} ${plural(many.length, "мод", "мода", "модов")}?`,
+      body: (
+        <>
+          <p>
+            Папки модов удалятся с диска. Моды сборки обновления не вернут, пока вы не вернёте их через меню мода; ваши моды не
+            вернуть.
+          </p>
+          <p className="max-h-40 overflow-y-auto font-mono text-xs text-faint">{many.map((m) => m.label).join("\n")}</p>
+        </>
+      ),
+      confirm: "Удалить",
+      danger: true,
+      ok: () => {
+        onClose();
+        void run(async () => {
+          for (const m of many) await (fromBuild(m) ? api.removeBuildMod(m.id!) : api.deleteMod(m.folder));
+          await Promise.all([refreshUserMods(), refreshBuild()]);
+        });
+      },
+    };
+  }
+  const v = view[dialog.kind as Exclude<Dialog["kind"], "logs">];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-8" role="dialog" aria-modal="true" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
@@ -909,20 +1056,6 @@ function VersionCell({ version, update }: { version: string | null; update?: Nex
   );
 }
 
-function Chip(props: { active: boolean; onClick: () => void; count?: number; children: string }) {
-  return (
-    <button
-      onClick={props.onClick}
-      className={`h-8 rounded-full px-3.5 text-[13px] transition-colors ${
-        props.active ? "bg-raised text-fg" : "text-muted hover:bg-raised/60 hover:text-fg"
-      }`}
-    >
-      {props.children}
-      {props.count !== undefined && <span className="ml-1.5 font-mono text-[11px] text-faint tabular-nums">{props.count}</span>}
-    </button>
-  );
-}
-
 function Switch(props: { checked: boolean; disabled?: boolean; title: string; onChange: (v: boolean) => void }) {
   return (
     <button
@@ -944,6 +1077,10 @@ function Switch(props: { checked: boolean; disabled?: boolean; title: string; on
   );
 }
 
+function rowTone(selected: boolean, active: boolean): string {
+  return selected ? "bg-neon/10 hover:bg-neon/15" : active ? "bg-raised/50" : "hover:bg-raised/50";
+}
+
 function rowKey(r: UserRow): string {
   return r.kind === "mod" ? r.name : `${r.title}_separator`;
 }
@@ -960,15 +1097,14 @@ function UserModRow(props: {
   lockReason: string;
   lineClass: string;
   active: boolean;
+  selected: boolean;
+  onSelect: (e: MouseEvent) => void;
+  onContext: (e: MouseEvent) => void;
   onMenu: (x: number, y: number) => void;
   onPress: (e: React.PointerEvent) => void;
 }) {
   const { run, refreshUserMods } = useApp();
   const r = props.row;
-  const menu = (e: MouseEvent) => {
-    e.preventDefault();
-    props.onMenu(e.clientX, e.clientY);
-  };
   const toggle = (enabled: boolean) =>
     run(async () => {
       await api.setUserModEnabled(r.name, enabled);
@@ -978,10 +1114,11 @@ function UserModRow(props: {
     <tr
       data-drop-after={r.name}
       data-drop-build={props.build || undefined}
+      data-row={r.name}
       onPointerDown={props.onPress}
-      onClick={menu}
-      onContextMenu={menu}
-      className={`h-10 cursor-pointer border-b border-line/60 last:border-b-0 hover:bg-raised/50 ${props.active ? "bg-raised/50" : ""} ${props.lineClass}`}
+      onClick={props.onSelect}
+      onContextMenu={props.onContext}
+      className={`h-10 cursor-pointer border-b border-line/60 last:border-b-0 ${rowTone(props.selected, props.active)} ${props.lineClass}`}
     >
       <td className="pl-5">
         <div className="flex min-w-0 items-center gap-2">
@@ -1094,10 +1231,6 @@ function saveCollapsed(titles: Set<string>) {
 
 function isBuildMod(m: Mod | UserMod): m is Mod {
   return "id" in m;
-}
-
-function isSeparator(folder: string): boolean {
-  return folder.endsWith("_separator");
 }
 
 /** Build rows by separator, each followed by the player's mods placed under it (`after`). */

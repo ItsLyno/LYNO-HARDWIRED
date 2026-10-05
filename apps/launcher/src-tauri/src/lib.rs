@@ -152,6 +152,8 @@ pub fn run() {
             commands::overwrite_info,
             commands::overwrite_to_mod,
             commands::clear_overwrite,
+            commands::overwrite_logs,
+            commands::read_overwrite_log,
             nexus::reinstall_mod,
             commands::instance_select,
             commands::instance_add,
