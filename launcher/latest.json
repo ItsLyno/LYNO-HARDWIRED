@@ -1,11 +1,11 @@
 {
-  "version": "0.7.3",
-  "notes": "Исправлен запуск игры, если она стоит не в той папке, что у автора сборки. Лаунчер теперь перед каждым запуском переписывает пути к игре в MO2 на выбранную папку.",
-  "pub_date": "2026-10-05T10:00:30Z",
+  "version": "0.7.4",
+  "notes": "",
+  "pub_date": "2026-10-05T13:51:19Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUejR0VmZ4WmllZklucDJWaFV6MG1NT1BZTXp3TWU5Wm9mNzBRU1dXN0NFZTBRYWJKdVdZSC9KbkJkRUV6WFVSYzNkSGdNSHNZNDU0NzRiU2Nib1BpY1VqRmRCTVQxY0FZPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkxMTk0NDMwCWZpbGU6TFlOTyBIQVJEV0lSRURfMC43LjNfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjAuNy4zClJvVy90KytBZ3lmNzZHQXZTTU1mL2xuaVpYNllIbllJS3V6bjI0MHVqRzRTUnppN1cwWmIzQWlQL0oyT3JXczk4UWVBRnplU25jWnZMTHpJcGIxMkRnPT0K",
-      "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/launcher-v0.7.3/LYNO-HARDWIRED_0.7.3_x64-setup.exe"
+      "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/launcher-v0.7.4/LYNO-HARDWIRED_0.7.4_x64-setup.exe",
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUejR0VmZ4WmllZkZGKzhZYk80VDhKNFp3UXFtUlZXYUwxclVCNU1KNG8xMmFqQVVyTmF1T1BqenZ1eDg1UFc1N0tES0t1MER2QTlvdXMwbndKeHhqTlhLcjd5bSsxQ3dvPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkxMjA4Mjc4CWZpbGU6TFlOTyBIQVJEV0lSRURfMC43LjRfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjAuNy40Cjk0RmZVNXNRQkRONHpadVZOWDcxU0txamwrcS90ZUVKTUJadHFTWHdNVk1kY0VXWmpMUmJ3Z0JsMk1YNEE3RG51TU5WN1JTVXpETVFlYW9rNGlTd0J3PT0K"
     }
   }
 }
