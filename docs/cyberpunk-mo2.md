@@ -16,7 +16,9 @@ Sources (checked 2026-10):
 
 ## Requirements
 
-- MO2 2.5.3+ with the Cyberpunk plugin 3.0+. MO2 must **not** be inside the game folder.
+- MO2 2.5.2+ with the Cyberpunk plugin 3.0+. MO2 must **not** be inside the game folder.
+  MO2 2.5.2 itself ships plugin 2.3.1 (no forced load libraries): the build replaces it, and
+  an instance the launcher downloads gets 3.0.0 from `crates/core/assets/` (`mo2::create_portable`).
 - The game folder should be clean (no manually installed mods): MO2 loads mods from
   both its VFS and the game folder.
 - CET 1.27+ (older versions don't work through USVFS).

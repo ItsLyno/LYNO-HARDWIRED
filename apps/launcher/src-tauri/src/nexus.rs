@@ -401,7 +401,8 @@ enum Work {
     /// Download the file of an nxm link into MO2's downloads.
     Fetch(NxmLink),
     /// Install an archive from MO2's downloads or the player's disk.
-    Install { archive: PathBuf, after: Option<String> },
+    /// `into`: over this mod folder (a reinstall), whatever the archive's own target.
+    Install { archive: PathBuf, after: Option<String>, into: Option<String> },
     /// Install the parked archive as it is (it waited for MO2 to close).
     Resume,
     /// Install the parked FOMOD archive with this choice.
@@ -679,12 +680,15 @@ fn run_job(app: &AppHandle, job: &Job) -> lyno_core::Result<Result<Next, BuildMo
                 Err(build_mod) => return Ok(Err(build_mod)),
             }
         }
-        Work::Install { archive, after } => {
+        Work::Install { archive, after, into } => {
             let download = mod_install::download_for(&archive);
             update_job(app, id, |j| j.describe(&download));
-            let target = match mod_install::target_for(&inst, &profile, &download, settings.author_mode, after)? {
-                Ok(t) => t,
-                Err(build_mod) => return Ok(Err(build_mod)),
+            let target = match into {
+                Some(folder) => Target::Replace(folder),
+                None => match mod_install::target_for(&inst, &profile, &download, settings.author_mode, after)? {
+                    Ok(t) => t,
+                    Err(build_mod) => return Ok(Err(build_mod)),
+                },
             };
             if let Target::Replace(folder) = &target {
                 update_job(app, id, |j| j.replaces = Some(folder.clone()));
@@ -856,8 +860,28 @@ pub fn install_archive(app: AppHandle, file: String, after: Option<String>) -> C
     let archive = archive_path(&inst, &file)?;
     log::info!("install {} (after {after:?})", archive.display());
     Ok(push_job(&app, |id| {
-        let mut job = Job::new(id, Source::File, Some(Work::Install { archive: archive.clone(), after }), JobState::Queued);
+        let mut job = Job::new(id, Source::File, Some(Work::Install { archive: archive.clone(), after, into: None }), JobState::Queued);
         job.title = archive.file_name().map(|n| n.to_string_lossy().into_owned());
+        job
+    }))
+}
+
+/// Installs a mod again from the archive it came from, over its folder. A
+/// player's build mod is repaired instead (`start_repair`): its package is the build's.
+#[tauri::command]
+pub fn reinstall_mod(app: AppHandle, folder: String) -> CmdResult<u64> {
+    let state = app.state::<AppState>();
+    let (inst, _) = instance(&state)?;
+    let author = state.settings.lock().unwrap().author_mode;
+    if !author && lyno_core::state::State::load(&lyno_core::install::state_path(&inst)).map_err(err)?.is_managed_folder(&folder) {
+        return Err("Мод сборки переустанавливается починкой".into());
+    }
+    let archive = mod_install::source_archive(&inst, &folder)
+        .ok_or("Архива этого мода нет в загрузках Mod Organizer 2: скачайте мод заново и перетащите его в список")?;
+    log::info!("reinstall {folder:?} from {}", archive.display());
+    Ok(push_job(&app, |id| {
+        let mut job = Job::new(id, Source::File, Some(Work::Install { archive: archive.clone(), after: None, into: Some(folder.clone()) }), JobState::Queued);
+        job.title = Some(folder.clone());
         job
     }))
 }

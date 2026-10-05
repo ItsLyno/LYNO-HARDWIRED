@@ -677,6 +677,16 @@ export const mock = {
     userMods = userMods.map((r) => (r.kind === "mod" && r.name === folder ? { ...r, enabled } : r));
   },
   openUserModFolder: async (_folder: string) => {},
+  deleteMod: async (folder: string) => {
+    userMods = userMods.filter((r) => r.kind !== "mod" || r.name !== folder);
+  },
+  renameMod: async (folder: string, name: string) => {
+    if (userMods.some((r) => r.kind === "mod" && r.name === name)) throw new Error(`Мод «${name}» уже есть`);
+    userMods = userMods.map((r) => (r.kind === "mod" && r.name === folder ? { ...r, name } : r));
+  },
+  reinstallMod: async (folder: string): Promise<number> => {
+    throw new Error(`Архива мода «${folder}» нет в загрузках Mod Organizer 2: скачайте мод заново и перетащите его в список`);
+  },
   instanceSelect: async (dir: string) => useInstance(settings.instances.find((i) => i.dir === dir)!),
   instanceAdd: async (dir: string) => useInstance({ name: dir.split("\\").pop() ?? dir, dir, build: false }),
   instanceAddBuild: async () => useInstance({ name: "LYNO//HARDWIRED", dir: BUILD_DIR, build: true }),

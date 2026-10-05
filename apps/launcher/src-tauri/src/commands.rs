@@ -625,6 +625,56 @@ pub fn open_user_mod_folder(state: TauriState<'_, AppState>, folder: String) -> 
     open_dir(&inst.mods_dir().join(folder))
 }
 
+/// A mod the player may delete or rename: their own, or any in author mode.
+/// A build mod of a player is the build's to change: it would come back with the next update.
+fn own_mod(state: &AppState, folder: &str) -> CmdResult<Instance> {
+    if state.update.lock().unwrap().is_some() {
+        return Err("Дождитесь окончания обновления сборки".into());
+    }
+    if running_processes() != (false, false) {
+        return Err("Закройте игру и Mod Organizer 2, чтобы менять моды".into());
+    }
+    let settings = state.settings.lock().unwrap().clone();
+    let inst = Instance::new(&settings.instance_dir);
+    if folder.is_empty() || folder.contains(['/', '\\']) || folder == ".." || !inst.mods_dir().join(folder).is_dir() {
+        return Err("Мод не найден".into());
+    }
+    if !settings.author_mode && State::load(&install::state_path(&inst)).map_err(err)?.is_managed_folder(folder) {
+        return Err("Это мод сборки: его можно только выключить".into());
+    }
+    Ok(inst)
+}
+
+#[tauri::command]
+pub fn delete_mod(state: TauriState<'_, AppState>, folder: String) -> CmdResult<()> {
+    let inst = own_mod(&state, &folder)?;
+    lyno_core::mod_install::remove(&inst, &folder).map_err(|e| {
+        log::error!("delete mod {folder:?}: {e}");
+        format!("Не удалось удалить мод: {e}")
+    })?;
+    log::info!("deleted mod {folder:?}");
+    Ok(())
+}
+
+#[tauri::command]
+pub fn rename_mod(state: TauriState<'_, AppState>, folder: String, name: String) -> CmdResult<()> {
+    let inst = own_mod(&state, &folder)?;
+    let name = name.trim();
+    if let Some(why) = lyno_core::mod_install::invalid_name(name) {
+        return Err(why.into());
+    }
+    // Windows names ignore case: a change of case only is the same folder.
+    if inst.mods_dir().join(name).exists() && !folder.eq_ignore_ascii_case(name) {
+        return Err(format!("Мод «{name}» уже есть"));
+    }
+    lyno_core::mod_install::rename(&inst, &folder, name).map_err(|e| {
+        log::error!("rename mod {folder:?}: {e}");
+        format!("Не удалось переименовать мод: {e}")
+    })?;
+    log::info!("renamed mod {folder:?} to {name:?}");
+    Ok(())
+}
+
 #[tauri::command]
 pub fn open_mod_folder(state: TauriState<'_, AppState>, id: String) -> CmdResult<()> {
     let settings = state.settings.lock().unwrap().clone();

@@ -760,6 +760,81 @@ pub fn target_for(inst: &Instance, profile: &str, dl: &Download, author: bool, a
     })
 }
 
+/// The archive a mod was installed from, to install it again: MO2 records a
+/// file name in `downloads/` or, for one installed from elsewhere, a full path.
+pub fn source_archive(inst: &Instance, folder: &str) -> Option<PathBuf> {
+    let meta = ModMeta::load(&inst.mods_dir().join(folder).join("meta.ini")).ok()?;
+    let file = PathBuf::from(meta.installation_file.filter(|f| !f.is_empty())?);
+    let path = if file.is_absolute() { file } else { inst.downloads_dir().join(file) };
+    path.is_file().then_some(path)
+}
+
+/// `modlist.txt` of every profile: MO2 drops or renames a mod in all of them,
+/// or a profile not open now would lose the mod's place and state.
+fn each_modlist(inst: &Instance, mut f: impl FnMut(&mut ModList) -> bool) -> Result<()> {
+    let dir = inst.root().join("profiles");
+    let Ok(profiles) = std::fs::read_dir(&dir) else { return Ok(()) };
+    for p in profiles {
+        let path = p.map_err(|e| Error::io(&dir, e))?.path().join("modlist.txt");
+        if path.is_file() {
+            let mut list = ModList::load(&path)?;
+            if f(&mut list) {
+                list.save(&path)?;
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Deletes a mod: its folder and its entry in every profile. The folder is
+/// first moved aside, so a file held open by another program fails the
+/// delete before the lists change rather than leaving half a mod behind.
+pub fn remove(inst: &Instance, folder: &str) -> Result<()> {
+    let dir = inst.mods_dir().join(folder);
+    let trash = inst.root().join(".lyno").join("staging").join("deleted");
+    if trash.exists() {
+        std::fs::remove_dir_all(&trash).map_err(|e| Error::io(&trash, e))?;
+    }
+    std::fs::create_dir_all(trash.parent().unwrap()).map_err(|e| Error::io(&trash, e))?;
+    std::fs::rename(&dir, &trash).map_err(|e| Error::io(&dir, e))?;
+    each_modlist(inst, |list| {
+        let len = list.entries.len();
+        list.entries.retain(|e| e.name != folder);
+        list.entries.len() != len
+    })?;
+    std::fs::remove_dir_all(&trash).map_err(|e| Error::io(&trash, e))
+}
+
+/// Why a folder name can't be a mod's, in words for the player.
+pub fn invalid_name(name: &str) -> Option<&'static str> {
+    if name.trim().is_empty() {
+        Some("Название не может быть пустым")
+    } else if name.contains(['<', '>', ':', '"', '/', '\\', '|', '?', '*']) || name.chars().any(char::is_control) {
+        Some("Windows не разрешает в названии папки символы < > : \" / \\ | ? *")
+    } else if name.ends_with(['.', ' ']) || name.starts_with(' ') {
+        Some("Название не может начинаться с пробела или заканчиваться точкой и пробелом")
+    } else if Entry::enabled(name).is_separator() {
+        Some("Так MO2 называет разделители: выберите другое название")
+    } else {
+        None
+    }
+}
+
+/// Renames a mod's folder and its entry in every profile, keeping its place
+/// and state. `to` passed [`invalid_name`] and names no other mod.
+pub fn rename(inst: &Instance, from: &str, to: &str) -> Result<()> {
+    let mods = inst.mods_dir();
+    std::fs::rename(mods.join(from), mods.join(to)).map_err(|e| Error::io(mods.join(from), e))?;
+    each_modlist(inst, |list| {
+        let mut changed = false;
+        for e in list.entries.iter_mut().filter(|e| e.name == from) {
+            e.name = to.to_owned();
+            changed = true;
+        }
+        changed
+    })
+}
+
 /// Qt reads an unquoted value up to the line end; quotes keep commas and
 /// semicolons, which Qt would otherwise split or cut at.
 fn ini_value(v: &str) -> String {
@@ -1072,5 +1147,28 @@ mod tests {
         assert_eq!(dl("cool mod").folder(), "Cool Mod");
         assert_eq!(dl("Cool Mod - Extra Outfits").folder(), "Cool Mod - Extra Outfits");
         assert_eq!(dl("Extra Outfits").folder(), "Cool Mod - Extra Outfits");
+    }
+
+    #[test]
+    fn remove_and_rename_reach_every_profile() {
+        let (_d, inst) = instance("+Keep\n-Old\n");
+        std::fs::create_dir_all(inst.profile_dir("Other")).unwrap();
+        std::fs::write(inst.modlist_path("Other"), "+Old\n+Gone\n").unwrap();
+        for m in ["Keep", "Old", "Gone"] {
+            std::fs::create_dir_all(inst.mods_dir().join(m)).unwrap();
+        }
+        std::fs::write(inst.mods_dir().join("Gone/file.archive"), b"x").unwrap();
+
+        rename(&inst, "Old", "New").unwrap();
+        remove(&inst, "Gone").unwrap();
+        assert!(inst.mods_dir().join("New").is_dir() && !inst.mods_dir().join("Gone").exists());
+        assert_eq!(names(&inst), ["New", "Keep"]);
+        let other = ModList::load(&inst.modlist_path("Other")).unwrap();
+        assert_eq!(other.entries, [Entry::enabled("New")]);
+        // The state goes with the name.
+        assert_eq!(ModList::load(&inst.modlist_path("LYNO")).unwrap().get("New").unwrap().state, EntryState::Disabled);
+
+        assert!(invalid_name("a/b").is_some() && invalid_name("x.").is_some() && invalid_name("Foo_separator").is_some());
+        assert!(invalid_name("Cool Mod 1.2").is_none());
     }
 }

@@ -464,6 +464,11 @@ export const api = isTauri()
       userMods: () => invoke<UserRow[]>("user_mods"),
       setUserModEnabled: (folder: string, enabled: boolean) => invoke<void>("set_user_mod_enabled", { folder, enabled }),
       openUserModFolder: (folder: string) => invoke<void>("open_user_mod_folder", { folder }),
+      /** The player's own mod, or any in author mode. */
+      deleteMod: (folder: string) => invoke<void>("delete_mod", { folder }),
+      renameMod: (folder: string, name: string) => invoke<void>("rename_mod", { folder, name }),
+      /** From the archive in MO2's downloads, as a queued job; a player's build mod is repaired instead (`startRepair`). */
+      reinstallMod: (folder: string) => invoke<number>("reinstall_mod", { folder }),
       instanceSelect: (dir: string) => invoke<void>("instance_select", { dir }),
       /** The player's portable MO2 for Cyberpunk. */
       instanceAdd: (dir: string) => invoke<void>("instance_add", { dir }),

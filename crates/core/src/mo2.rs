@@ -201,6 +201,13 @@ pub fn open_args(profile: &str) -> Vec<String> {
 /// `gameName` of the Cyberpunk plugin.
 const GAME_NAME: &str = "Cyberpunk 2077";
 
+/// The Cyberpunk plugin MO2 2.5.2 ships is 2.3.1: it predates forced load
+/// libraries, so CET and RED4ext would not load. 3.0.0, the build's copy, runs on
+/// 2.5.2's `basic_games`; 3.0.1 needs a newer one (`BasicLocalSavegames(self)`).
+/// MIT, see `assets/LICENSE-basic_games`.
+const CYBERPUNK_PLUGIN: &[u8] = include_bytes!("../assets/game_cyberpunk2077.py");
+const CYBERPUNK_PLUGIN_PATH: &str = "plugins/basic_games/games/game_cyberpunk2077.py";
+
 /// Profile of an instance the launcher creates without the build.
 pub const DEFAULT_PROFILE: &str = "Default";
 
@@ -265,6 +272,8 @@ pub fn create_portable(inst: &Instance, archive_path: &Path, game_dir: Option<&P
     let staged = Instance::new(&part);
     let write = |path: PathBuf, text: &str| std::fs::write(&path, text).map_err(|e| Error::io(&path, e));
     write(part.join("portable.txt"), "")?;
+    let plugin = part.join(CYBERPUNK_PLUGIN_PATH);
+    std::fs::write(&plugin, CYBERPUNK_PLUGIN).map_err(|e| Error::io(&plugin, e))?;
     write(
         staged.ini_path(),
         &format!("[General]\r\ngameName={GAME_NAME}\r\nselected_profile=@ByteArray({DEFAULT_PROFILE})\r\n"),
@@ -344,7 +353,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let archive = dir.path().join("mo2.zip");
         let mut w = zip::ZipWriter::new(std::fs::File::create(&archive).unwrap());
-        for name in ["MO2/ModOrganizer.exe", "MO2/plugins/game_cyberpunk2077.py", "readme.txt"] {
+        for name in ["MO2/ModOrganizer.exe", "MO2/plugins/basic_games/games/game_cyberpunk2077.py", "readme.txt"] {
             w.start_file(name, zip::write::SimpleFileOptions::default()).unwrap();
             w.write_all(b"x").unwrap();
         }
@@ -353,7 +362,8 @@ mod tests {
         let inst = Instance::new(dir.path().join("inst"));
         create_portable(&inst, &archive, Some(Path::new("C:/Games/Cyberpunk 2077"))).unwrap();
         assert!(inst.is_installed() && inst.is_portable());
-        assert!(inst.root().join("plugins/game_cyberpunk2077.py").is_file());
+        let plugin = std::fs::read_to_string(inst.root().join(CYBERPUNK_PLUGIN_PATH)).unwrap();
+        assert!(plugin.contains("Version = \"3.0.0\""));
         assert!(!inst.root().join("readme.txt").exists());
         assert!(inst.modlist_path(DEFAULT_PROFILE).is_file());
         assert_eq!(inst.selected_profile().as_deref(), Some(DEFAULT_PROFILE));

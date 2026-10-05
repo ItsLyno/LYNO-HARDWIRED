@@ -1,19 +1,24 @@
-import { ChevronRight, ExternalLink, FolderOpen, Lock, Search } from "lucide-react";
-import { useEffect, useState, type CSSProperties } from "react";
+import { ChevronRight, ExternalLink, FolderOpen, Lock, MoreHorizontal, Pencil, RefreshCw, Search, Trash2, X, type LucideIcon } from "lucide-react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from "react";
 import { api, type ModRow, type UserRow } from "../api";
+import { Button } from "../components/Button";
 import { PageTitle } from "../components/PageTitle";
-import { formatBytes, plural } from "../format";
+import { plural } from "../format";
 import { activeInstance, useApp } from "../store";
 
 type Mod = Extract<ModRow, { kind: "mod" }>;
 type Group = { title: string | null; color: string | null; mods: Mod[] };
 type Filter = "all" | "off" | "changes";
+/** A row the context menu acts on. `id`: manifest id of a build mod. */
+type Target = { folder: string; label: string; id: string | null; nexusUrl: string | null; installed: boolean };
+type Menu = { target: Target; x: number; y: number };
+type Dialog = { kind: "delete" | "reinstall" | "rename"; target: Target };
 
 /** MO2's folder of the separator above the player's own mods (`plan::USER_SEPARATOR`). */
 const USER_SEPARATOR = "LYNO USER MODS_separator";
 
 export function Mods() {
-  const { build, buildError, status, progress, run, setModEnabled, settings, nexusUpdates, userMods, refreshUserMods, drag, fileOver } =
+  const { build, buildError, status, progress, setModEnabled, settings, nexusUpdates, userMods, refreshUserMods, drag, fileOver } =
     useApp();
   useEffect(() => {
     void refreshUserMods();
@@ -27,6 +32,12 @@ export function Mods() {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const [collapsed, setCollapsed] = useState<Set<string>>(loadCollapsed);
+  const [menu, setMenu] = useState<Menu | null>(null);
+  const [dialog, setDialog] = useState<Dialog | null>(null);
+  const openMenu = (e: MouseEvent, target: Target) => {
+    e.preventDefault();
+    setMenu({ target, x: e.clientX, y: e.clientY });
+  };
   const toggleGroup = (title: string) => {
     const next = new Set(collapsed);
     if (!next.delete(title)) next.add(title);
@@ -39,7 +50,6 @@ export function Mods() {
   const groups = groupMods(build?.mods ?? [], query, keep);
   const all = (build?.mods ?? []).filter((m): m is Mod => m.kind === "mod");
   const shown = groups.reduce((n, g) => n + g.mods.length, 0);
-  const totalSize = all.reduce((n, m) => n + m.size, 0);
   const offCount = all.filter((m) => !m.enabled).length;
   const changeCount = all.filter(isChange).length;
   // MO2 rewrites modlist.txt on exit, so switching mods while it runs would be lost.
@@ -73,7 +83,7 @@ export function Mods() {
         <PageTitle
           sub={
             build
-              ? `${all.length} ${plural(all.length, "мод", "мода", "модов")} · ${formatBytes(totalSize)} · сборка ${build.latestVersion}`
+              ? `${all.length} ${plural(all.length, "мод", "мода", "модов")} · сборка ${build.latestVersion}`
               : `${userModCount} ${plural(userModCount, "мод", "мода", "модов")} · Mod Organizer 2`
           }
         >
@@ -84,7 +94,7 @@ export function Mods() {
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Поиск по названию или автору"
+            placeholder="Поиск по названию"
             spellCheck={false}
             className="h-9 w-full rounded-full bg-surface pr-4 pl-9 text-sm outline-none placeholder:text-faint focus:ring-1 focus:ring-neon/50"
           />
@@ -124,17 +134,13 @@ export function Mods() {
         <table className="w-full table-fixed text-left">
           <colgroup>
             <col />
-            <col className="w-48" />
-            <col className="w-28" />
+            <col className="w-32" />
             <col className="w-24" />
-            <col className="w-40" />
           </colgroup>
           <thead className="sticky top-0 z-10 bg-surface">
             <tr className="label h-10 border-b border-line">
               <th className="pl-5 font-medium">Название</th>
-              <th className="font-medium">Автор</th>
               <th className="font-medium">Версия</th>
-              <th className="pr-4 text-right font-medium">Размер</th>
               <th className="pr-5" />
             </tr>
           </thead>
@@ -153,7 +159,13 @@ export function Mods() {
                 />
               )}
               {(!g.title || query.trim() || !collapsed.has(g.title)) && g.mods.map((m) => (
-                <tr key={m.id} data-drop-after={m.name} className={`h-12 border-b border-line/60 last:border-b-0 hover:bg-raised/50 ${line(m.name)}`}>
+                <tr
+                  key={m.id}
+                  data-drop-after={m.name}
+                  onClick={(e) => openMenu(e, buildTarget(m))}
+                  onContextMenu={(e) => openMenu(e, buildTarget(m))}
+                  className={`h-12 cursor-pointer border-b border-line/60 last:border-b-0 hover:bg-raised/50 ${menu?.target.folder === m.name ? "bg-raised/50" : ""} ${line(m.name)}`}
+                >
                   <td className="truncate pl-5">
                     <span className={m.enabled ? "" : "text-faint"}>{m.title ?? m.name}</span>
                     {!m.enabled && <Badge>выключен</Badge>}
@@ -175,11 +187,9 @@ export function Mods() {
                       </Badge>
                     )}
                   </td>
-                  <td className="truncate text-muted">{m.author ?? "—"}</td>
                   <td className="truncate font-mono text-xs text-muted tabular-nums">{m.version ?? "—"}</td>
-                  <td className="pr-4 text-right font-mono text-xs text-muted tabular-nums">{formatBytes(m.size)}</td>
                   <td className="pr-5">
-                    <div className="flex items-center justify-end gap-1">
+                    <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
                       {m.optional && m.installed && (
                         <Switch
                           checked={m.enabled}
@@ -196,25 +206,7 @@ export function Mods() {
                           <Lock size={13} />
                         </span>
                       )}
-                      {m.installed && (
-                        <button
-                          onClick={() => run(() => api.openModFolder(m.id))}
-                          className="inline-flex h-7 w-7 items-center justify-center rounded-full text-muted transition-colors hover:bg-raised hover:text-fg"
-                          title="Открыть папку мода"
-                        >
-                          <FolderOpen size={14} />
-                        </button>
-                      )}
-                      {m.nexusUrl && (
-                        <button
-                          onClick={() => run(() => api.openUrl(m.nexusUrl!))}
-                          className="inline-flex h-7 items-center gap-1.5 rounded-full px-2.5 text-[13px] text-muted transition-colors hover:bg-raised hover:text-fg"
-                          title={m.nexusUrl}
-                        >
-                          Nexus
-                          <ExternalLink size={13} />
-                        </button>
-                      )}
+                      <MenuButton onOpen={(x, y) => setMenu({ target: buildTarget(m), x, y })} />
                     </div>
                   </td>
                 </tr>
@@ -233,10 +225,20 @@ export function Mods() {
                 lineClass={line(USER_SEPARATOR)}
               />
               {(q || dropping || !collapsed.has(USER_SEPARATOR)) &&
-                shownUser.map((r) => <UserModRow key={rowKey(r)} row={r} locked={locked} lockReason={lockReason} lineClass={line(rowKey(r))} />)}
+                shownUser.map((r) => (
+                  <UserModRow
+                    key={rowKey(r)}
+                    row={r}
+                    locked={locked}
+                    lockReason={lockReason}
+                    lineClass={line(rowKey(r))}
+                    active={menu?.target.folder === rowKey(r)}
+                    onMenu={(x, y) => r.kind === "mod" && setMenu({ target: userTarget(r), x, y })}
+                  />
+                ))}
               {dropping && shownUser.length === 0 && (
                 <tr data-drop-after={USER_SEPARATOR}>
-                  <td colSpan={5} className="px-5 py-4 text-center text-[13px] text-neon">
+                  <td colSpan={3} className="px-5 py-4 text-center text-[13px] text-neon">
                     Отпустите архив, чтобы установить его в ваши моды
                   </td>
                 </tr>
@@ -250,6 +252,255 @@ export function Mods() {
       <p className="mt-4 text-xs text-faint">
         Все моды принадлежат их авторам. Если мод понравился — поддержите автора на Nexus Mods.
       </p>
+
+      {menu && <ModMenu menu={menu} locked={locked} lockReason={lockReason} onDialog={setDialog} onClose={() => setMenu(null)} />}
+      {dialog && <ModDialog dialog={dialog} onClose={() => setDialog(null)} />}
+    </div>
+  );
+}
+
+function buildTarget(m: Mod): Target {
+  return { folder: m.name, label: m.title ?? m.name, id: m.id, nexusUrl: m.nexusUrl, installed: m.installed };
+}
+
+function userTarget(r: Extract<UserRow, { kind: "mod" }>): Target {
+  return { folder: r.name, label: r.name, id: null, nexusUrl: r.nexusUrl, installed: true };
+}
+
+function MenuButton({ onOpen }: { onOpen: (x: number, y: number) => void }) {
+  return (
+    <button
+      onClick={(e) => {
+        const r = e.currentTarget.getBoundingClientRect();
+        onOpen(r.right, r.bottom + 4);
+      }}
+      className="inline-flex h-7 w-7 items-center justify-center rounded-full text-muted transition-colors hover:bg-raised hover:text-fg"
+      title="Действия с модом"
+      aria-haspopup="menu"
+    >
+      <MoreHorizontal size={16} />
+    </button>
+  );
+}
+
+type Item = { label: string; icon: LucideIcon; onClick: () => void; disabled?: boolean; title?: string; danger?: boolean };
+
+// Like MO2's right-click menu on a mod. Deleting and renaming are for the player's own mods: a build mod
+// would come back with the next update, so the player only switches it off (the author changes any).
+function ModMenu(props: { menu: Menu; locked: boolean; lockReason: string; onDialog: (d: Dialog) => void; onClose: () => void }) {
+  const { run, settings } = useApp();
+  const ref = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState({ left: props.menu.x, top: props.menu.y });
+  const t = props.menu.target;
+  const author = !!settings?.authorMode;
+  const own = !t.id || author;
+  const dialog = (kind: Dialog["kind"]) => () => props.onDialog({ kind, target: t });
+  // A player's build mod comes again with the build (repair), which needs MO2 closed; an archive install waits for it.
+  const repair = !!t.id && !author;
+  const items: (Item | null)[] = [
+    {
+      label: "Открыть в проводнике",
+      icon: FolderOpen,
+      disabled: !t.installed,
+      title: t.installed ? undefined : "Мод ещё не установлен",
+      onClick: () => run(() => (t.id ? api.openModFolder(t.id) : api.openUserModFolder(t.folder))),
+    },
+    {
+      label: "Открыть на Nexus",
+      icon: ExternalLink,
+      disabled: !t.nexusUrl,
+      title: t.nexusUrl ?? "У мода нет страницы на Nexus",
+      onClick: () => run(() => api.openUrl(t.nexusUrl!)),
+    },
+    null,
+    {
+      label: "Переустановить",
+      icon: RefreshCw,
+      disabled: !t.installed || (repair && props.locked),
+      title: !t.installed ? "Мод ещё не установлен" : repair && props.locked ? props.lockReason : undefined,
+      onClick: dialog("reinstall"),
+    },
+    {
+      label: "Переименовать",
+      icon: Pencil,
+      disabled: !own || props.locked,
+      title: !own ? "Мод сборки можно только выключить" : props.locked ? props.lockReason : undefined,
+      onClick: dialog("rename"),
+    },
+    {
+      label: "Удалить",
+      icon: Trash2,
+      danger: true,
+      disabled: !own || props.locked,
+      title: !own ? "Мод сборки можно только выключить" : props.locked ? props.lockReason : undefined,
+      onClick: dialog("delete"),
+    },
+  ];
+
+  // Opened near an edge, the menu flips inside the window.
+  useLayoutEffect(() => {
+    const r = ref.current!.getBoundingClientRect();
+    setPos({
+      left: Math.max(8, Math.min(props.menu.x, window.innerWidth - r.width - 8)),
+      top: props.menu.y + r.height > window.innerHeight - 8 ? Math.max(8, props.menu.y - r.height) : props.menu.y,
+    });
+    ref.current!.querySelector<HTMLButtonElement>("button:not(:disabled)")?.focus();
+  }, [props.menu]);
+
+  useEffect(() => {
+    const outside = (e: Event) => !ref.current?.contains(e.target as Node) && props.onClose();
+    const key = (e: KeyboardEvent) => {
+      if (e.key === "Escape") props.onClose();
+      if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+      e.preventDefault();
+      const buttons = [...ref.current!.querySelectorAll<HTMLButtonElement>("button:not(:disabled)")];
+      const at = buttons.indexOf(document.activeElement as HTMLButtonElement);
+      buttons[(at + (e.key === "ArrowDown" ? 1 : buttons.length - 1)) % buttons.length]?.focus();
+    };
+    window.addEventListener("mousedown", outside);
+    window.addEventListener("contextmenu", outside, true);
+    window.addEventListener("scroll", props.onClose, true);
+    window.addEventListener("resize", props.onClose);
+    window.addEventListener("blur", props.onClose);
+    window.addEventListener("keydown", key);
+    return () => {
+      window.removeEventListener("mousedown", outside);
+      window.removeEventListener("contextmenu", outside, true);
+      window.removeEventListener("scroll", props.onClose, true);
+      window.removeEventListener("resize", props.onClose);
+      window.removeEventListener("blur", props.onClose);
+      window.removeEventListener("keydown", key);
+    };
+  }, [props.onClose]);
+
+  return (
+    <div
+      ref={ref}
+      role="menu"
+      style={pos}
+      onContextMenu={(e) => e.preventDefault()}
+      className="panel fixed z-50 w-60 bg-surface py-1.5 shadow-2xl"
+    >
+      <div className="truncate px-3.5 pt-1 pb-2 text-[12px] font-semibold text-muted">{t.label}</div>
+      {items.map((it, i) =>
+        it === null ? (
+          <div key={i} className="my-1.5 border-t border-line" />
+        ) : (
+          <button
+            key={it.label}
+            role="menuitem"
+            disabled={it.disabled}
+            title={it.title}
+            onClick={() => {
+              props.onClose();
+              it.onClick();
+            }}
+            className={`flex h-8 w-full items-center gap-2.5 px-3.5 text-left text-[13px] transition-colors outline-none disabled:cursor-not-allowed disabled:text-faint ${
+              it.danger ? "text-bad hover:bg-bad/10 focus:bg-bad/10" : "text-fg hover:bg-raised focus:bg-raised"
+            }`}
+          >
+            <it.icon size={14} className="shrink-0 opacity-80" />
+            {it.label}
+          </button>
+        ),
+      )}
+    </div>
+  );
+}
+
+function ModDialog({ dialog, onClose }: { dialog: Dialog; onClose: () => void }) {
+  const { run, settings, refreshUserMods, refreshBuild, startRepair } = useApp();
+  const t = dialog.target;
+  const [name, setName] = useState(t.folder);
+  const repair = !!t.id && !settings?.authorMode;
+
+  useEffect(() => {
+    const esc = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", esc);
+    return () => window.removeEventListener("keydown", esc);
+  }, []);
+
+  const act = (action: () => Promise<unknown>) => {
+    onClose();
+    void run(async () => {
+      await action();
+      await Promise.all([refreshUserMods(), t.id ? refreshBuild() : null]);
+    });
+  };
+  const newName = name.trim();
+  const rename = () => {
+    if (newName && newName !== t.folder) act(() => api.renameMod(t.folder, newName));
+  };
+
+  const view: Record<Dialog["kind"], { title: string; body: ReactNode; confirm: string; danger?: boolean; ok: () => void }> = {
+    delete: {
+      title: "Удалить мод?",
+      body: <p>Папка мода удалится с диска вместе со всеми файлами, мод пропадёт из списка во всех профилях. Отменить это нельзя.</p>,
+      confirm: "Удалить",
+      danger: true,
+      ok: () => act(() => api.deleteMod(t.folder)),
+    },
+    reinstall: {
+      title: "Переустановить мод?",
+      body: repair ? (
+        <p>Мод скачается заново из сборки. Изменённые вами файлы настроек сохранятся.</p>
+      ) : (
+        <p>Мод установится заново из своего архива в загрузках Mod Organizer 2. Файлы мода заменятся целиком, место в списке и включённость сохранятся.</p>
+      ),
+      confirm: "Переустановить",
+      ok: () => {
+        if (!repair) return act(() => api.reinstallMod(t.folder));
+        onClose();
+        void startRepair([t.id!], false, false);
+      },
+    },
+    rename: {
+      title: "Переименовать мод",
+      body: (
+        <input
+          autoFocus
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onFocus={(e) => e.target.select()}
+          onKeyDown={(e) => e.key === "Enter" && rename()}
+          spellCheck={false}
+          className="h-9 w-full rounded-lg bg-raised px-3 text-sm text-fg outline-none focus:ring-1 focus:ring-neon/50"
+        />
+      ),
+      confirm: "Переименовать",
+      ok: rename,
+    },
+  };
+  const v = view[dialog.kind];
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-8" role="dialog" aria-modal="true" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="panel flex w-full max-w-md flex-col overflow-hidden bg-surface shadow-2xl">
+        <div className="flex h-14 shrink-0 items-center gap-3 border-b border-line px-5">
+          <div className="min-w-0 flex-1">
+            <div className="text-sm font-semibold">{v.title}</div>
+            <div className="truncate text-xs text-muted">{t.label}</div>
+          </div>
+          <button onClick={onClose} aria-label="Отмена" className="inline-flex size-8 items-center justify-center rounded-full text-muted hover:bg-raised hover:text-fg">
+            <X size={16} />
+          </button>
+        </div>
+        <div className="space-y-2 px-5 py-4 text-[13px] text-muted">{v.body}</div>
+        <div className="flex justify-end gap-2 border-t border-line px-5 py-3">
+          <Button variant="ghost" onClick={onClose}>
+            Отмена
+          </Button>
+          <Button
+            variant="primary"
+            autoFocus={dialog.kind !== "rename"}
+            disabled={dialog.kind === "rename" && (!newName || newName === t.folder)}
+            onClick={v.ok}
+            className={v.danger ? "!bg-bad !text-fg !shadow-none" : ""}
+          >
+            {v.confirm}
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -308,13 +559,13 @@ function rowKey(r: UserRow): string {
 }
 
 // The player's own mods: theirs to switch, in MO2's list order. Updates of the build never touch them.
-function UserModRow(props: { row: UserRow; locked: boolean; lockReason: string; lineClass: string }) {
+function UserModRow(props: { row: UserRow; locked: boolean; lockReason: string; lineClass: string; active: boolean; onMenu: (x: number, y: number) => void }) {
   const { run, refreshUserMods } = useApp();
   const r = props.row;
   if (r.kind === "separator") {
     return (
       <tr data-drop-after={rowKey(r)} className={`h-9 border-b border-line/60 ${props.lineClass}`}>
-        <td colSpan={5} className="pl-5 text-[12px] font-semibold text-muted">
+        <td colSpan={3} className="pl-5 text-[12px] font-semibold text-muted">
           {r.title}
         </td>
       </tr>
@@ -326,39 +577,29 @@ function UserModRow(props: { row: UserRow; locked: boolean; lockReason: string; 
       await refreshUserMods();
     });
   return (
-    <tr data-drop-after={r.name} className={`h-12 border-b border-line/60 last:border-b-0 hover:bg-raised/50 ${props.lineClass}`}>
+    <tr
+      data-drop-after={r.name}
+      onClick={(e) => props.onMenu(e.clientX, e.clientY)}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        props.onMenu(e.clientX, e.clientY);
+      }}
+      className={`h-12 cursor-pointer border-b border-line/60 last:border-b-0 hover:bg-raised/50 ${props.active ? "bg-raised/50" : ""} ${props.lineClass}`}
+    >
       <td className="truncate pl-5">
         <span className={r.enabled ? "" : "text-faint"}>{r.name}</span>
         {!r.enabled && <Badge>выключен</Badge>}
       </td>
-      <td className="truncate text-muted">—</td>
       <td className="truncate font-mono text-xs text-muted tabular-nums">{r.version ?? "—"}</td>
-      <td className="pr-4 text-right font-mono text-xs text-muted tabular-nums">—</td>
       <td className="pr-5">
-        <div className="flex items-center justify-end gap-1">
+        <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
           <Switch
             checked={r.enabled}
             disabled={props.locked}
             title={props.locked ? props.lockReason : r.enabled ? "Выключить мод" : "Включить мод"}
             onChange={toggle}
           />
-          <button
-            onClick={() => run(() => api.openUserModFolder(r.name))}
-            className="inline-flex h-7 w-7 items-center justify-center rounded-full text-muted transition-colors hover:bg-raised hover:text-fg"
-            title="Открыть папку мода"
-          >
-            <FolderOpen size={14} />
-          </button>
-          {r.nexusUrl && (
-            <button
-              onClick={() => run(() => api.openUrl(r.nexusUrl!))}
-              className="inline-flex h-7 items-center gap-1.5 rounded-full px-2.5 text-[13px] text-muted transition-colors hover:bg-raised hover:text-fg"
-              title={r.nexusUrl}
-            >
-              Nexus
-              <ExternalLink size={13} />
-            </button>
-          )}
+          <MenuButton onOpen={props.onMenu} />
         </div>
       </td>
     </tr>
@@ -384,7 +625,7 @@ function SeparatorRow(props: {
     : { background: "var(--color-raised)" };
   return (
     <tr data-drop-after={props.dropKey} className={props.lineClass}>
-      <td colSpan={5} className="sticky top-10 z-[5] p-0">
+      <td colSpan={3} className="sticky top-10 z-[5] p-0">
         <button
           onClick={props.onToggle}
           aria-expanded={props.open}
@@ -421,7 +662,7 @@ function saveCollapsed(titles: Set<string>) {
 function groupMods(rows: ModRow[], query: string, keep: (m: Mod) => boolean): Group[] {
   const q = query.trim().toLowerCase();
   const matches = (m: Mod) =>
-    keep(m) && (!q || [m.name, m.title, m.author].some((s) => s?.toLowerCase().includes(q)));
+    keep(m) && (!q || [m.name, m.title].some((s) => s?.toLowerCase().includes(q)));
   const groups: Group[] = [{ title: null, color: null, mods: [] }];
   for (const r of rows) {
     if (r.kind === "separator") groups.push({ title: r.title, color: r.color, mods: [] });
