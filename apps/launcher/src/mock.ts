@@ -454,7 +454,7 @@ async function simulateDownload(job: NexusJob, fomod = false) {
     emit({ state: { kind: "choosing" } });
     return;
   }
-  // A new version of an installed mod only lands in the downloads.
+  // A Nexus download only lands in the downloads.
   emit({ state: { kind: "done", outcome: { kind: "downloaded", replaces: "Better Lightning" } } });
   nexusHandlers?.changed();
 }

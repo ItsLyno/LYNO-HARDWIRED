@@ -81,32 +81,34 @@ impl Downloader {
     /// regularly hit one connect timeout, and a single one must not stop a
     /// publish. An HTTP status or a wrong size is an answer and is not retried.
     pub fn check_part(&self, part: &Part) -> Result<()> {
+        match self.content_length(&part.url)? {
+            n if n == part.size => Ok(()),
+            n => Err(Error::Download(format!("{}: {n} bytes, expected {}", part.url, part.size))),
+        }
+    }
+
+    /// Content-Length of `url` from a HEAD request, with the retries of
+    /// [`Self::check_part`].
+    pub fn content_length(&self, url: &str) -> Result<u64> {
         let mut attempt = 0;
         let resp = loop {
-            match self.agent.head(&part.url).call() {
+            match self.agent.head(url).call() {
                 Ok(resp) => break resp,
                 Err(_) if attempt + 1 < CHECK_ATTEMPTS => {
                     attempt += 1;
                     std::thread::sleep(CHECK_RETRY_DELAY * attempt);
                 }
-                Err(e) => {
-                    return Err(Error::Download(format!("{}: {e} (after {CHECK_ATTEMPTS} attempts)", part.url)));
-                }
+                Err(e) => return Err(Error::Download(format!("{url}: {e} (after {CHECK_ATTEMPTS} attempts)"))),
             }
         };
         if !resp.status().is_success() {
-            return Err(Error::Download(format!("{}: HTTP {}", part.url, resp.status())));
+            return Err(Error::Download(format!("{url}: HTTP {}", resp.status())));
         }
-        let len = resp
-            .headers()
+        resp.headers()
             .get("content-length")
             .and_then(|v| v.to_str().ok())
-            .and_then(|v| v.trim().parse::<u64>().ok());
-        match len {
-            Some(n) if n == part.size => Ok(()),
-            Some(n) => Err(Error::Download(format!("{}: {n} bytes, expected {}", part.url, part.size))),
-            None => Err(Error::Download(format!("{}: no Content-Length", part.url))),
-        }
+            .and_then(|v| v.trim().parse::<u64>().ok())
+            .ok_or_else(|| Error::Download(format!("{url}: no Content-Length")))
     }
 
     /// Downloads `part` to `dest`, resuming from `<dest>.partial` and

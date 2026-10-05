@@ -90,8 +90,8 @@ updater reads. Launcher logs go through `log::` macros to `tauri-plugin-log`.
 - `modlist.txt` is stored highest-priority-first; `ModList` holds UI order
   (lowest first). Easy to get backwards — see `docs/mo2-instance.md`.
 - **Nexus updates never touch a player's build mods**: they come with the build (`tracking`, `mod_install::BuildMod`);
-  the author may update them, keeping `[LYNO] id`. Installs that write `modlist.txt` need MO2 closed; with MO2 open a
-  download only goes to `downloads/`.
+  the author may update them, keeping `[LYNO] id`. A Nexus download only goes to `downloads/` (`mod_install::fetch`);
+  the player installs it by dragging it onto the list and confirms a replace. Installs that write `modlist.txt` need MO2 closed.
 - MO2 executable titles come from the author's `ModOrganizer.ini`; the launcher
   uses `Cyberpunk 2077` / `Cyberpunk 2077 (REDmod)` (`mo2::game_executable`).
 

@@ -259,8 +259,8 @@ export type Mo2Reason = "fomod" | "format" | "layout";
 
 export type Outcome =
   | { kind: "installed"; folder: string }
-  /** A new version of the installed `replaces`: in MO2's downloads until the player drags it onto the list. */
-  | { kind: "downloaded"; replaces: string }
+  /** In MO2's downloads until the player drags it onto the list; `replaces`: the installed mod it is another version of. */
+  | { kind: "downloaded"; replaces: string | null }
   /** Not an archive the launcher reads: left in MO2's downloads. */
   | { kind: "mo2"; reason: Mo2Reason }
   /** The rest park the job ("waitingMo2", "choosingRoot", "choosing") and never show as done. */

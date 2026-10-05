@@ -9,9 +9,10 @@
 //! [`open_fomod`], [`install_fomod`]) or a layout no rule recognizes
 //! ([`Outcome::Manual`], [`install_root`], MO2's manual installer). With MO2
 //! or the game running the install waits for them to close
-//! ([`Outcome::Deferred`]). A new version of an installed mod only goes to
-//! `downloads/` ([`Outcome::Downloaded`]): it replaces the folder once the
-//! player drags it onto the list and confirms.
+//! ([`Outcome::Deferred`]).
+//!
+//! A Nexus download only goes to `downloads/` ([`fetch`]): the player drags it
+//! onto the list, and confirms when it would replace an installed mod.
 //!
 //! An archive the player brings from disk ([`Download::from_file`]) is
 //! installed from where it is: it is theirs, not MO2's download.
@@ -118,9 +119,9 @@ pub enum Target {
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum Outcome {
     Installed { folder: String },
-    /// A new version of the installed `replaces`: in MO2's downloads, the
-    /// player drags it onto the list to install it over the folder.
-    Downloaded { replaces: String },
+    /// In MO2's downloads, for the player to drag onto the list; `replaces`:
+    /// the installed mod it is another version of.
+    Downloaded { replaces: Option<String> },
     /// In MO2's downloads: the player installs it there.
     Mo2 { reason: archive::Mo2Reason },
     /// MO2 or the game is running, and MO2 would overwrite `modlist.txt` on
@@ -150,7 +151,7 @@ pub enum Outcome {
     },
 }
 
-/// Where [`fetch_and_install`] is in its work.
+/// Where [`fetch`] is in its work.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum Progress {
@@ -160,17 +161,14 @@ pub enum Progress {
     Bytes { done: u64, total: u64 },
     #[serde(rename_all = "camelCase")]
     Retry { attempt: u32, delay_secs: u64, error: String },
-    Installing,
 }
 
-/// What [`fetch_and_install`] needs to know about the instance.
+/// What [`fetch`] needs to know about the instance.
 pub struct Context<'a> {
     pub inst: &'a Instance,
     pub profile: &'a str,
     /// The author updates build mods; a player only their own.
     pub author: bool,
-    /// MO2 is running: download, but leave the install to MO2.
-    pub mo2_running: bool,
     pub now: u64,
 }
 
@@ -180,9 +178,8 @@ pub struct Context<'a> {
 pub struct BuildMod(pub String);
 
 /// Downloads the file of an nxm link (or of a Premium update, `link.key`
-/// empty) and installs it as a new mod; a file of an installed mod only goes
-/// to `downloads/`, replacing a folder is the player's call.
-pub fn fetch_and_install(
+/// empty) into MO2's `downloads/`. Installing it is the player's call.
+pub fn fetch(
     api: &NexusApi,
     downloader: &Downloader,
     ctx: &Context,
@@ -208,10 +205,6 @@ pub fn fetch_and_install(
     if let Some(t) = replaces.filter(|t| t.managed && !ctx.author) {
         return Ok(Err(BuildMod(t.folder.clone())));
     }
-    let target = match replaces {
-        Some(t) => Target::Replace(t.folder.clone()),
-        None => Target::New { personal: !ctx.author, after: None },
-    };
     let dl = Download {
         game: link.game.clone(),
         mod_id: link.mod_id,
@@ -233,21 +226,20 @@ pub fn fetch_and_install(
     let permit = link.key.as_deref().zip(link.expires);
     let links = api.download_links(&link.game, link.mod_id, link.file_id, permit)?;
     let url = links.first().ok_or_else(|| Error::Download(format!("Nexus gave no download link for {}", dl.file_name)))?;
+    // `size_kb` alone is rounded (27845 bytes come as 27 KB): only the CDN knows
+    // the exact size the download is checked against.
+    let size = match file.size_in_bytes {
+        Some(n) => n,
+        None => downloader.content_length(url)?,
+    };
     let scratch = ctx.inst.root().join(".lyno").join("nexus-downloads").join(folder_name(&dl.file_name));
     downloader.fetch_file(url, size, &scratch, cancel, &mut |e| match e {
         PartEvent::Bytes(done) => on(Progress::Bytes { done, total: size }),
         PartEvent::Retry { attempt, delay, error } => on(Progress::Retry { attempt, delay_secs: delay.as_secs(), error }),
     })?;
 
-    on(Progress::Installing);
-    let outcome = match target {
-        Target::Replace(folder) => {
-            to_downloads(ctx.inst, &scratch, &dl, false)?;
-            Outcome::Downloaded { replaces: folder }
-        }
-        target if ctx.mo2_running => Outcome::Deferred { archive: to_downloads(ctx.inst, &scratch, &dl, false)?, target },
-        target => install(ctx.inst, ctx.profile, &scratch, &dl, &target)?,
-    };
+    to_downloads(ctx.inst, &scratch, &dl, false)?;
+    let outcome = Outcome::Downloaded { replaces: replaces.map(|t| t.folder.clone()) };
     // The page was just read: its mods show as current without another request.
     let mut cache = Cache::load(&Cache::path(ctx.inst));
     cache.record(&link.game, link.mod_id, files, ctx.now);

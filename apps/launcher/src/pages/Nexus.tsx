@@ -176,7 +176,9 @@ function outcomeText(o: Outcome): string {
     case "installed":
       return `Установлен: «${o.folder}»`;
     case "downloaded":
-      return `Скачан в загрузки: перетащите его в список модов, чтобы заменить «${o.replaces}»`;
+      return o.replaces
+        ? `Скачан в загрузки: перетащите его в список модов, чтобы заменить «${o.replaces}»`
+        : "Скачан в загрузки: перетащите его в список модов, чтобы установить";
     case "mo2":
       return "Это не архив zip, 7z или rar: файл оставлен в папке загрузок.";
     case "deferred":

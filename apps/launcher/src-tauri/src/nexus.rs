@@ -398,7 +398,7 @@ impl JobState {
 /// What a queued job does when the worker takes it.
 #[derive(Clone)]
 enum Work {
-    /// Download the file of an nxm link, then install it.
+    /// Download the file of an nxm link into MO2's downloads.
     Fetch(NxmLink),
     /// Install an archive from MO2's downloads or the player's disk.
     Install { archive: PathBuf, after: Option<String> },
@@ -653,9 +653,9 @@ fn run_job(app: &AppHandle, job: &Job) -> lyno_core::Result<Result<Next, BuildMo
         Work::Fetch(link) => {
             let key = secrets::get(Secret::NexusKey).ok_or_else(|| lyno_core::Error::Nexus { status: 401, message: String::new() })?;
             let api = NexusApi::new(&key);
-            let ctx = Context { inst: &inst, profile: &profile, author: settings.author_mode, mo2_running, now: now() };
+            let ctx = Context { inst: &inst, profile: &profile, author: settings.author_mode, now: now() };
             let mut last_emit = std::time::Instant::now() - Duration::from_secs(1);
-            let result = mod_install::fetch_and_install(&api, &Downloader::new(), &ctx, &link, &cancelled, &mut |p| match p {
+            let result = mod_install::fetch(&api, &Downloader::new(), &ctx, &link, &cancelled, &mut |p| match p {
                 Progress::Resolved { mod_name, file_title, version, size, replaces } => update_job(app, id, |j| {
                     j.title = Some(mod_name);
                     j.file_title = Some(file_title);
@@ -672,11 +672,10 @@ fn run_job(app: &AppHandle, job: &Job) -> lyno_core::Result<Result<Next, BuildMo
                 Progress::Retry { attempt, delay_secs, error } => {
                     update_job(app, id, |j| j.state = JobState::Retry { attempt, delay_secs, error })
                 }
-                Progress::Installing => update_job(app, id, |j| j.state = JobState::Installing),
             });
             record_limit(app, api.rate_limit());
             match result? {
-                Ok((download, outcome)) => return Ok(Ok(park(app, id, &inst, download, outcome))),
+                Ok((_, outcome)) => return Ok(Ok(Next::Done(outcome))),
                 Err(build_mod) => return Ok(Err(build_mod)),
             }
         }
