@@ -1,11 +1,11 @@
 {
-  "version": "0.7.4",
-  "notes": "",
-  "pub_date": "2026-10-05T13:51:19Z",
+  "version": "0.7.5",
+  "notes": "Список модов как в Mod Organizer 2: выделение кликом, Ctrl и Shift, пробел включает и выключает выбранные, Delete удаляет, выбранные моды перетаскиваются вместе. Просмотр логов игры из overwrite, настройка частоты проверки обновлений.",
+  "pub_date": "2026-10-05T18:49:44Z",
   "platforms": {
     "windows-x86_64": {
-      "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/launcher-v0.7.4/LYNO-HARDWIRED_0.7.4_x64-setup.exe",
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUejR0VmZ4WmllZkZGKzhZYk80VDhKNFp3UXFtUlZXYUwxclVCNU1KNG8xMmFqQVVyTmF1T1BqenZ1eDg1UFc1N0tES0t1MER2QTlvdXMwbndKeHhqTlhLcjd5bSsxQ3dvPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkxMjA4Mjc4CWZpbGU6TFlOTyBIQVJEV0lSRURfMC43LjRfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjAuNy40Cjk0RmZVNXNRQkRONHpadVZOWDcxU0txamwrcS90ZUVKTUJadHFTWHdNVk1kY0VXWmpMUmJ3Z0JsMk1YNEE3RG51TU5WN1JTVXpETVFlYW9rNGlTd0J3PT0K"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUejR0VmZ4WmllZkpEQUZPaWFIbStEaW8vWnBraERvVVRpZk9rM0xISmxHYmxudGg2ZFdadTFEMG4xcndsRERlV1JFSnZ0UnhOUERZTWZTT2ZVVFhaSmpkNURtQk1lbWdNPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkxMjI2MTgzCWZpbGU6TFlOTyBIQVJEV0lSRURfMC43LjVfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjAuNy41CkVxOUVWb1lTSm1TOWxWVzJWT00zMlU3STdtb1VTWUkveXZPOUtSOHgvTWVkU3NOOStLc3VlQnJ5aFE1dHRHbDJJaXlHNS9xSGdpU2I5NE9jbHkxM0NRPT0K",
+      "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/launcher-v0.7.5/LYNO-HARDWIRED_0.7.5_x64-setup.exe"
     }
   }
 }
