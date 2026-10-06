@@ -1,11 +1,20 @@
 {
   "schema": 3,
   "name": "LYNO//HARDWIRED",
-  "buildVersion": "1.0.4",
+  "buildVersion": "1.0.5",
   "gameVersion": "2.31",
   "mo2Version": "2.5.2",
   "profile": "LYNO",
   "changelog": [
+    {
+      "version": "1.0.5",
+      "date": "2026-10-06",
+      "notes": [
+        "- Добавлен перевод модов на перки",
+        "- Добавлен перевод DigitalVixen модов",
+        "- Удален лишний мусор"
+      ]
+    },
     {
       "version": "1.0.4",
       "date": "2026-10-06",
@@ -52,6 +61,24 @@
       "kind": "separator",
       "title": "00 - Core - Runtimes & Frameworks",
       "color": "#aa0000"
+    },
+    {
+      "kind": "mod",
+      "id": "lyno-settings",
+      "name": "LYNO Settings",
+      "enabled": true,
+      "optional": true,
+      "package": {
+        "hash": "e8c3c4c7c285b235a75d79334fee06c65688339a3a79b92abe851e7125c29d91",
+        "size": 95969230,
+        "parts": [
+          {
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.5/lyno-settings-e8c3c4c7c285b235.tar.zst.001",
+            "size": 54397438,
+            "blake3": "5c05cc17242c1171dc379cf705c50c78544ca33b464bf2ddbc1a619d1741d764"
+          }
+        ]
+      }
     },
     {
       "kind": "mod",
@@ -1248,7 +1275,7 @@
       "kind": "mod",
       "id": "general-shadows-fixes",
       "name": "General Shadows Fixes",
-      "enabled": true,
+      "enabled": false,
       "optional": true,
       "version": "0.75",
       "author": "sosuinepxisuyu",
@@ -1272,7 +1299,7 @@
       "kind": "mod",
       "id": "decals-flickering-fix",
       "name": "Decals Flickering Fix",
-      "enabled": true,
+      "enabled": false,
       "optional": true,
       "version": "0.12",
       "author": "sosuinepsixuyu",
@@ -1296,7 +1323,7 @@
       "kind": "mod",
       "id": "effects-rendering-fix",
       "name": "Effects Rendering Fix",
-      "enabled": true,
+      "enabled": false,
       "optional": true,
       "version": "0.1",
       "author": "sosuinepsixuyu",
@@ -2166,13 +2193,13 @@
         "modId": 18027
       },
       "package": {
-        "hash": "4c6b3b88861bc9278b63db2a5e0e31625ab10ee93790d31cbde82039e4a52462",
+        "hash": "c5eb3e70ee54fd4b161194ce9212c553d6ed4b80c2478e8c749af62adf528532",
         "size": 222928,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.4/weather-switcher-4c6b3b88861bc927.tar.zst.001",
-            "size": 38439,
-            "blake3": "a9c1ecb9b32faf53ab54d04a79b5253903ea3e2bd5bb2d81d805fe51a4a29219"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.5/weather-switcher-c5eb3e70ee54fd4b.tar.zst.001",
+            "size": 38441,
+            "blake3": "292f70507f6769d91066a823c6e2223b9a6c80a198cde2119269bc55d45a42d9"
           }
         ]
       }
@@ -3627,56 +3654,6 @@
     },
     {
       "kind": "mod",
-      "id": "preem-menu",
-      "name": "Preem Menu",
-      "enabled": false,
-      "optional": true,
-      "version": "1.4n",
-      "author": "CyanideX",
-      "title": "Preem Menu (Background Blur  -  Pause Menu  -  Animated Snow)",
-      "nexus": {
-        "game": "cyberpunk2077",
-        "modId": 18382
-      },
-      "package": {
-        "hash": "914934f99398f58b6045565196a4355ff170d72109c108132ef4e97c19d99aa9",
-        "size": 23183360,
-        "parts": [
-          {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/preem-menu-914934f99398f58b.tar.zst.001",
-            "size": 23141295,
-            "blake3": "c0c786970a5c868c166de9b93f6c19ceaca26d78f8933e0c39bd3f05717fba59"
-          }
-        ]
-      }
-    },
-    {
-      "kind": "mod",
-      "id": "contacts-redux",
-      "name": "Contacts Redux",
-      "enabled": false,
-      "optional": true,
-      "version": "1.0.2",
-      "author": "Xairron",
-      "title": "Contacts Redux - Live Online Status Indicators - Improved Contact List UI - Visible Avatars - Smart Sorting - Phone UI Overhaul",
-      "nexus": {
-        "game": "cyberpunk2077",
-        "modId": 27146
-      },
-      "package": {
-        "hash": "cb6ff16967117323e1092613cc6ba3286e3f208b5062daec5ffccf7b16635a05",
-        "size": 148813,
-        "parts": [
-          {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/contacts-redux-cb6ff16967117323.tar.zst.001",
-            "size": 129692,
-            "blake3": "b18fe928a380609a9f91938b752be302d164c245daf86d143c2af4f20f152d1e"
-          }
-        ]
-      }
-    },
-    {
-      "kind": "mod",
       "id": "non-intrusive-minimap-wip",
       "name": "Non-Intrusive Minimap (WIP)",
       "enabled": true,
@@ -3695,30 +3672,6 @@
             "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/non-intrusive-minimap-wip-54efee6094c6da99.tar.zst.001",
             "size": 167904,
             "blake3": "138d3725636d93acdf7a0ac099bf11958e5ea2c49e62e4aafe797725432ebb95"
-          }
-        ]
-      }
-    },
-    {
-      "kind": "mod",
-      "id": "compact-abilities",
-      "name": "Compact Abilities",
-      "enabled": false,
-      "optional": true,
-      "version": "1.0",
-      "author": "Phoenicia",
-      "nexus": {
-        "game": "cyberpunk2077",
-        "modId": 24853
-      },
-      "package": {
-        "hash": "feaaee9a917176ecff427cb9c0c92440f5a09f450c7be7e3e9892640689aedc4",
-        "size": 4996,
-        "parts": [
-          {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/compact-abilities-feaaee9a917176ec.tar.zst.001",
-            "size": 1970,
-            "blake3": "db9fc4c80a70bd63093b908ee042ada5069a95927b0e85b65997fa490390b84a"
           }
         ]
       }
@@ -4091,30 +4044,6 @@
     },
     {
       "kind": "mod",
-      "id": "walk-by-default-2-0",
-      "name": "Walk by Default 2.0",
-      "enabled": true,
-      "optional": true,
-      "version": "2.2",
-      "author": "nolvalir",
-      "nexus": {
-        "game": "cyberpunk2077",
-        "modId": 14515
-      },
-      "package": {
-        "hash": "95f8fa781f1f5566a4e66e9351c0333b0b1f06f4c79dc17cdfdf4c8aedebf842",
-        "size": 53043,
-        "parts": [
-          {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/walk-by-default-2-0-95f8fa781f1f5566.tar.zst.001",
-            "size": 13426,
-            "blake3": "bff9ee42670c8cba83b817d66f8ef15fa10eb3a369b7ab7337405f0a7b7c8847"
-          }
-        ]
-      }
-    },
-    {
-      "kind": "mod",
       "id": "freerunner",
       "name": "FreeRunner",
       "enabled": true,
@@ -4406,31 +4335,6 @@
             "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/unequip-mods-887f1be826187a25.tar.zst.001",
             "size": 1750,
             "blake3": "16f0edae7b3250b0e1bf38737b0776f248d301e925d3a2653be227cde6461162"
-          }
-        ]
-      }
-    },
-    {
-      "kind": "mod",
-      "id": "unlock-me-the-mods",
-      "name": "Unlock Me The Mods",
-      "enabled": false,
-      "optional": true,
-      "version": "2.1",
-      "author": "CDPR and Me",
-      "title": "Unlock Me The Mods 2.1",
-      "nexus": {
-        "game": "cyberpunk2077",
-        "modId": 9349
-      },
-      "package": {
-        "hash": "e6f6f2a736a4c42b9059ac9f8f3a7ee36d4b5c5ebde355be7839acd17ea895c8",
-        "size": 16118,
-        "parts": [
-          {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/unlock-me-the-mods-e6f6f2a736a4c42b.tar.zst.001",
-            "size": 2458,
-            "blake3": "cc491db477fe1007df06a53726d5389cad6d9816e0ef638eeb0bfcd91e590858"
           }
         ]
       }
@@ -5308,20 +5212,20 @@
       "name": "Bullet Ballet - Custom Perk Tree for Pistol Play",
       "enabled": true,
       "optional": true,
-      "version": "1.1.2",
+      "version": "1.1.3",
       "author": "StoofyFrond",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 32933
       },
       "package": {
-        "hash": "d83992bc2b7c494bff6cb8fb982a22dd0b70f4a37150d54ff3c80323a5d5ef03",
-        "size": 153260,
+        "hash": "41b281729f3da7b2a9859ab5368da8b5a1beeaf4ed1dc641ac925fad4bf5a43d",
+        "size": 161825,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/bullet-ballet-custom-perk-tree-for-pistol-play-d83992bc2b7c494b.tar.zst.001",
-            "size": 40682,
-            "blake3": "f90b1445653ae570ab2c621b57d4a3b7a6c55d232d9c048e8e4608778df3f147"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.5/bullet-ballet-custom-perk-tree-for-pistol-play-41b281729f3da7b2.tar.zst.001",
+            "size": 42420,
+            "blake3": "d3d61b0ce4e91b8f1ba95f5baadae919381c0f240ba95da1e748281ba20a615e"
           }
         ]
       }
@@ -5969,30 +5873,6 @@
     },
     {
       "kind": "mod",
-      "id": "street-sense",
-      "name": "Street Sense",
-      "enabled": false,
-      "optional": true,
-      "version": "6.0.5",
-      "author": "DigitalVixen",
-      "nexus": {
-        "game": "cyberpunk2077",
-        "modId": 28989
-      },
-      "package": {
-        "hash": "840130344673d1fa65e61e76b144df5127536b06afa4e40c50e3f42124f66bf4",
-        "size": 478956,
-        "parts": [
-          {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/street-sense-840130344673d1fa.tar.zst.001",
-            "size": 100040,
-            "blake3": "3ac25ecb1f48faab7f85c5d7c1e5f48bfa516bb1b09f45e4ace3858acc9e64e3"
-          }
-        ]
-      }
-    },
-    {
-      "kind": "mod",
       "id": "synthdose-more-drugs",
       "name": "SynthDose - More Drugs",
       "enabled": true,
@@ -6416,20 +6296,20 @@
       "name": "Lizzie's Braindances",
       "enabled": true,
       "optional": true,
-      "version": "3.18",
+      "version": "3.19.2",
       "author": "The Mox and ArmanIII",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 11077
       },
       "package": {
-        "hash": "5187b284374b3d47d621d0b9ca424f8bb57c7d30ee6789e2a3b4af3b9031aa5e",
-        "size": 197446684,
+        "hash": "ef3b0710a527e3c61b0ebb7e8ae5310409d5c3a670a5d9131913f0cf8d082f8a",
+        "size": 193947066,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/lizzie-s-braindances-5187b284374b3d47.tar.zst.001",
-            "size": 192248963,
-            "blake3": "bfa6dbe6243167be87fd70d1d4503592af677a509898f972b3f162d44e5053a0"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.5/lizzie-s-braindances-ef3b0710a527e3c6.tar.zst.001",
+            "size": 188632969,
+            "blake3": "76a35eb8e40014a2c43cfb8e6dd1c58b8387fb07bbb12054be415f8817719375"
           }
         ]
       }
@@ -7721,31 +7601,6 @@
     },
     {
       "kind": "mod",
-      "id": "walkbydefault-ru",
-      "name": "WalkByDefault RU",
-      "enabled": true,
-      "optional": true,
-      "version": "2.2",
-      "author": "play6ner",
-      "title": "WalkByDefault2.0_ru",
-      "nexus": {
-        "game": "cyberpunk2077",
-        "modId": 18600
-      },
-      "package": {
-        "hash": "c22e58eccb66d6812bb71081be2465d5520e82adab4768a0e8fb91a58a88a2c4",
-        "size": 6051,
-        "parts": [
-          {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/walkbydefault-ru-c22e58eccb66d681.tar.zst.001",
-            "size": 3134,
-            "blake3": "bebe09ed40dcf3a3593e154cb2b46441db6b130d84f41ee0830ea65ad84ee89e"
-          }
-        ]
-      }
-    },
-    {
-      "kind": "mod",
       "id": "quickhack-fixes-ru",
       "name": "Quickhack_Fixes RU",
       "enabled": true,
@@ -8013,6 +7868,63 @@
             "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/mox-cache-ru-60daf613fc48538e.tar.zst.001",
             "size": 3962,
             "blake3": "c36167ea52cf918b7272dd2eabdea65ddec3b4f0e988632608a3d29dce1bfe55"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "mod",
+      "id": "lyno-ru-perks-and-frameworks",
+      "name": "LYNO RU - Perks and Frameworks",
+      "enabled": true,
+      "optional": true,
+      "version": "2026.10.6",
+      "package": {
+        "hash": "b67426d8622b48495125645e22fb23b39f63a471efe17ca0fa97f30c3b332f04",
+        "size": 363737,
+        "parts": [
+          {
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.5/lyno-ru-perks-and-frameworks-b67426d8622b4849.tar.zst.001",
+            "size": 63612,
+            "blake3": "86d82d50653f9a92d4fca04f23918830b7eb13940588173c4980d72c2d9118be"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "mod",
+      "id": "lyno-ru-monowire-perk-tree-2-0",
+      "name": "LYNO RU - Monowire Perk Tree 2.0",
+      "enabled": true,
+      "optional": true,
+      "version": "2026.10.6",
+      "package": {
+        "hash": "d31efcd27b907e2aa976ee41dc5036d34e7047b4231aba12d46702b3969b36ed",
+        "size": 68201,
+        "parts": [
+          {
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.5/lyno-ru-monowire-perk-tree-2-0-d31efcd27b907e2a.tar.zst.001",
+            "size": 15214,
+            "blake3": "b8546a6463626439309545234338bed481b8d637f8b2efcb68fa00e290f7f8ad"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "mod",
+      "id": "lyno-ru-digitalvixen-core",
+      "name": "LYNO RU - DigitalVixen Core",
+      "enabled": true,
+      "optional": true,
+      "version": "2026.10.7",
+      "package": {
+        "hash": "8e28acd02214f78a2626ff6859543f50442d757c14a754be9149f8ef4e177c80",
+        "size": 1148252,
+        "parts": [
+          {
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.5/lyno-ru-digitalvixen-core-8e28acd02214f78a.tar.zst.001",
+            "size": 189670,
+            "blake3": "559eac55ca8623d150616354de12f9b7ac53300805aa2409c0a17d8ea87bcf18"
           }
         ]
       }
@@ -8329,24 +8241,6 @@
             "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.4/acm-f4e69961bdce169f.tar.zst.001",
             "size": 20901,
             "blake3": "86eadadcc4af5bf8ae289406a333db19415a978ba44f8dde0e80b7f709330c0a"
-          }
-        ]
-      }
-    },
-    {
-      "kind": "mod",
-      "id": "lyno-settings",
-      "name": "LYNO Settings",
-      "enabled": true,
-      "optional": true,
-      "package": {
-        "hash": "2cc460dacf7833040db366e8b823051d8672b63f556c1a9219d0a67d4d78592b",
-        "size": 64111416,
-        "parts": [
-          {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.4/lyno-settings-2cc460dacf783304.tar.zst.001",
-            "size": 45052268,
-            "blake3": "25a5df95681f06c6951c3ae41701ff0fd72e600b2572b862e7362da69d1e1c92"
           }
         ]
       }
