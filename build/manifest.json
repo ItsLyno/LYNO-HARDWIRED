@@ -1,11 +1,19 @@
 {
   "schema": 3,
   "name": "LYNO//HARDWIRED",
-  "buildVersion": "1.0.3",
+  "buildVersion": "1.0.4",
   "gameVersion": "2.31",
   "mo2Version": "2.5.2",
   "profile": "LYNO",
   "changelog": [
+    {
+      "version": "1.0.4",
+      "date": "2026-10-06",
+      "notes": [
+        "- Добавлен мод Bodycam Mode",
+        "- Добавлен Shift, исправлена голова в машине"
+      ]
+    },
     {
       "version": "1.0.3",
       "date": "2026-10-04",
@@ -29,35 +37,17 @@
     }
   ],
   "base": {
-    "hash": "c0ff085f2bee99a209bccbc34c32e643e749391ca1134413e7b92c7cfd27233b",
-    "size": 4020371257,
+    "hash": "51c538ed9f2c947a08485b43b1ea99d6cb798a20b0ace1945733bce6d0b85c0d",
+    "size": 411926103,
     "parts": [
       {
-        "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.3/base-c0ff085f2bee99a2.tar.zst.001",
-        "size": 1111963775,
-        "blake3": "eb29fa46660cd0d95ae033207f504c95351dc4f3b2aae30f0544a0574c34dab4"
+        "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.4/base-51c538ed9f2c947a.tar.zst.001",
+        "size": 183107318,
+        "blake3": "dc8fe08f271e442fb64bccbf16807294d659fcbc24730edc60de9f8ffda91723"
       }
     ]
   },
   "mods": [
-    {
-      "kind": "mod",
-      "id": "lyno-settings",
-      "name": "LYNO Settings",
-      "enabled": true,
-      "optional": true,
-      "package": {
-        "hash": "9f193f85a2c56660f7239742947d5e983b9629133636af67e550655c75b51dd5",
-        "size": 37902187,
-        "parts": [
-          {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/lyno-settings-9f193f85a2c56660.tar.zst.001",
-            "size": 11384953,
-            "blake3": "bb00d22a3bca0a5a2bc6ccff28a77a00ad6de3aee2301ecd8aaf7f566d071e55"
-          }
-        ]
-      }
-    },
     {
       "kind": "separator",
       "title": "00 - Core - Runtimes & Frameworks",
@@ -69,7 +59,8 @@
       "name": "Cyber Engine Tweaks",
       "enabled": true,
       "optional": true,
-      "version": "1.37.1.0",
+      "version": "1.37.1",
+      "author": "yamashi",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 107
@@ -92,7 +83,8 @@
       "name": "Codeware",
       "enabled": true,
       "optional": true,
-      "version": "1.20.5.0",
+      "version": "1.20.5",
+      "author": "psiberx",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 7780
@@ -115,7 +107,8 @@
       "name": "RED4ext",
       "enabled": true,
       "optional": true,
-      "version": "1.30.0.0",
+      "version": "1.30",
+      "author": "WopsS",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 2380
@@ -138,7 +131,8 @@
       "name": "redscript",
       "enabled": true,
       "optional": true,
-      "version": "0.5.31.0",
+      "version": "0.5.31",
+      "author": "jac3km4",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 1511
@@ -161,7 +155,8 @@
       "name": "TweakXL",
       "enabled": true,
       "optional": true,
-      "version": "1.11.4.0",
+      "version": "1.11.4",
+      "author": "psiberx",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 4197
@@ -184,7 +179,8 @@
       "name": "ArchiveXL",
       "enabled": true,
       "optional": true,
-      "version": "1.27.3.0",
+      "version": "1.27.3",
+      "author": "psiberx",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 4198
@@ -207,7 +203,8 @@
       "name": "Input Loader",
       "enabled": true,
       "optional": true,
-      "version": "0.2.3.0",
+      "version": "0.2.3",
+      "author": "Jack Humbert",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 4575
@@ -230,7 +227,8 @@
       "name": "Native Settings UI",
       "enabled": true,
       "optional": true,
-      "version": "1.96.0.0",
+      "version": "1.96",
+      "author": "keanuWheeze",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 3518
@@ -253,7 +251,8 @@
       "name": "Mod Settings",
       "enabled": true,
       "optional": true,
-      "version": "0.2.21.0",
+      "version": "0.2.21",
+      "author": "Jack Humbert",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 4885
@@ -276,7 +275,8 @@
       "name": "Audioware",
       "enabled": true,
       "optional": true,
-      "version": "1.8.0.0",
+      "version": "1.8",
+      "author": "Roms1383",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 12001
@@ -299,19 +299,20 @@
       "name": "Equipment-EX",
       "enabled": true,
       "optional": true,
-      "version": "1.2.8.0",
+      "version": "1.2.9",
+      "author": "psiberx and DJ_Kovrik",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 6945
       },
       "package": {
-        "hash": "aef2785bebc5115a639371a58fc7ed45a806913337de6e2c88d0db4313c51357",
-        "size": 275503,
+        "hash": "9e7f736efc2289088ac5358d7c98747a0eb50314e9085e0111e30e44f3f6d6d7",
+        "size": 275675,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.3/equipment-ex-aef2785bebc5115a.tar.zst.001",
-            "size": 90901,
-            "blake3": "fce28d9b62e61d02816aa6ae04f9f357a8d237d8db21ef14ce0f563f4cba6666"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.4/equipment-ex-9e7f736efc228908.tar.zst.001",
+            "size": 91006,
+            "blake3": "67560cc3873a82437992bbd26967bc33cd3f6589fd9a5522c0333d92c221e404"
           }
         ]
       }
@@ -322,7 +323,8 @@
       "name": "Virtual Atelier",
       "enabled": true,
       "optional": true,
-      "version": "1.6.3.0",
+      "version": "1.6.3",
+      "author": "Pacings and djkovrik",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 2987
@@ -345,7 +347,8 @@
       "name": "Cyberware-EX",
       "enabled": true,
       "optional": true,
-      "version": "1.5.6.0",
+      "version": "1.5.6",
+      "author": "psiberx",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 9429
@@ -368,7 +371,8 @@
       "name": "AudioXL",
       "enabled": true,
       "optional": true,
-      "version": "0.5.1.0",
+      "version": "0.5.1",
+      "author": "DigitalVixen",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 33442
@@ -396,7 +400,8 @@
       "name": "V Voice Framework",
       "enabled": true,
       "optional": true,
-      "version": "1.32.0.0",
+      "version": "1.32",
+      "author": "dnbnhlp",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 30646
@@ -419,7 +424,8 @@
       "name": "Native Settings UI Side Menu Add-on",
       "enabled": false,
       "optional": true,
-      "version": "1.3.11.0",
+      "version": "1.3.11",
+      "author": "anygoodname",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 16218
@@ -442,7 +448,8 @@
       "name": "Browser Extension",
       "enabled": true,
       "optional": true,
-      "version": "0.9.7.0",
+      "version": "0.9.7",
+      "author": "r457 and gh057",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 10038
@@ -465,7 +472,8 @@
       "name": "Virtual Car Dealer",
       "enabled": true,
       "optional": true,
-      "version": "2.2.8.0",
+      "version": "2.2.8",
+      "author": "DJ_Kovrik",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 4454
@@ -488,7 +496,9 @@
       "name": "Cyberware-EX Extended Slots",
       "enabled": true,
       "optional": true,
-      "version": "1.0.0.0",
+      "version": "1.0",
+      "author": "psiberx",
+      "title": "Cyberware-EX",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 9429
@@ -511,7 +521,8 @@
       "name": "Deceptious Quest Core",
       "enabled": true,
       "optional": true,
-      "version": "3.3.0.0",
+      "version": "3.3",
+      "author": "Deceptious",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 7831
@@ -534,7 +545,8 @@
       "name": "Deceptious Quest Core Utilities and Settings",
       "enabled": true,
       "optional": true,
-      "version": "1.3.2.0",
+      "version": "1.3.2",
+      "author": "Deceptious",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 24404
@@ -557,7 +569,8 @@
       "name": "Reflex is Cool",
       "enabled": true,
       "optional": true,
-      "version": "1.0.2.0",
+      "version": "1.0.2",
+      "author": "Phoenicia",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 15963
@@ -580,7 +593,9 @@
       "name": "CET Mod Manager",
       "enabled": true,
       "optional": true,
-      "version": "2.0.12.0",
+      "version": "2.0.12",
+      "author": "Ming",
+      "title": "Cyber Engine Tweaks In-game Mod Manager (dofile script launcher)",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 895
@@ -603,7 +618,8 @@
       "name": "Find-EX",
       "enabled": true,
       "optional": true,
-      "version": "1.2.0.0",
+      "version": "1.2",
+      "author": "psiberx",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 8340
@@ -626,7 +642,8 @@
       "name": "Native Interactions Framework",
       "enabled": true,
       "optional": true,
-      "version": "1.1.3.0",
+      "version": "1.1.3",
+      "author": "keanuWheeze",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 21422
@@ -649,7 +666,8 @@
       "name": "Utilities 2077",
       "enabled": true,
       "optional": true,
-      "version": "0.7.0.0",
+      "version": "0.7",
+      "author": "U0047",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 20488
@@ -672,7 +690,9 @@
       "name": "Zenitex Core Dependency",
       "enabled": true,
       "optional": true,
-      "version": "4.2.1.0",
+      "version": "4.2.1",
+      "author": "ScorpionTank",
+      "title": "Zenitex Core Dependency (5.0)",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 16356
@@ -695,7 +715,8 @@
       "name": "Custom Perk Framework",
       "enabled": true,
       "optional": true,
-      "version": "2.1.0.0",
+      "version": "2.1",
+      "author": "0nlyQ",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 26771
@@ -718,7 +739,8 @@
       "name": "RedWindows",
       "enabled": true,
       "optional": true,
-      "version": "2.2.1.0",
+      "version": "2.2.1",
+      "author": "DigitalVixen",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 32370
@@ -741,7 +763,8 @@
       "name": "Redscript Configuration Framework",
       "enabled": true,
       "optional": true,
-      "version": "3.0.1.0",
+      "version": "3.0.1",
+      "author": "DigitalVixen",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 30726
@@ -764,7 +787,8 @@
       "name": "RedLogger",
       "enabled": true,
       "optional": true,
-      "version": "1.4.0.0",
+      "version": "1.4",
+      "author": "DigitalVixen",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 31920
@@ -787,7 +811,8 @@
       "name": "RedIMGRetriever",
       "enabled": true,
       "optional": true,
-      "version": "0.3.0.0",
+      "version": "0.3",
+      "author": "DigitalVixen",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 31919
@@ -810,7 +835,8 @@
       "name": "RedFunctions",
       "enabled": true,
       "optional": true,
-      "version": "0.13.0.0",
+      "version": "0.13",
+      "author": "DigitalVixen",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 32312
@@ -833,7 +859,8 @@
       "name": "RedFileSystem",
       "enabled": true,
       "optional": true,
-      "version": "0.15.1.0",
+      "version": "0.15.1",
+      "author": "Rayshader",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 13378
@@ -856,7 +883,8 @@
       "name": "RedData",
       "enabled": true,
       "optional": true,
-      "version": "0.10.1.0",
+      "version": "0.10.1",
+      "author": "Rayshader",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 14139
@@ -879,7 +907,8 @@
       "name": "Window Utils (GUI Library - Animation - Grid Alignment)",
       "enabled": true,
       "optional": true,
-      "version": "1.1.3.0",
+      "version": "1.1.3",
+      "author": "CyanideX",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 26589
@@ -902,7 +931,8 @@
       "name": "RedHttpClient",
       "enabled": true,
       "optional": true,
-      "version": "0.7.0.0",
+      "version": "0.7",
+      "author": "Rayshader",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 14192
@@ -925,7 +955,8 @@
       "name": "DigitalVixen Core",
       "enabled": true,
       "optional": true,
-      "version": "4.9.3.0",
+      "version": "4.9.3",
+      "author": "DigitalVixen",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 28390
@@ -948,7 +979,8 @@
       "name": "NightlyNow Core",
       "enabled": true,
       "optional": true,
-      "version": "1.1.8.0",
+      "version": "1.1.8",
+      "author": "NightlyNow",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 28966
@@ -971,7 +1003,8 @@
       "name": "Perk Addition Framework",
       "enabled": true,
       "optional": true,
-      "version": "1.0.0.0",
+      "version": "1.0",
+      "author": "JonnesTT",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 22758
@@ -994,7 +1027,8 @@
       "name": "Vehicle Core",
       "enabled": true,
       "optional": true,
-      "version": "1.0.0.0",
+      "version": "1.0",
+      "author": "theCyanideX",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 31684
@@ -1017,7 +1051,8 @@
       "name": "XUtils",
       "enabled": true,
       "optional": true,
-      "version": "1.0.2.0",
+      "version": "1.0.2",
+      "author": "CyanideX",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 30296
@@ -1040,7 +1075,8 @@
       "name": "0-Engine",
       "enabled": true,
       "optional": true,
-      "version": "0.18.6.0",
+      "version": "0.18.6",
+      "author": "DigitalVixen",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 27967
@@ -1063,7 +1099,8 @@
       "name": "Native and Mod Settings Localized",
       "enabled": true,
       "optional": true,
-      "version": "1.1.3.0",
+      "version": "1.1.3",
+      "author": "maniman303",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 16262
@@ -1091,7 +1128,8 @@
       "name": "Advanced Crash Reporter",
       "enabled": true,
       "optional": true,
-      "version": "1.2.0.0",
+      "version": "1.2",
+      "author": "Akiway",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 34403
@@ -1114,7 +1152,8 @@
       "name": "Air Traffic Dupe Fix",
       "enabled": true,
       "optional": true,
-      "version": "1.0.0.0",
+      "version": "1.0",
+      "author": "Deceptious",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 31304
@@ -1137,7 +1176,9 @@
       "name": "CPU Optimization Plus",
       "enabled": true,
       "optional": true,
-      "version": "1.0.1.0",
+      "version": "1.0.1",
+      "author": "vinson911",
+      "title": "CPU Optimization Plus.",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 23484
@@ -1160,19 +1201,21 @@
       "name": "Ultra Plus",
       "enabled": true,
       "optional": true,
-      "version": "8.0.0.0",
+      "version": "9.3.10",
+      "author": "SammiLucia",
+      "title": "Ultra Plus - Physically Accurate Path Tracing",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 10490
       },
       "package": {
-        "hash": "62d2ea8548ad3c298a835e0c8d76df99849faecfc05a615515c9a10fe198cef1",
-        "size": 511687,
+        "hash": "7725bfcd06d15a0bdec87d9fa653432421868445f571134e8029e9b0d2d7abca",
+        "size": 1096416,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/ultra-plus-62d2ea8548ad3c29.tar.zst.001",
-            "size": 112631,
-            "blake3": "0b1a858cc5491208000b44ac8fbf7ae245634f05532a9f9c98d32ff016d7a699"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.4/ultra-plus-7725bfcd06d15a0b.tar.zst.001",
+            "size": 324425,
+            "blake3": "dc1ca27db3c9cb47adc66f6b590b26108400e08ce5ab3d2b976883ac4150efe7"
           }
         ]
       }
@@ -1183,7 +1226,8 @@
       "name": "Database Fixes",
       "enabled": true,
       "optional": true,
-      "version": "f1.09",
+      "version": "1.09",
+      "author": "MerseyRockoff",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 10636
@@ -1206,7 +1250,8 @@
       "name": "General Shadows Fixes",
       "enabled": true,
       "optional": true,
-      "version": "0.75.0.0",
+      "version": "0.75",
+      "author": "sosuinepxisuyu",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 20405
@@ -1229,7 +1274,8 @@
       "name": "Decals Flickering Fix",
       "enabled": true,
       "optional": true,
-      "version": "0.12.0.0",
+      "version": "0.12",
+      "author": "sosuinepsixuyu",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 16579
@@ -1252,7 +1298,8 @@
       "name": "Effects Rendering Fix",
       "enabled": true,
       "optional": true,
-      "version": "0.1.0.0",
+      "version": "0.1",
+      "author": "sosuinepsixuyu",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 19258
@@ -1275,7 +1322,9 @@
       "name": "Disappearing NPC and Vehicle Fix",
       "enabled": true,
       "optional": true,
-      "version": "1.0.0.0",
+      "version": "1.0",
+      "author": "Valour549",
+      "title": "Disappearing NPC and Vehicle Fix (Crowd LOD spawn distance)",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 19628
@@ -1298,7 +1347,8 @@
       "name": "Streaming Bug Workaround",
       "enabled": true,
       "optional": true,
-      "version": "0.26.0.0",
+      "version": "0.26",
+      "author": "sosuinepsixuyu",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 22857
@@ -1321,7 +1371,8 @@
       "name": "Horizon Sandstorm Flickering Fix",
       "enabled": true,
       "optional": true,
-      "version": "0.1.0.0",
+      "version": "0.1",
+      "author": "sosuinepsixuyu",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 19142
@@ -1344,7 +1395,8 @@
       "name": "Preem Fixes (PT Shadow Bug Fix and HD Textures)",
       "enabled": true,
       "optional": true,
-      "version": "1.4.0.0a",
+      "version": "1.4a",
+      "author": "CyanideX",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 15800
@@ -1367,7 +1419,8 @@
       "name": "More Occluders (Performance Improvement)",
       "enabled": true,
       "optional": true,
-      "version": "0.4.0.0",
+      "version": "0.4",
+      "author": "sosuine",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 33136
@@ -1390,7 +1443,8 @@
       "name": "NPC Actions Stutter Fix",
       "enabled": true,
       "optional": true,
-      "version": "0.1.0.0",
+      "version": "0.1",
+      "author": "sosuinepsixuyu",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 16720
@@ -1413,7 +1467,8 @@
       "name": "Eyes LOD Fix - No more disappearing eyes",
       "enabled": true,
       "optional": true,
-      "version": "2.2.0.0",
+      "version": "2.2",
+      "author": "JohnsonsStuff",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 2865
@@ -1441,7 +1496,8 @@
       "name": "Map Waypoint Bug Fixes",
       "enabled": true,
       "optional": true,
-      "version": "1.0.0.0",
+      "version": "1.0",
+      "author": "Spuddeh",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 32175
@@ -1464,7 +1520,8 @@
       "name": "Radioport Dropout Fix",
       "enabled": true,
       "optional": true,
-      "version": "1.0.0.0",
+      "version": "1.0",
+      "author": "Spuddeh",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 33838
@@ -1487,7 +1544,9 @@
       "name": "Conflict Begone",
       "enabled": true,
       "optional": true,
-      "version": "1.2.4.0",
+      "version": "1.2.4",
+      "author": "CyanideX",
+      "title": "Conflict Begone (Archive Conflict Checker - User Mod Support)",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 21912
@@ -1510,7 +1569,9 @@
       "name": "Vehicle Exit Fix",
       "enabled": true,
       "optional": true,
-      "version": "1.0.0.0",
+      "version": "1.0",
+      "author": "MisterChedda",
+      "title": "Vehicle Exit Fix for 2.3",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 22786
@@ -1533,7 +1594,9 @@
       "name": "Hammers are not bats",
       "enabled": true,
       "optional": true,
-      "version": "1.0.2.0",
+      "version": "1.0.2",
+      "author": "The guy posting it",
+      "title": "Hammers are not bats (tooltip fix)",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 20217
@@ -1556,7 +1619,8 @@
       "name": "Second Heart Fix",
       "enabled": true,
       "optional": true,
-      "version": "1.0.0.0",
+      "version": "1.0",
+      "author": "enowai",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 11100
@@ -1580,6 +1644,7 @@
       "enabled": true,
       "optional": true,
       "version": "r10",
+      "author": "Grapjasss",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 9713
@@ -1602,7 +1667,9 @@
       "name": "No crowd panic from stealth activity",
       "enabled": true,
       "optional": true,
-      "version": "1.0.0.0",
+      "version": "1.0",
+      "author": "anygoodname",
+      "title": "Immersion patch - No crowd panic from stealth activity",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 7360
@@ -1625,7 +1692,9 @@
       "name": "Photomode Camera Reset Fix",
       "enabled": true,
       "optional": true,
-      "version": "1.2.0.0",
+      "version": "1.2",
+      "author": "Finnick420",
+      "title": "Photomode Camera Reset Fix (look-at-camera lock)",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 24427
@@ -1648,7 +1717,8 @@
       "name": "Fixed NPC Vehicle Reactions",
       "enabled": true,
       "optional": true,
-      "version": "1.0.0.0",
+      "version": "1.0",
+      "author": "icxrus",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 19530
@@ -1671,7 +1741,8 @@
       "name": "Dash Fix",
       "enabled": true,
       "optional": true,
-      "version": "1.0.0.0",
+      "version": "1.0",
+      "author": "Seijax",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 16272
@@ -1694,7 +1765,8 @@
       "name": "Psycho Killer Reward - Restored",
       "enabled": true,
       "optional": true,
-      "version": "1.0.0.0",
+      "version": "1.0",
+      "author": "saltypigloaf",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 15497
@@ -1717,7 +1789,8 @@
       "name": "Deceptious Bug Fixes",
       "enabled": true,
       "optional": true,
-      "version": "1.2.6.0",
+      "version": "1.2.6",
+      "author": "Deceptious",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 18318
@@ -1740,7 +1813,8 @@
       "name": "Forbidden Vehicle Movement No More",
       "enabled": true,
       "optional": true,
-      "version": "0.11.0.0",
+      "version": "0.11",
+      "author": "sosuinepsixuyu",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 15757
@@ -1763,7 +1837,8 @@
       "name": "Enemies Melee Attacks Fixes",
       "enabled": true,
       "optional": true,
-      "version": "0.1.0.0",
+      "version": "0.1",
+      "author": "sosuine",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 32747
@@ -1786,7 +1861,8 @@
       "name": "Carjacking Bug Fix game 2.3x",
       "enabled": true,
       "optional": true,
-      "version": "1.0.0.0",
+      "version": "1.0",
+      "author": "anygoodname",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 33027
@@ -1814,7 +1890,8 @@
       "name": "Orbital Air Traffic Enhanced",
       "enabled": true,
       "optional": true,
-      "version": "1.0.1.0",
+      "version": "1.0.1",
+      "author": "Deceptious",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 31355
@@ -1837,19 +1914,21 @@
       "name": "Blur Begone",
       "enabled": true,
       "optional": true,
-      "version": "1.25.3.0",
+      "version": "1.26.2",
+      "author": "CyanideX",
+      "title": "Blur Begone (Clear Materials with Refraction)",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 8105
       },
       "package": {
-        "hash": "2446140c3ab80060f1d21967c14aa9ff4bbf01de0ede98dfa010a0350f4a5e3c",
-        "size": 35328000,
+        "hash": "e36e33c02fcc06e021a4484ae6be361010ddb74cfa5a564d2bb1ea3c8c37e9da",
+        "size": 36413440,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/blur-begone-2446140c3ab80060.tar.zst.001",
-            "size": 35077462,
-            "blake3": "4c1bc44db8f950f24f45de35d6de4105e90fc0ad3c2c1d329696454746c22f99"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.4/blur-begone-e36e33c02fcc06e0.tar.zst.001",
+            "size": 36173378,
+            "blake3": "70c8e31b179fbbe7a42ce015bae72ae9992dc50628ec149a7d6c789a1b09afef"
           }
         ]
       }
@@ -1860,7 +1939,8 @@
       "name": "NC Mediascape Enhancer",
       "enabled": true,
       "optional": true,
-      "version": "1.1.0.0",
+      "version": "1.1",
+      "author": "Proxima Dust",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 24453
@@ -1883,7 +1963,8 @@
       "name": "Blind Begone (First Person Driving Auto Exposure Fix)",
       "enabled": true,
       "optional": true,
-      "version": "1.2.0.0",
+      "version": "1.2",
+      "author": "CyanideX",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 15725
@@ -1906,7 +1987,8 @@
       "name": "Film Grain Fix",
       "enabled": true,
       "optional": true,
-      "version": "1.1.0.0",
+      "version": "1.1",
+      "author": "MisterChedda",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 32899
@@ -1929,7 +2011,8 @@
       "name": "LUT Switcher 3 (Realtime - Scanner - Weather - Menu)",
       "enabled": true,
       "optional": true,
-      "version": "3.3.0.0",
+      "version": "3.3",
+      "author": "CyanideX",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 16310
@@ -1952,7 +2035,9 @@
       "name": "LUT Pack - Misc",
       "enabled": true,
       "optional": true,
-      "version": "1.2.1.0m",
+      "version": "1.2.1m",
+      "author": "CyanideX",
+      "title": "LUT Switcher 3 (Realtime - Scanner - Weather - Menu)",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 16310
@@ -1975,7 +2060,9 @@
       "name": "LUT Pack - GITS",
       "enabled": true,
       "optional": true,
-      "version": "1.1.0.0g",
+      "version": "1.1g",
+      "author": "CyanideX",
+      "title": "LUT Switcher 3 (Realtime - Scanner - Weather - Menu)",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 16310
@@ -1998,7 +2085,9 @@
       "name": "LUT Pack - Edge LUT",
       "enabled": true,
       "optional": true,
-      "version": "1.3.0.0e",
+      "version": "1.3e",
+      "author": "CyanideX",
+      "title": "LUT Switcher 3 (Realtime - Scanner - Weather - Menu)",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 16310
@@ -2021,7 +2110,8 @@
       "name": "Skyfall LUT",
       "enabled": true,
       "optional": true,
-      "version": "1.6.0.0",
+      "version": "1.6",
+      "author": "Cyb3rPho3nix",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 33326
@@ -2044,7 +2134,8 @@
       "name": "Clear Windows",
       "enabled": true,
       "optional": true,
-      "version": "2.31.0.0",
+      "version": "2.31",
+      "author": "DBK",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 13497
@@ -2067,19 +2158,21 @@
       "name": "Weather Switcher",
       "enabled": true,
       "optional": true,
-      "version": "1.6.1.0",
+      "version": "1.6.1",
+      "author": "CyanideX",
+      "title": "Weather Switcher (Change Weather - Control Time - Customize Clouds)",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 18027
       },
       "package": {
-        "hash": "e71e8a3e91c52257c3ca383691acb89b93babb34f07fbf830725a284e59b5040",
+        "hash": "4c6b3b88861bc9278b63db2a5e0e31625ab10ee93790d31cbde82039e4a52462",
         "size": 222928,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/weather-switcher-e71e8a3e91c52257.tar.zst.001",
-            "size": 38438,
-            "blake3": "6784a4d6d118f724497b9fd8de3896e5c562ee6e1b984f113d4cd21834a00627"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.4/weather-switcher-4c6b3b88861bc927.tar.zst.001",
+            "size": 38439,
+            "blake3": "a9c1ecb9b32faf53ab54d04a79b5253903ea3e2bd5bb2d81d805fe51a4a29219"
           }
         ]
       }
@@ -2090,7 +2183,8 @@
       "name": "The Grid (Custom Street Light Hours - Weather Effects - Blackouts)",
       "enabled": true,
       "optional": true,
-      "version": "1.0.1.0",
+      "version": "1.0.1",
+      "author": "theCyanideX",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 34592
@@ -2118,7 +2212,8 @@
       "name": "Restore v2.0 Double Jump Sound",
       "enabled": true,
       "optional": true,
-      "version": "3.0.0.0",
+      "version": "3.0",
+      "author": "YG",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 11488
@@ -2141,7 +2236,8 @@
       "name": "SFX Toggle (Mute Sounds and Combat Music)",
       "enabled": true,
       "optional": true,
-      "version": "1.3.0.0",
+      "version": "1.3",
+      "author": "MisterChedda",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 20421
@@ -2169,7 +2265,8 @@
       "name": "Character Rendering Editor - Real-time Control on Skin Hair Eyes for more Realistic Shaders - Cyber Engine Tweaks",
       "enabled": true,
       "optional": true,
-      "version": "3.0.0.0",
+      "version": "3.0",
+      "author": "Arkhe0",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 32842
@@ -2192,7 +2289,8 @@
       "name": "Enhanced Big Breasts (EBB) - BODY MOD",
       "enabled": true,
       "optional": true,
-      "version": "4.0.4.0",
+      "version": "4.0.4",
+      "author": "Hyst",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 4654
@@ -2215,7 +2313,9 @@
       "name": "VTK Vanilla HD Body for FemV - Head",
       "enabled": true,
       "optional": true,
-      "version": "3.1.0.0",
+      "version": "3.1",
+      "author": "xBaebsae",
+      "title": "VTK Vanilla HD Body for FemV - High Resolution Mesh and Textures - Plus Resources",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 7054
@@ -2238,7 +2338,9 @@
       "name": "VTK Vanilla HD Body for FemV - Body",
       "enabled": true,
       "optional": true,
-      "version": "3.4.0.0",
+      "version": "3.4",
+      "author": "xBaebsae",
+      "title": "VTK Vanilla HD Body for FemV - High Resolution Mesh and Textures - Plus Resources",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 7054
@@ -2261,7 +2363,8 @@
       "name": "Hair Color Profiles CCXL",
       "enabled": true,
       "optional": true,
-      "version": "f1.02",
+      "version": "1.02",
+      "author": "island_dancer and psiberx",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 19115
@@ -2284,7 +2387,8 @@
       "name": "Hackclaw MaiXiaowen",
       "enabled": true,
       "optional": true,
-      "version": "1.0.0.0",
+      "version": "1.0",
+      "author": "Veegee",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 24493
@@ -2307,7 +2411,9 @@
       "name": "Veegee Hackclaw Hair",
       "enabled": true,
       "optional": true,
-      "version": "1.1.0.0",
+      "version": "1.1",
+      "author": "Veegee",
+      "title": "Veegee Hackclaw Hair - CCXL - MCH",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 24547
@@ -2330,7 +2436,8 @@
       "name": "Heterochromia Eyes - CCXL",
       "enabled": true,
       "optional": true,
-      "version": "2.1.0.0",
+      "version": "2.1",
+      "author": "icxrus",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 20349
@@ -2353,7 +2460,8 @@
       "name": "EKT Custom Character Creator - FEMV ONLY",
       "enabled": true,
       "optional": true,
-      "version": "f1.05",
+      "version": "1.05",
+      "author": "EKT",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 12807
@@ -2376,7 +2484,8 @@
       "name": "XS Sporty Sexy Map - Athletic Fit FemV Muscle Body VTK EBB Angel",
       "enabled": true,
       "optional": true,
-      "version": "3.0.0.0",
+      "version": "3.0",
+      "author": "xs2reality",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 23106
@@ -2399,7 +2508,9 @@
       "name": "Glorifica - HairCCXL",
       "enabled": true,
       "optional": true,
-      "version": "1.1.0.0",
+      "version": "1.1",
+      "author": "B1W",
+      "title": "Glorifica - Hair",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 27052
@@ -2422,7 +2533,8 @@
       "name": "EVE - Skin Texture - VTK Fem Bodies",
       "enabled": true,
       "optional": true,
-      "version": "1.0.0.0",
+      "version": "1.0",
+      "author": "Hyst",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 27685
@@ -2445,7 +2557,8 @@
       "name": "Beautiful MAKEUP - CCXL - Realistic Eyeshadows and Eyeliners - Casual Edition - BOTH V",
       "enabled": true,
       "optional": true,
-      "version": "1.0.0.0",
+      "version": "1.0",
+      "author": "Arkhe0",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 29336
@@ -2468,7 +2581,8 @@
       "name": "MAKEUP ENHANCER - Realistic Eyeshadows and Eyeliners - Noise Decal Fix - Both V - NPCs",
       "enabled": true,
       "optional": true,
-      "version": "1.0.0.0",
+      "version": "1.0",
+      "author": "Arkhe0",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 28869
@@ -2491,7 +2605,8 @@
       "name": "V Physics Lab",
       "enabled": true,
       "optional": true,
-      "version": "1.2.0.0",
+      "version": "1.2",
+      "author": "AppaAbba",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 33660
@@ -2514,7 +2629,8 @@
       "name": "EASY ACCESS COLLECTION - CCXL HAIR",
       "enabled": true,
       "optional": true,
-      "version": "8.0.0.0",
+      "version": "8.0",
+      "author": "meluminary",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 27125
@@ -2537,7 +2653,8 @@
       "name": "(Venus Planet) Hair Collection v.02",
       "enabled": true,
       "optional": true,
-      "version": "1.0.0.0",
+      "version": "1.0",
+      "author": "Peachu",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 26977
@@ -2560,7 +2677,8 @@
       "name": "Beautiful Exotics Eyes Pack - CCXL Version",
       "enabled": true,
       "optional": true,
-      "version": "1.0.0.0",
+      "version": "1.0",
+      "author": "protossvoid",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 25718
@@ -2583,7 +2701,8 @@
       "name": "ACU - Character Preset Manager",
       "enabled": true,
       "optional": true,
-      "version": "3.2.1.0",
+      "version": "3.2.1",
+      "author": "PotatoOfDoom",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 3850
@@ -2606,7 +2725,8 @@
       "name": "Preem Hair (Optional Judy Hair Colors)",
       "enabled": true,
       "optional": true,
-      "version": "2.2.0.0a",
+      "version": "2.2a",
+      "author": "CyanideX",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 8223
@@ -2629,7 +2749,9 @@
       "name": "Hair Collection",
       "enabled": true,
       "optional": true,
-      "version": "1.0.0.0",
+      "version": "1.0",
+      "author": "Raenef1",
+      "title": "Raenef's Hair Collection 3 CCXL MCH M F",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 33664
@@ -2648,11 +2770,37 @@
     },
     {
       "kind": "mod",
+      "id": "cora-ccxl-hair-cora-hair",
+      "name": "CoRa - CCXL HAIR - CoRa   Hair",
+      "enabled": true,
+      "optional": true,
+      "version": "1",
+      "author": "B1W",
+      "title": "CoRa - CCXL HAIR",
+      "nexus": {
+        "game": "cyberpunk2077",
+        "modId": 34740
+      },
+      "package": {
+        "hash": "cf57bad585beaea6344655301442673ab5b8c03881a0e055f2e5f12e5c23b9be",
+        "size": 7008848,
+        "parts": [
+          {
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.4/cora-ccxl-hair-cora-hair-cf57bad585beaea6.tar.zst.001",
+            "size": 6040121,
+            "blake3": "d540c3adc0c015f107aa511dd622eb3fd507092004a5ce377d1b2d7f4f7eb5c3"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "mod",
       "id": "panam-alternate-body",
       "name": "Panam alternate body",
       "enabled": true,
       "optional": true,
-      "version": "2.0.1.0",
+      "version": "2.0.1",
+      "author": "Burgundeltraut",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 26641
@@ -2675,7 +2823,8 @@
       "name": "Judy alternate body",
       "enabled": true,
       "optional": true,
-      "version": "1.2.1.0",
+      "version": "1.2.1",
+      "author": "Burgundeltraut",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 26642
@@ -2698,7 +2847,8 @@
       "name": "ROTTEN ANGEL LIPSTICK COLLECTION (AXL) - SAINT VICIOUS COSMETICS",
       "enabled": true,
       "optional": true,
-      "version": "1.0.0.0",
+      "version": "1.0",
+      "author": "watson",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 32797
@@ -2726,7 +2876,8 @@
       "name": "Fishnet Tights V2 - Archive XL",
       "enabled": true,
       "optional": true,
-      "version": "3.0.1.0",
+      "version": "3.0.1",
+      "author": "Hyst",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 7386
@@ -2749,7 +2900,8 @@
       "name": "Prestige Glasses - FemV and MascV",
       "enabled": true,
       "optional": true,
-      "version": "1.11.0.0",
+      "version": "1.11",
+      "author": "Sanchez",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 27118
@@ -2772,7 +2924,8 @@
       "name": "Naked Snake Suit Archive XL",
       "enabled": true,
       "optional": true,
-      "version": "1.1.0.0",
+      "version": "1.1",
+      "author": "EzioMaverick",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 33854
@@ -2795,7 +2948,8 @@
       "name": "Freyna Christmas Outfit - Archive XL",
       "enabled": true,
       "optional": true,
-      "version": "1.0.0.0",
+      "version": "1.0",
+      "author": "Hyst",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 26179
@@ -2818,7 +2972,9 @@
       "name": "Zenitex Military Combat Gloves - ArchiveXL",
       "enabled": true,
       "optional": true,
-      "version": "1.4.0.0",
+      "version": "1.4",
+      "author": "ScorpionTank - Kerensky",
+      "title": "Zenitex Combat Gloves - ArchiveXL (2.0)",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 19432
@@ -2841,7 +2997,8 @@
       "name": "Cheerleader Outfit - Archive XL",
       "enabled": true,
       "optional": true,
-      "version": "1.1.0.0",
+      "version": "1.1",
+      "author": "Atomiictv",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 24729
@@ -2864,7 +3021,8 @@
       "name": "A-Girls - Valby Outfit - Archive XL",
       "enabled": true,
       "optional": true,
-      "version": "1.0.0.0",
+      "version": "1.0",
+      "author": "Atomiic",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 26845
@@ -2887,7 +3045,8 @@
       "name": "Hailey Task Force Outfit - Archive XL",
       "enabled": true,
       "optional": true,
-      "version": "1.0.0.0",
+      "version": "1.0",
+      "author": "LxRHyst",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 30613
@@ -2910,7 +3069,8 @@
       "name": "Groovy Y2K Outfit Pt2",
       "enabled": true,
       "optional": true,
-      "version": "1.0.0.0",
+      "version": "1.0",
+      "author": "Veegee",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 28260
@@ -2933,7 +3093,8 @@
       "name": "Task Force Outfit Ines - Archive XL",
       "enabled": true,
       "optional": true,
-      "version": "1.0.0.0",
+      "version": "1.0",
+      "author": "AtomiicTV",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 33404
@@ -2956,7 +3117,8 @@
       "name": "Rev's Threads - Stockings Pack",
       "enabled": true,
       "optional": true,
-      "version": "1.4.0.0",
+      "version": "1.4",
+      "author": "Rev",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 26201
@@ -2979,7 +3141,8 @@
       "name": "Hailey Ult Suit Archive XL",
       "enabled": true,
       "optional": true,
-      "version": "1.0.0.0",
+      "version": "1.0",
+      "author": "EzioMaverick",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 34060
@@ -3002,7 +3165,8 @@
       "name": "Boudoir Pt32",
       "enabled": true,
       "optional": true,
-      "version": "1.0.0.0",
+      "version": "1.0",
+      "author": "Veegee",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 28078
@@ -3025,7 +3189,8 @@
       "name": "Cyber Hackclaw Outfit",
       "enabled": true,
       "optional": true,
-      "version": "2.0.0.0",
+      "version": "2.0",
+      "author": "Veegee",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 33916
@@ -3053,7 +3218,8 @@
       "name": "Sanchez Virtual Boutique - Virtual Atelier",
       "enabled": true,
       "optional": true,
-      "version": "1.15.0.0",
+      "version": "1.15",
+      "author": "Sanchez",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 27000
@@ -3076,7 +3242,8 @@
       "name": "Hyst Atelier Store - Virtual Atelier",
       "enabled": true,
       "optional": true,
-      "version": "1.25.0.0",
+      "version": "1.25",
+      "author": "Hyst",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 6015
@@ -3099,7 +3266,8 @@
       "name": "VEEGEE SHOP 3",
       "enabled": true,
       "optional": true,
-      "version": "1.5.2.0",
+      "version": "1.5.2",
+      "author": "Veegee",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 18890
@@ -3122,7 +3290,8 @@
       "name": "The Zenitex Military Store",
       "enabled": true,
       "optional": true,
-      "version": "1.2.0.0",
+      "version": "1.2",
+      "author": "ScorpionTank - Krat0es - Saltypigloaf",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 21735
@@ -3145,7 +3314,8 @@
       "name": "Atomiic Shop",
       "enabled": true,
       "optional": true,
-      "version": "3.11.0.0",
+      "version": "3.11",
+      "author": "Atomiic",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 20058
@@ -3168,7 +3338,8 @@
       "name": "Dead's Aorta - Virtual Atelier store",
       "enabled": true,
       "optional": true,
-      "version": "1.5.1.0",
+      "version": "1.5.1",
+      "author": "argisht",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 34150
@@ -3191,7 +3362,8 @@
       "name": "Rev's Threads - Atelier",
       "enabled": true,
       "optional": true,
-      "version": "1.2.0.0",
+      "version": "1.2",
+      "author": "Rev",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 21775
@@ -3214,7 +3386,8 @@
       "name": "NC Fashion Virtual Atelier",
       "enabled": true,
       "optional": true,
-      "version": "10.1.0.0.g",
+      "version": "10.1.g",
+      "author": "EzioMaverick",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 4805
@@ -3237,7 +3410,8 @@
       "name": "Zeusico's Atelier",
       "enabled": true,
       "optional": true,
-      "version": "f2.03",
+      "version": "2.03",
+      "author": "Zeusico",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 31150
@@ -3260,7 +3434,8 @@
       "name": "Veegee Shop 4",
       "enabled": true,
       "optional": true,
-      "version": "1.0.9.0",
+      "version": "1.0.9",
+      "author": "Veegee",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 30021
@@ -3288,7 +3463,8 @@
       "name": "Informative Healthbar",
       "enabled": true,
       "optional": true,
-      "version": "1.12.1.0",
+      "version": "1.12.1",
+      "author": "Scream81",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 29625
@@ -3311,7 +3487,8 @@
       "name": "3D World Map Fixed",
       "enabled": true,
       "optional": true,
-      "version": "1.3.1.0",
+      "version": "1.3.1",
+      "author": "malgalad",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 26500
@@ -3334,7 +3511,8 @@
       "name": "RAM bar fix",
       "enabled": true,
       "optional": true,
-      "version": "1.2.0.0",
+      "version": "1.2",
+      "author": "Scream81",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 22503
@@ -3357,7 +3535,8 @@
       "name": "Character Creator UI Improvements",
       "enabled": true,
       "optional": true,
-      "version": "1.0.0.0",
+      "version": "1.0",
+      "author": "pointdotpoint",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 34310
@@ -3380,7 +3559,8 @@
       "name": "Limited HUD",
       "enabled": true,
       "optional": true,
-      "version": "2.22.4.0",
+      "version": "2.22.4",
+      "author": "DJ_Kovrik",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 2592
@@ -3403,7 +3583,8 @@
       "name": "Inventory Adjustments Hub",
       "enabled": true,
       "optional": true,
-      "version": "1.3.0.0",
+      "version": "1.3",
+      "author": "svarmod",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 19632
@@ -3426,7 +3607,8 @@
       "name": "Preem Scanner (Customization Options for a Clean Minimal Scanner)",
       "enabled": true,
       "optional": true,
-      "version": "1.0.0.0e",
+      "version": "1.0e",
+      "author": "CyanideX",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 9215
@@ -3449,7 +3631,9 @@
       "name": "Preem Menu",
       "enabled": false,
       "optional": true,
-      "version": "1.4.0.0n",
+      "version": "1.4n",
+      "author": "CyanideX",
+      "title": "Preem Menu (Background Blur  -  Pause Menu  -  Animated Snow)",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 18382
@@ -3472,7 +3656,9 @@
       "name": "Contacts Redux",
       "enabled": false,
       "optional": true,
-      "version": "1.0.2.0",
+      "version": "1.0.2",
+      "author": "Xairron",
+      "title": "Contacts Redux - Live Online Status Indicators - Improved Contact List UI - Visible Avatars - Smart Sorting - Phone UI Overhaul",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 27146
@@ -3495,7 +3681,8 @@
       "name": "Non-Intrusive Minimap (WIP)",
       "enabled": true,
       "optional": true,
-      "version": "0.9.1.0",
+      "version": "0.9.1",
+      "author": "r457 and gh057",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 10568
@@ -3518,7 +3705,8 @@
       "name": "Compact Abilities",
       "enabled": false,
       "optional": true,
-      "version": "1.0.0.0",
+      "version": "1.0",
+      "author": "Phoenicia",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 24853
@@ -3541,7 +3729,8 @@
       "name": "Disable Combat Border on Minimap also Detection and Stealth related UI",
       "enabled": true,
       "optional": true,
-      "version": "f1.01",
+      "version": "1.01",
+      "author": "OGunblade",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 27639
@@ -3564,7 +3753,8 @@
       "name": "In-World Navigation",
       "enabled": true,
       "optional": true,
-      "version": "0.1.20.0",
+      "version": "0.1.20",
+      "author": "Jack Humbert",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 4583
@@ -3587,7 +3777,8 @@
       "name": "Real Vendor Names",
       "enabled": true,
       "optional": true,
-      "version": "2.1.0.0",
+      "version": "2.1",
+      "author": "DJ_Kovrik",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 4941
@@ -3610,7 +3801,8 @@
       "name": "Better Loot Markers",
       "enabled": true,
       "optional": true,
-      "version": "1.3.2.0",
+      "version": "1.3.2",
+      "author": "rodikh",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 3486
@@ -3633,7 +3825,8 @@
       "name": "Vehicle Durability Display",
       "enabled": true,
       "optional": true,
-      "version": "1.1.0.0",
+      "version": "1.1",
+      "author": "tidusmd",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 16559
@@ -3656,7 +3849,8 @@
       "name": "Quickhack Loadouts",
       "enabled": true,
       "optional": true,
-      "version": "1.4.1.0",
+      "version": "1.4.1",
+      "author": "RMK",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 11682
@@ -3680,6 +3874,7 @@
       "enabled": true,
       "optional": true,
       "version": "0.0.0.3",
+      "author": "nobo",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 11425
@@ -3702,7 +3897,8 @@
       "name": "Smart Frames Enhanced",
       "enabled": true,
       "optional": true,
-      "version": "1.0.0.0",
+      "version": "1.0",
+      "author": "nutboy",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 19500
@@ -3725,7 +3921,8 @@
       "name": "Show Me How Many - Proper Inventory Activity Logs",
       "enabled": true,
       "optional": true,
-      "version": "2.0.2.0",
+      "version": "2.0.2",
+      "author": "Gigowatt221",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 22744
@@ -3748,7 +3945,8 @@
       "name": "Immersive Scanner",
       "enabled": true,
       "optional": true,
-      "version": "1.3.0.0",
+      "version": "1.3",
+      "author": "L3LY",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 34160
@@ -3771,7 +3969,8 @@
       "name": "High Resolution Garment Preview",
       "enabled": true,
       "optional": true,
-      "version": "1.0.0.0",
+      "version": "1.0",
+      "author": "glek39",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 21745
@@ -3799,7 +3998,8 @@
       "name": "Ladders Improved",
       "enabled": true,
       "optional": true,
-      "version": "f2.01",
+      "version": "2.01",
+      "author": "RelaxItsOk",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 31318
@@ -3822,7 +4022,9 @@
       "name": "Air's Inertia",
       "enabled": true,
       "optional": true,
-      "version": "1.2.0.0",
+      "version": "1.2",
+      "author": "tidusmd",
+      "title": "Air's Inertia Returns",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 24410
@@ -3845,7 +4047,8 @@
       "name": "Better Movement - QOL Jog and Sprint",
       "enabled": true,
       "optional": true,
-      "version": "1.0.0.0",
+      "version": "1.0",
+      "author": "Valour549",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 20234
@@ -3868,7 +4071,8 @@
       "name": "Responsive V",
       "enabled": true,
       "optional": true,
-      "version": "1.4.0.0",
+      "version": "1.4",
+      "author": "MisterChedda",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 22694
@@ -3891,7 +4095,8 @@
       "name": "Walk by Default 2.0",
       "enabled": true,
       "optional": true,
-      "version": "2.2.0.0",
+      "version": "2.2",
+      "author": "nolvalir",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 14515
@@ -3914,7 +4119,8 @@
       "name": "FreeRunner",
       "enabled": true,
       "optional": true,
-      "version": "1.0.1.0",
+      "version": "1.0.1",
+      "author": "BiasNil",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 24402
@@ -3937,7 +4143,8 @@
       "name": "Vault Anywhere",
       "enabled": true,
       "optional": true,
-      "version": "f1.01",
+      "version": "1.01",
+      "author": "dnbnhlp",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 33018
@@ -3960,7 +4167,8 @@
       "name": "Autodrive Cinematic Camera Extended",
       "enabled": true,
       "optional": true,
-      "version": "1.1.0.0",
+      "version": "1.1",
+      "author": "MisterChedda",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 24637
@@ -3979,23 +4187,75 @@
     },
     {
       "kind": "mod",
-      "id": "true-first-person-camera-2-0",
-      "name": "True First Person Camera 2.0",
+      "id": "advanced-control-mod-1-2-3",
+      "name": "Advanced Control Mod 1.2.3",
       "enabled": true,
       "optional": true,
-      "version": "8.1.3.0",
+      "version": "1.2.3",
+      "author": "hwkmod",
+      "title": "Advanced Control - Walk with Mouse Scroll - Lean Left Right - Toggle ADS - Inspect Weapon",
+      "nexus": {
+        "game": "cyberpunk2077",
+        "modId": 1902
+      },
+      "package": {
+        "hash": "cbde4a50a0136cfa1b581d7066c1f1f9b91471f6bec82400ae5b4d9cc1bba4ae",
+        "size": 243058,
+        "parts": [
+          {
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.4/advanced-control-mod-1-2-3-cbde4a50a0136cfa.tar.zst.001",
+            "size": 45174,
+            "blake3": "d6c60c04df95ea5b7b34149234bb6a2dc233bd484f03f53c50320e6013418c02"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "mod",
+      "id": "true-first-person-camera-2-0-true-first-personcamera-2-0",
+      "name": "True First Person Camera 2.0 - True First PersonCamera 2.0",
+      "enabled": true,
+      "optional": true,
+      "version": "8.0.3",
+      "author": "DigitalVixen",
+      "title": "True First Person Camera 2.0",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 30558
       },
       "package": {
-        "hash": "e7c29c63cd2d92eddb82aa436cba47803f38314890b640b01d21108927c079fa",
-        "size": 1060271,
+        "hash": "643dde4e0f7a5980bdbae44e856a6f51bdc9f64284dbd977bf93609059686d32",
+        "size": 1009919,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/true-first-person-camera-2-0-e7c29c63cd2d92ed.tar.zst.001",
-            "size": 268242,
-            "blake3": "9ccd57565cc949d8ce0b270fc999e10166eec2dfbf9a7dc7c9db69a4f811e3c7"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.4/true-first-person-camera-2-0-true-first-personcamera-2-0-643dde4e0f7a5980.tar.zst.001",
+            "size": 248336,
+            "blake3": "6a713fa5bc5ae790681ac8593a193f3474691fd75b0bc610e849a4fa63053aef"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "mod",
+      "id": "punk-ycam-immersive-bodycam-camera-system-punk-ycam-immersive-camera-system",
+      "name": "Punk yCam - Immersive Bodycam Camera System - Punk yCam - Immersive Camera System",
+      "enabled": true,
+      "optional": true,
+      "version": "beta-0.3.7.6",
+      "author": "NIG0s",
+      "title": "Punk yCam - Immersive Bodycam Camera System",
+      "nexus": {
+        "game": "cyberpunk2077",
+        "modId": 34587
+      },
+      "package": {
+        "hash": "ee56ad58ff9255e8cdf5e455a682ff386617e8431784ccc9f476fc0168c36078",
+        "size": 3142521,
+        "parts": [
+          {
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.4/punk-ycam-immersive-bodycam-camera-system-punk-ycam-immersive-camera-system-ee56ad58ff9255e8.tar.zst.001",
+            "size": 965466,
+            "blake3": "9b659e467e28654ce00cd78d5db0c60f77b53398921bd7b27f8025ad28fc571c"
           }
         ]
       }
@@ -4011,7 +4271,8 @@
       "name": "It Wasn't Me",
       "enabled": true,
       "optional": true,
-      "version": "2.7.0.0",
+      "version": "2.7",
+      "author": "DigitalVixen",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 28980
@@ -4034,7 +4295,8 @@
       "name": "Cutscene Weapon Swapper",
       "enabled": true,
       "optional": true,
-      "version": "1.4.1.0",
+      "version": "1.4.1",
+      "author": "DJ_Kovrik",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 20743
@@ -4058,6 +4320,8 @@
       "enabled": true,
       "optional": true,
       "version": "1.0.0.4",
+      "author": "yakuzadeso",
+      "title": "Reset Attributes always available - Redscript",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 9240
@@ -4080,7 +4344,8 @@
       "name": "QoL - Faster Checkpoints",
       "enabled": true,
       "optional": true,
-      "version": "1.1.1.0",
+      "version": "1.1.1",
+      "author": "Deceptious",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 9724
@@ -4103,7 +4368,8 @@
       "name": "Faster Iguana Hatch",
       "enabled": true,
       "optional": true,
-      "version": "2.0.2.0",
+      "version": "2.0.2",
+      "author": "DJ_Kovrik",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 5112
@@ -4126,7 +4392,8 @@
       "name": "Unequip Mods",
       "enabled": true,
       "optional": true,
-      "version": "2.0.0.0",
+      "version": "2.0",
+      "author": "PotatoOfDoom",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 2358
@@ -4149,7 +4416,9 @@
       "name": "Unlock Me The Mods",
       "enabled": false,
       "optional": true,
-      "version": "2.1.0.0",
+      "version": "2.1",
+      "author": "CDPR and Me",
+      "title": "Unlock Me The Mods 2.1",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 9349
@@ -4173,6 +4442,8 @@
       "enabled": true,
       "optional": true,
       "version": "uwu",
+      "author": "CDPR and Me",
+      "title": "Unlock Me A Slot 2.1",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 9675
@@ -4195,7 +4466,8 @@
       "name": "Computer Anywhere",
       "enabled": true,
       "optional": true,
-      "version": "1.2.0.0",
+      "version": "1.2",
+      "author": "Deceptious",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 12520
@@ -4223,7 +4495,8 @@
       "name": "Ricochet Redux",
       "enabled": true,
       "optional": true,
-      "version": "4.1.2.0",
+      "version": "4.1.2",
+      "author": "Seijax",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 7197
@@ -4246,7 +4519,8 @@
       "name": "Weapons Improved",
       "enabled": true,
       "optional": true,
-      "version": "3.9.7.0",
+      "version": "3.9.7",
+      "author": "RelaxItsOk",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 22741
@@ -4269,7 +4543,9 @@
       "name": "Actually Smart Weapons",
       "enabled": true,
       "optional": true,
-      "version": "3.1.0.0",
+      "version": "3.1",
+      "author": "Seijax",
+      "title": "Actually Smart Weapons (aim for the head)",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 7281
@@ -4292,7 +4568,8 @@
       "name": "Double Calibre",
       "enabled": true,
       "optional": true,
-      "version": "1.0.7.0",
+      "version": "1.0.7",
+      "author": "Oranje3",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 27074
@@ -4315,7 +4592,9 @@
       "name": "AKM Jackal Killer",
       "enabled": true,
       "optional": true,
-      "version": "1.0.1.0",
+      "version": "1.0.1",
+      "author": "argisht",
+      "title": "AKM Jackal Killer Assault Rifle",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 34411
@@ -4338,7 +4617,9 @@
       "name": "AR-15 Berserker",
       "enabled": true,
       "optional": true,
-      "version": "1.0.3.0",
+      "version": "1.0.3",
+      "author": "argisht",
+      "title": "AR-15 Berserker Assault Rifle",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 34327
@@ -4361,7 +4642,8 @@
       "name": "Mox Cache - New Iconic Weapons",
       "enabled": true,
       "optional": true,
-      "version": "1.0.2.0",
+      "version": "1.0.2",
+      "author": "Misoru",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 20073
@@ -4384,7 +4666,8 @@
       "name": "Tyger Cache - New Iconic Weapons",
       "enabled": true,
       "optional": true,
-      "version": "1.0.4.0",
+      "version": "1.0.4",
+      "author": "Misoru",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 20827
@@ -4407,7 +4690,8 @@
       "name": "MalorianArms 3516 Custom",
       "enabled": true,
       "optional": true,
-      "version": "1.1.0.0",
+      "version": "1.1",
+      "author": "sabbath7991",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 33126
@@ -4430,7 +4714,8 @@
       "name": "Nomad Cache - New Iconic Weapons",
       "enabled": true,
       "optional": true,
-      "version": "1.0.1.0",
+      "version": "1.0.1",
+      "author": "Misoru",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 19234
@@ -4453,7 +4738,8 @@
       "name": "Militech Sight Pack",
       "enabled": true,
       "optional": true,
-      "version": "1.5.0.0",
+      "version": "1.5",
+      "author": "sabbath7991",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 25490
@@ -4476,7 +4762,8 @@
       "name": "Night City Optics Pack",
       "enabled": true,
       "optional": true,
-      "version": "1.2.0.0",
+      "version": "1.2",
+      "author": "sabbath7991",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 32776
@@ -4504,7 +4791,8 @@
       "name": "Quickhack Fixes",
       "enabled": true,
       "optional": true,
-      "version": "1.2.21.0",
+      "version": "1.2.21",
+      "author": "The guy posting it",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 18290
@@ -4527,7 +4815,8 @@
       "name": "Widow's Web - New Quickhack",
       "enabled": true,
       "optional": true,
-      "version": "f1.04",
+      "version": "1.04",
+      "author": "Zeusico",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 31818
@@ -4550,7 +4839,9 @@
       "name": "Thunderclap - New Custom Quickhack",
       "enabled": true,
       "optional": true,
-      "version": "f2.04",
+      "version": "2.04",
+      "author": "Zeusico",
+      "title": "Thunderclap - New Quickhack",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 31484
@@ -4573,7 +4864,8 @@
       "name": "Gravitational Force - New Quickhack",
       "enabled": true,
       "optional": true,
-      "version": "f2.01",
+      "version": "2.01",
+      "author": "Zeusico",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 31872
@@ -4596,7 +4888,8 @@
       "name": "Zeusico Quickhacks - 8 New Custom Quickhacks",
       "enabled": true,
       "optional": true,
-      "version": "f3.09",
+      "version": "3.09",
+      "author": "Zeusico",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 31125
@@ -4619,7 +4912,8 @@
       "name": "Blackwall Takedown - New Quickhack",
       "enabled": true,
       "optional": true,
-      "version": "f1.02",
+      "version": "1.02",
+      "author": "Zeusico",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 32126
@@ -4642,7 +4936,8 @@
       "name": "Quickhack Hotkeys",
       "enabled": true,
       "optional": true,
-      "version": "2.3.1.0",
+      "version": "2.3.1",
+      "author": "DJ_Kovrik",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 7238
@@ -4670,7 +4965,8 @@
       "name": "Shattered Chrome",
       "enabled": true,
       "optional": true,
-      "version": "4.10.2.0",
+      "version": "4.10.2",
+      "author": "DigitalVixen",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 29105
@@ -4693,7 +4989,8 @@
       "name": "Neuralware - Chipware Expansion",
       "enabled": true,
       "optional": true,
-      "version": "1.2.1.0",
+      "version": "1.2.1",
+      "author": "Phoenicia",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 19798
@@ -4716,7 +5013,9 @@
       "name": "Wannabe Edgerunner",
       "enabled": true,
       "optional": true,
-      "version": "2.3.3.0",
+      "version": "2.3.3",
+      "author": "DJ_Kovrik",
+      "title": "Wannabe Edgerunner - A simple Cyberpsychosis mod",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 5646
@@ -4739,7 +5038,8 @@
       "name": "Berserk Unchained",
       "enabled": true,
       "optional": true,
-      "version": "2.3.1.0",
+      "version": "2.3.1",
+      "author": "Seijax",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 14203
@@ -4762,7 +5062,8 @@
       "name": "Enhanced Edgerunner",
       "enabled": true,
       "optional": true,
-      "version": "f1.01",
+      "version": "1.01",
+      "author": "dnbnhlp",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 15381
@@ -4785,7 +5086,8 @@
       "name": "Cyberware Improved",
       "enabled": true,
       "optional": true,
-      "version": "1.4.0.0",
+      "version": "1.4",
+      "author": "RelaxItsOk",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 23554
@@ -4808,7 +5110,8 @@
       "name": "Chrome Plating",
       "enabled": true,
       "optional": true,
-      "version": "3.11.0.0",
+      "version": "3.11",
+      "author": "DigitalVixen",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 29101
@@ -4831,7 +5134,8 @@
       "name": "Black Chrome - Cyberware Expansion",
       "enabled": true,
       "optional": true,
-      "version": "1.1.10.0",
+      "version": "1.1.10",
+      "author": "Phoenicia",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 16031
@@ -4854,7 +5158,9 @@
       "name": "Extra Hands",
       "enabled": true,
       "optional": true,
-      "version": "2.2.1.0",
+      "version": "2.2.1",
+      "author": "Seijax",
+      "title": "Extra Hands (cyberware)",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 12325
@@ -4877,7 +5183,8 @@
       "name": "Gravitas - New Custom Cyberware",
       "enabled": true,
       "optional": true,
-      "version": "f1.02",
+      "version": "1.02",
+      "author": "Zeusico",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 33041
@@ -4905,7 +5212,8 @@
       "name": "Merc Protocol - Perk Gameplay Expansion",
       "enabled": true,
       "optional": true,
-      "version": "2.12.0.0",
+      "version": "2.12",
+      "author": "0nlyQ",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 26751
@@ -4928,7 +5236,8 @@
       "name": "Better Leveling (Revamp of Custom Level Cap)",
       "enabled": true,
       "optional": true,
-      "version": "2.3.3.0",
+      "version": "2.3.3",
+      "author": "BiasNil",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 22784
@@ -4951,7 +5260,8 @@
       "name": "Dead Shot - Custom Perk Tree for Snipers",
       "enabled": true,
       "optional": true,
-      "version": "1.3.0.0",
+      "version": "1.3",
+      "author": "StoofyFrond",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 33657
@@ -4974,7 +5284,8 @@
       "name": "Convo Skill Check Scaling",
       "enabled": true,
       "optional": true,
-      "version": "1.4.1.0",
+      "version": "1.4.1",
+      "author": "RMK",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 2886
@@ -4997,7 +5308,8 @@
       "name": "Bullet Ballet - Custom Perk Tree for Pistol Play",
       "enabled": true,
       "optional": true,
-      "version": "1.1.2.0",
+      "version": "1.1.2",
+      "author": "StoofyFrond",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 32933
@@ -5020,7 +5332,8 @@
       "name": "Monowire Perk Tree 2.0",
       "enabled": true,
       "optional": true,
-      "version": "1.2.0.0",
+      "version": "1.2",
+      "author": "IMES",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 31515
@@ -5043,7 +5356,8 @@
       "name": "Running Man - New Sprinting Perks",
       "enabled": true,
       "optional": true,
-      "version": "1.2.0.0",
+      "version": "1.2",
+      "author": "RMK",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 26611
@@ -5067,11 +5381,31 @@
     },
     {
       "kind": "mod",
+      "id": "lynoeconomy",
+      "name": "LynoEconomy",
+      "enabled": true,
+      "optional": true,
+      "version": "2026.10.5",
+      "package": {
+        "hash": "83fe627b9143a0991497b0c706b8fde9f41bc55627e285991ae97aea7b4fadd2",
+        "size": 14899,
+        "parts": [
+          {
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.4/lynoeconomy-83fe627b9143a099.tar.zst.001",
+            "size": 4875,
+            "blake3": "12e9556b2927322350a2612f6d18e3ba5ce3aab1590d2390895fc6a43115b789"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "mod",
       "id": "enhanced-craft",
       "name": "Enhanced Craft",
       "enabled": true,
       "optional": true,
-      "version": "4.0.7.0",
+      "version": "4.0.7",
+      "author": "DJ_Kovrik",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 4378
@@ -5090,34 +5424,12 @@
     },
     {
       "kind": "mod",
-      "id": "economypunk",
-      "name": "EconomyPunk",
-      "enabled": true,
-      "optional": true,
-      "version": "4.7.1.0",
-      "nexus": {
-        "game": "cyberpunk2077",
-        "modId": 16952
-      },
-      "package": {
-        "hash": "dd1deb9348c133b8e27d67b97fef07fc81ba0f454f372dd71d69d0361fa42f7e",
-        "size": 213756,
-        "parts": [
-          {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/economypunk-dd1deb9348c133b8.tar.zst.001",
-            "size": 28876,
-            "blake3": "25f0947df1fa31b74e511677644af44257d0694e9b63e836c5f4c22d0f7fb41e"
-          }
-        ]
-      }
-    },
-    {
-      "kind": "mod",
       "id": "vendorsxl",
       "name": "VendorsXL",
       "enabled": true,
       "optional": true,
-      "version": "2.1.0.0",
+      "version": "2.1",
+      "author": "Deceptious",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 19679
@@ -5140,7 +5452,8 @@
       "name": "Bounties Restored",
       "enabled": true,
       "optional": true,
-      "version": "1.0.2.0",
+      "version": "1.0.2",
+      "author": "Phoenicia",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 21820
@@ -5168,7 +5481,8 @@
       "name": "Melee Attack Variety",
       "enabled": true,
       "optional": true,
-      "version": "1.0.1.0",
+      "version": "1.0.1",
+      "author": "dnbnhlp",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 32817
@@ -5191,7 +5505,8 @@
       "name": "Stealthrunner - Stealth Gameplay Expansion",
       "enabled": true,
       "optional": true,
-      "version": "1.11.1.0",
+      "version": "1.11.1",
+      "author": "RMK",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 7616
@@ -5214,7 +5529,8 @@
       "name": "Body Shield",
       "enabled": true,
       "optional": true,
-      "version": "1.2.0.0",
+      "version": "1.2",
+      "author": "Seijax",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 10533
@@ -5237,7 +5553,8 @@
       "name": "Melee Attacks Fixes And Enhancements",
       "enabled": false,
       "optional": true,
-      "version": "0.41.0.0",
+      "version": "0.41",
+      "author": "sosuinepsixuyu",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 16921
@@ -5260,7 +5577,8 @@
       "name": "Combat Evolved",
       "enabled": true,
       "optional": true,
-      "version": "4.16.8.0",
+      "version": "4.16.8",
+      "author": "DigitalVixen",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 29125
@@ -5283,7 +5601,8 @@
       "name": "MaxTac Enhanced",
       "enabled": true,
       "optional": true,
-      "version": "1.0.0.0",
+      "version": "1.0",
+      "author": "dnbnhlp",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 33431
@@ -5311,7 +5630,8 @@
       "name": "Ragdoll Physics Overhaul",
       "enabled": true,
       "optional": true,
-      "version": "2.0.0.0",
+      "version": "2.0",
+      "author": "SketchCritic",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 3858
@@ -5334,7 +5654,9 @@
       "name": "GoreRunner",
       "enabled": true,
       "optional": true,
-      "version": "1.2.0.0",
+      "version": "1.2",
+      "author": "Cazanu",
+      "title": "GoreRunner (Blood and Carnage Overhaul)",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 24210
@@ -5357,7 +5679,8 @@
       "name": "Headshot Ragdoll",
       "enabled": true,
       "optional": true,
-      "version": "1.1.0.0A",
+      "version": "1.1A",
+      "author": "NekoNyannnn",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 19033
@@ -5380,19 +5703,20 @@
       "name": "Explosion Knockback and Ragdoll Overhaul",
       "enabled": true,
       "optional": true,
-      "version": "1.22.0.0",
+      "version": "1.23",
+      "author": "cradilyex",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 33327
       },
       "package": {
-        "hash": "01a4784e75041bdc59c78f3fdbca98a21148747bae1f515aa07744349fddfa33",
-        "size": 41410,
+        "hash": "a04d641ce657e8069ab6b91c6b6b5548123e13c15307d6a6eabd074638fd591f",
+        "size": 42297,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/explosion-knockback-and-ragdoll-overhaul-01a4784e75041bdc.tar.zst.001",
-            "size": 9154,
-            "blake3": "fc5afb90a40074cd05b27d33505be7a188308589d16c5f9e415cc6fcd797098f"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.4/explosion-knockback-and-ragdoll-overhaul-a04d641ce657e806.tar.zst.001",
+            "size": 9325,
+            "blake3": "76540c7a33225eefbda1a64ec49de584aa9b6ee77cb65b5f3197c2419ebee86f"
           }
         ]
       }
@@ -5403,7 +5727,8 @@
       "name": "Reduced Ragdoll Force (no flying backwards when shot with a pistol)",
       "enabled": true,
       "optional": true,
-      "version": "2.0.1.0",
+      "version": "2.0.1",
+      "author": "TheRealGibbon",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 21067
@@ -5426,7 +5751,8 @@
       "name": "Immersive Explosions",
       "enabled": true,
       "optional": true,
-      "version": "1.1.2.0a",
+      "version": "1.1.2a",
+      "author": "dnbnhlp",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 31624
@@ -5449,7 +5775,8 @@
       "name": "Enable Finisher Ragdolls",
       "enabled": true,
       "optional": true,
-      "version": "0.1.0.0",
+      "version": "0.1",
+      "author": "Kvalyr",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 9496
@@ -5472,7 +5799,8 @@
       "name": "Faster Vehicle Knockback Animation",
       "enabled": true,
       "optional": true,
-      "version": "1.0.0.0",
+      "version": "1.0",
+      "author": "JohnsonsStuff",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 5431
@@ -5500,7 +5828,8 @@
       "name": "No Paper Bags From Vending Machines",
       "enabled": true,
       "optional": true,
-      "version": "1.2.0.0",
+      "version": "1.2",
+      "author": "johnson",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 8387
@@ -5523,7 +5852,8 @@
       "name": "Immersive Night City Fixes",
       "enabled": true,
       "optional": true,
-      "version": "0.34.0.0",
+      "version": "0.34",
+      "author": "DBK",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 20588
@@ -5546,7 +5876,8 @@
       "name": "Immersive Night City Fixes - CORE",
       "enabled": true,
       "optional": true,
-      "version": "1.4.0.0",
+      "version": "1.4",
+      "author": "DBK",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 27040
@@ -5569,7 +5900,9 @@
       "name": "Dark Future",
       "enabled": true,
       "optional": true,
-      "version": "2.0.3.0-for-2.31",
+      "version": "2.0.3-for-2.31",
+      "author": "Dark Fortune Teller",
+      "title": "Dark Future - Urban Survival Gameplay",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 16300
@@ -5592,7 +5925,8 @@
       "name": "Eviction Notice - Story-Driven Rent System",
       "enabled": true,
       "optional": true,
-      "version": "1.0.3.0-for-2.3",
+      "version": "1.0.3-for-2.3",
+      "author": "Dark Fortune Teller",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 23187
@@ -5615,7 +5949,8 @@
       "name": "Gambling Website (Online games)",
       "enabled": true,
       "optional": true,
-      "version": "2.0.0.0",
+      "version": "2.0",
+      "author": "Dedra",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 33511
@@ -5636,9 +5971,10 @@
       "kind": "mod",
       "id": "street-sense",
       "name": "Street Sense",
-      "enabled": true,
+      "enabled": false,
       "optional": true,
-      "version": "6.0.5.0",
+      "version": "6.0.5",
+      "author": "DigitalVixen",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 28989
@@ -5661,7 +5997,8 @@
       "name": "SynthDose - More Drugs",
       "enabled": true,
       "optional": true,
-      "version": "1.3.9.0",
+      "version": "1.3.9",
+      "author": "Phoenicia",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 14094
@@ -5684,7 +6021,8 @@
       "name": "Say Hi Choom",
       "enabled": true,
       "optional": true,
-      "version": "1.2.1.0",
+      "version": "1.2.1",
+      "author": "S1nonim",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 24897
@@ -5707,7 +6045,8 @@
       "name": "Game Time Tweaks",
       "enabled": true,
       "optional": true,
-      "version": "0.2.0.0",
+      "version": "0.2",
+      "author": "DJ_Kovrik",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 870
@@ -5730,7 +6069,8 @@
       "name": "Trauma Team International - Premium Coverage",
       "enabled": true,
       "optional": true,
-      "version": "3.2.0.0",
+      "version": "3.2",
+      "author": "juiiicy00",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 29224
@@ -5753,7 +6093,8 @@
       "name": "Idle Anywhere",
       "enabled": false,
       "optional": true,
-      "version": "2.2.1.0",
+      "version": "2.2.1",
+      "author": "Deceptious",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 8038
@@ -5776,7 +6117,8 @@
       "name": "Anti-Theft Measures",
       "enabled": true,
       "optional": true,
-      "version": "1.3.0.0",
+      "version": "1.3",
+      "author": "NightlyNow",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 27229
@@ -5799,7 +6141,8 @@
       "name": "Immersive Odometer and Fuel System",
       "enabled": true,
       "optional": true,
-      "version": "5.1.0.0",
+      "version": "5.1",
+      "author": "elminister",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 23834
@@ -5822,7 +6165,8 @@
       "name": "Immersive Rippers",
       "enabled": true,
       "optional": true,
-      "version": "2.6.0.0",
+      "version": "2.6",
+      "author": "Deceptious",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 7064
@@ -5845,7 +6189,8 @@
       "name": "Immersive Components",
       "enabled": true,
       "optional": true,
-      "version": "2024.0.0.0-06-09",
+      "version": "2024.0-06-09",
+      "author": "DeepBlueFrog",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 11880
@@ -5873,7 +6218,8 @@
       "name": "Airdrops - More Hidden Gems",
       "enabled": true,
       "optional": true,
-      "version": "1.0.0.0",
+      "version": "1.0",
+      "author": "anygoodname",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 21956
@@ -5896,7 +6242,8 @@
       "name": "NC Courier Jobs",
       "enabled": true,
       "optional": true,
-      "version": "4.8.0.0",
+      "version": "4.8",
+      "author": "elminister",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 25551
@@ -5919,7 +6266,9 @@
       "name": "Eden Plaza - Charter Hill Player Penthouse",
       "enabled": true,
       "optional": true,
-      "version": "1.1.0.0",
+      "version": "1.1",
+      "author": "Magicman010",
+      "title": "Eden Plaza - Charter Hill Player Penthouse (World Builder)",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 25409
@@ -5942,7 +6291,8 @@
       "name": "Japantown North Penthouse - Player Apartment",
       "enabled": true,
       "optional": true,
-      "version": "1.0.0.0",
+      "version": "1.0",
+      "author": "LordTrilobite",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 26587
@@ -5965,7 +6315,8 @@
       "name": "Japantown North Verticality Expanded",
       "enabled": true,
       "optional": true,
-      "version": "1.2.0.0",
+      "version": "1.2",
+      "author": "Lord Trilobite",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 25441
@@ -5993,7 +6344,8 @@
       "name": "New Game Plus - Native",
       "enabled": true,
       "optional": true,
-      "version": "1.3.2.0",
+      "version": "1.3.2",
+      "author": "not_alphanine",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 15043
@@ -6016,7 +6368,8 @@
       "name": "Night City Remembers",
       "enabled": true,
       "optional": true,
-      "version": "3.8.1.0",
+      "version": "3.8.1",
+      "author": "DigitalVixen",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 29008
@@ -6039,7 +6392,8 @@
       "name": "Non-Canon Romances Enhanced",
       "enabled": true,
       "optional": true,
-      "version": "1.3.0.0",
+      "version": "1.3",
+      "author": "Deceptious",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 20466
@@ -6062,7 +6416,8 @@
       "name": "Lizzie's Braindances",
       "enabled": true,
       "optional": true,
-      "version": "3.18.0.0",
+      "version": "3.18",
+      "author": "The Mox and ArmanIII",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 11077
@@ -6085,7 +6440,8 @@
       "name": "New Lifepath Intro - Fresh Start",
       "enabled": true,
       "optional": true,
-      "version": "1.4.7.0",
+      "version": "1.4.7",
+      "author": "Deceptious",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 18223
@@ -6108,7 +6464,8 @@
       "name": "Immersive V Dialogue Expanded",
       "enabled": true,
       "optional": true,
-      "version": "1.1.0.0",
+      "version": "1.1",
+      "author": "skyrayfox",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 24377
@@ -6131,7 +6488,8 @@
       "name": "Lucy Romanced (Immersive Edgerunner Quest)",
       "enabled": true,
       "optional": true,
-      "version": "1.3.0.0",
+      "version": "1.3",
+      "author": "Dedra",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 33231
@@ -6154,7 +6512,8 @@
       "name": "ONI - Arasaka's Demon (Lore-Friendly Questline Companion and Romance)",
       "enabled": true,
       "optional": true,
-      "version": "1.1.3.0",
+      "version": "1.1.3",
+      "author": "GetTenSO",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 34062
@@ -6183,6 +6542,7 @@
       "enabled": true,
       "optional": true,
       "version": "cpdf-1.5",
+      "author": "Demon9ne",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 22838
@@ -6205,7 +6565,8 @@
       "name": "Spawned NPC Post Combat Fix",
       "enabled": true,
       "optional": true,
-      "version": "1.2.0.0",
+      "version": "1.2",
+      "author": "cradilyex",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 32862
@@ -6228,7 +6589,8 @@
       "name": "Fighting Gangs Allowed - Reasonable Police",
       "enabled": true,
       "optional": true,
-      "version": "1.0.0.0",
+      "version": "1.0",
+      "author": "Valour549",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 19189
@@ -6251,7 +6613,8 @@
       "name": "Reinforcements System",
       "enabled": true,
       "optional": true,
-      "version": "1.2.1.0",
+      "version": "1.2.1",
+      "author": "Phoenicia",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 21532
@@ -6270,34 +6633,12 @@
     },
     {
       "kind": "mod",
-      "id": "cyberpsycho-encounters",
-      "name": "CYBERPSYCHO ENCOUNTERS",
-      "enabled": true,
-      "optional": true,
-      "version": "0.8.0.0",
-      "nexus": {
-        "game": "cyberpunk2077",
-        "modId": 20489
-      },
-      "package": {
-        "hash": "29b2d32021f884d0e7ac5a22c645f877e69c05c2c91385af3ad348814dcbc2cd",
-        "size": 428021,
-        "parts": [
-          {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/cyberpsycho-encounters-29b2d32021f884d0.tar.zst.001",
-            "size": 38225,
-            "blake3": "5fd73d955fdb58aa8f2ad5e6cee945807c1a7a1b05b19680d925098979d27d13"
-          }
-        ]
-      }
-    },
-    {
-      "kind": "mod",
       "id": "random-netrunners",
       "name": "Random Netrunners",
       "enabled": true,
       "optional": true,
-      "version": "1.2.2.0",
+      "version": "1.2.2",
+      "author": "Seijax",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 16475
@@ -6320,7 +6661,8 @@
       "name": "Night City Allies - Immersive Companion System",
       "enabled": true,
       "optional": true,
-      "version": "1.6.1.0",
+      "version": "1.6.1",
+      "author": "Dray",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 27625
@@ -6343,7 +6685,8 @@
       "name": "Reinforcements - Gang Vs Gang",
       "enabled": true,
       "optional": true,
-      "version": "3.1.3.0",
+      "version": "3.1.3",
+      "author": "Gibbon",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 24243
@@ -6366,7 +6709,8 @@
       "name": "Edgerunners Lucy NPC - Spawns in Night City plus AMM and Photomode AXL",
       "enabled": true,
       "optional": true,
-      "version": "2.2.0.0",
+      "version": "2.2",
+      "author": "xBaebsae",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 9812
@@ -6390,23 +6734,24 @@
     },
     {
       "kind": "mod",
-      "id": "surface-type-expansion-handling-mod",
-      "name": "Surface Type Expansion - (Handling Mod)",
-      "enabled": false,
+      "id": "shift-dynamic-first-person-camera",
+      "name": "Shift (Dynamic First Person Camera)",
+      "enabled": true,
       "optional": true,
-      "version": "f1.01",
+      "version": "1.13.3",
+      "author": "CyanideX",
       "nexus": {
         "game": "cyberpunk2077",
-        "modId": 26332
+        "modId": 22340
       },
       "package": {
-        "hash": "07f0612419bd47845b7ab3a341dd2f9a402f6d1c073d68a2cc3e395fce85d935",
-        "size": 57262,
+        "hash": "d63ed7d2088380bed50741a995d56bc142dd459a9b924b2bf3efd6653efa5150",
+        "size": 994920,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/surface-type-expansion-handling-mod-07f0612419bd4784.tar.zst.001",
-            "size": 5987,
-            "blake3": "cf31796db43af44b522ecd70107fda96bddd287b0988e021ca7afa6890ffd4cf"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.4/shift-dynamic-first-person-camera-d63ed7d2088380be.tar.zst.001",
+            "size": 161916,
+            "blake3": "f63ce752ee0e0b84da4c3d1c053fc819b8f6433ef51f62f02d69ccd5ce10c608"
           }
         ]
       }
@@ -6417,7 +6762,8 @@
       "name": "Enhanced Vehicle Collision FX",
       "enabled": true,
       "optional": true,
-      "version": "2.3.1.0",
+      "version": "2.3.1",
+      "author": "Gashetka",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 23222
@@ -6441,6 +6787,7 @@
       "enabled": true,
       "optional": true,
       "version": "0.0.0.18",
+      "author": "nobo",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 23157
@@ -6463,7 +6810,8 @@
       "name": "Authentic Shift (QoL Gear Ratios Shifts Audio Sound ASMR and OPTIONAL Tuning System)",
       "enabled": true,
       "optional": true,
-      "version": "2.19.7.0",
+      "version": "2.19.7",
+      "author": "imbamakaber",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 6823
@@ -6486,7 +6834,8 @@
       "name": "NCGT - A Driving Simulation",
       "enabled": true,
       "optional": true,
-      "version": "22.2.0.0",
+      "version": "22.2",
+      "author": "Cyb3rPho3nix",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 31730
@@ -6509,7 +6858,8 @@
       "name": "Enhanced Vehicle System",
       "enabled": true,
       "optional": true,
-      "version": "17.8.0.0",
+      "version": "17.8",
+      "author": "YG",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 11765
@@ -6527,29 +6877,6 @@
       }
     },
     {
-      "kind": "mod",
-      "id": "vehicle-systems-simulation-vss",
-      "name": "Vehicle Systems Simulation - VSS",
-      "enabled": false,
-      "optional": true,
-      "version": "2.12.0.0",
-      "nexus": {
-        "game": "cyberpunk2077",
-        "modId": 28589
-      },
-      "package": {
-        "hash": "cb3153d196a4dad6a2b6b18e65411cfbf6dd02919a410908e7adfc4744e91467",
-        "size": 17244681,
-        "parts": [
-          {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/vehicle-systems-simulation-vss-cb3153d196a4dad6.tar.zst.001",
-            "size": 14975631,
-            "blake3": "0ab3a9ab86d0525d780b1fd4343cc3c37c1ec734b563374d26fe22aaf84470ac"
-          }
-        ]
-      }
-    },
-    {
       "kind": "separator",
       "title": "24 - Vehicles - Traffic, Fleet & World Spawns",
       "color": "#00007f"
@@ -6560,7 +6887,8 @@
       "name": "Night City Traffic Overhaul",
       "enabled": true,
       "optional": true,
-      "version": "2.40.0.0",
+      "version": "2.40",
+      "author": "cradilyex",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 25552
@@ -6583,7 +6911,8 @@
       "name": "Night City Fleet Expansion",
       "enabled": true,
       "optional": true,
-      "version": "1.0.1.0",
+      "version": "1.0.1",
+      "author": "Alex Ashfold",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 25965
@@ -6601,6 +6930,31 @@
       }
     },
     {
+      "kind": "mod",
+      "id": "traffic-lights-behavior-overhaul-tlbo-tlbo-aio-except-for-one-lane-per-turn",
+      "name": "Traffic Lights Behavior Overhaul (TLBO) - TLBO - AIO (Except for 'One Lane Per Turn')",
+      "enabled": true,
+      "optional": true,
+      "version": "1.2",
+      "author": "cipher0001",
+      "title": "Traffic Lights Behavior Overhaul (TLBO)",
+      "nexus": {
+        "game": "cyberpunk2077",
+        "modId": 34586
+      },
+      "package": {
+        "hash": "ed0cb83123220c3cf44c051ac3b80524e06058dd56d74e172c24e6a0d1e899f4",
+        "size": 304152,
+        "parts": [
+          {
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.4/traffic-lights-behavior-overhaul-tlbo-tlbo-aio-except-for-one-lane-per-turn-ed0cb83123220c3c.tar.zst.001",
+            "size": 144147,
+            "blake3": "97583c794c8357dc5642fe62d2edf2c660218970831be868c0eaa36735bb13eb"
+          }
+        ]
+      }
+    },
+    {
       "kind": "separator",
       "title": "25 - Vehicles - Garage & Add-on Cars",
       "color": "#00007f"
@@ -6611,7 +6965,8 @@
       "name": "Dedka Car Dealership - Working Vehicle Shop Framework",
       "enabled": true,
       "optional": true,
-      "version": "1.2.0.0",
+      "version": "1.2",
+      "author": "Dedra and Kaoziun",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 24887
@@ -6634,7 +6989,8 @@
       "name": "Garage (Customize - Claim - Sell - Repair - Swap)",
       "enabled": true,
       "optional": true,
-      "version": "1.0.4.0",
+      "version": "1.0.4",
+      "author": "CyanideX",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 30297
@@ -6657,7 +7013,8 @@
       "name": "Garage Manager",
       "enabled": true,
       "optional": true,
-      "version": "1.0.0.0",
+      "version": "1.0",
+      "author": "CyanideX",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 26524
@@ -6680,7 +7037,8 @@
       "name": "Camaro SS 2010 (Garage)",
       "enabled": true,
       "optional": true,
-      "version": "2.0.0.0",
+      "version": "2.0",
+      "author": "SDH0",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 29204
@@ -6703,7 +7061,8 @@
       "name": "AutoFixer Customs",
       "enabled": true,
       "optional": true,
-      "version": "1.0.0.0",
+      "version": "1.0",
+      "author": "Erok",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 18037
@@ -6726,7 +7085,8 @@
       "name": "Ford Shelby GT500 1967 Eleanor (Garage)",
       "enabled": true,
       "optional": true,
-      "version": "2.0.0.0",
+      "version": "2.0",
+      "author": "SDH0",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 29210
@@ -6749,7 +7109,8 @@
       "name": "SDH0's Vehicle Resources",
       "enabled": true,
       "optional": true,
-      "version": "2.0.0.0",
+      "version": "2.0",
+      "author": "SDH0",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 20956
@@ -6772,7 +7133,9 @@
       "name": "Garage Locations El",
       "enabled": true,
       "optional": true,
-      "version": "1.0.0.0ecg",
+      "version": "1.0ecg",
+      "author": "CyanideX",
+      "title": "Garage (Customize - Claim - Sell - Repair - Swap)",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 30297
@@ -6795,7 +7158,9 @@
       "name": "Garage Locations",
       "enabled": true,
       "optional": true,
-      "version": "1.0.0.0loc",
+      "version": "1.0loc",
+      "author": "CyanideX",
+      "title": "Garage (Customize - Claim - Sell - Repair - Swap)",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 30297
@@ -6818,7 +7183,9 @@
       "name": "Garage Service",
       "enabled": true,
       "optional": true,
-      "version": "1.0.0.0am",
+      "version": "1.0am",
+      "author": "CyanideX",
+      "title": "Garage (Customize - Claim - Sell - Repair - Swap)",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 30297
@@ -6841,7 +7208,9 @@
       "name": "Garage Service Quick",
       "enabled": true,
       "optional": true,
-      "version": "1.0.0.0qs",
+      "version": "1.0qs",
+      "author": "CyanideX",
+      "title": "Garage (Customize - Claim - Sell - Repair - Swap)",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 30297
@@ -6864,7 +7233,9 @@
       "name": "Garage Service Chop Shop",
       "enabled": true,
       "optional": true,
-      "version": "1.0.1.0cs",
+      "version": "1.0.1cs",
+      "author": "CyanideX",
+      "title": "Garage (Customize - Claim - Sell - Repair - Swap)",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 30297
@@ -6887,7 +7258,8 @@
       "name": "Lexus LFA (Garage)",
       "enabled": true,
       "optional": true,
-      "version": "1.0.0.0",
+      "version": "1.0",
+      "author": "SDH0",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 29207
@@ -6910,7 +7282,8 @@
       "name": "Quadra Turbo-Z",
       "enabled": true,
       "optional": true,
-      "version": "2.0.0.0",
+      "version": "2.0",
+      "author": "ctxrlsec",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 29122
@@ -6938,7 +7311,9 @@
       "name": "Cute and Sexy Pose Pack for FemV",
       "enabled": true,
       "optional": true,
-      "version": "3.4.0.0",
+      "version": "3.4",
+      "author": "xBaebsae",
+      "title": "Cute and Sexy Pose Pack for FemV - Photomode and AMM",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 6871
@@ -6961,7 +7336,9 @@
       "name": "PANTHEON Pose Collection",
       "enabled": true,
       "optional": true,
-      "version": "1.0.0.0",
+      "version": "1.0",
+      "author": "mossglyph_elf",
+      "title": "mossglyph_AXIOM Pose Pack",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 25347
@@ -6984,7 +7361,8 @@
       "name": "mossglyph_MAIN CHARACTER Pose Pack",
       "enabled": true,
       "optional": true,
-      "version": "1.0.0.0",
+      "version": "1.0",
+      "author": "mossglyph_heruhhh",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 27203
@@ -7007,7 +7385,8 @@
       "name": "THE RESERVE_Pose Collection",
       "enabled": true,
       "optional": true,
-      "version": "1.0.0.0",
+      "version": "1.0",
+      "author": "mossglyph",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 30607
@@ -7030,7 +7409,8 @@
       "name": "Photomode Tweaks",
       "enabled": true,
       "optional": true,
-      "version": "1.1.0.0",
+      "version": "1.1",
+      "author": "nutboy",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 24253
@@ -7053,7 +7433,8 @@
       "name": "LF Portrait Light Studio - PT RT and Raster",
       "enabled": true,
       "optional": true,
-      "version": "0.17.7.0",
+      "version": "0.17.7",
+      "author": "LithiumFlower",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 34361
@@ -7076,7 +7457,8 @@
       "name": "Spitfire Pose Pack",
       "enabled": true,
       "optional": true,
-      "version": "1.0.0.0",
+      "version": "1.0",
+      "author": "ShadowTheDM",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 25394
@@ -7099,7 +7481,8 @@
       "name": "Photo Mode Pose Selector",
       "enabled": true,
       "optional": true,
-      "version": "1.3.0.0",
+      "version": "1.3",
+      "author": "cjsu",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 32633
@@ -7126,7 +7509,9 @@
       "name": "General Shadows Fix RU",
       "enabled": true,
       "optional": true,
-      "version": "0.7.5.0",
+      "version": "0.7.5",
+      "author": "8LOMU8",
+      "title": "General Shadows Fix_0.94_RU",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 21786
@@ -7149,7 +7534,8 @@
       "name": "Actually Smart Weapons RU",
       "enabled": true,
       "optional": true,
-      "version": "3.1.0.0",
+      "version": "3.1",
+      "author": "ValikBLR",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 12465
@@ -7172,7 +7558,9 @@
       "name": "Eviction Notice RU",
       "enabled": true,
       "optional": true,
-      "version": "1.6.0.0",
+      "version": "1.6",
+      "author": "S1nonim",
+      "title": "Eviction Notice - Story-Driven Rent System Russian Translation",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 23378
@@ -7195,7 +7583,9 @@
       "name": "Deceptious Quest Core Utilities and Setting RU",
       "enabled": false,
       "optional": true,
-      "version": "1.2.2.0",
+      "version": "1.2.2",
+      "author": "8LOMU8",
+      "title": "Deceptious Quest Core Utilities and Settings_RU",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 24406
@@ -7218,7 +7608,9 @@
       "name": "Neuralware - Chipware Expansion RU",
       "enabled": true,
       "optional": true,
-      "version": "1.2.1.0",
+      "version": "1.2.1",
+      "author": "8LOMU8",
+      "title": "Neuralware - Chipware Expansion_1.2.1_RU.zip",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 21995
@@ -7241,7 +7633,8 @@
       "name": "Native Settings UI Side Menu Add-on RU",
       "enabled": false,
       "optional": true,
-      "version": "1.3.5.0",
+      "version": "1.3.5",
+      "author": "ValikBLR",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 16455
@@ -7264,7 +7657,9 @@
       "name": "Immersive Shooting AI RU",
       "enabled": true,
       "optional": true,
-      "version": "1.0.2.0",
+      "version": "1.0.2",
+      "author": "8LOMU8",
+      "title": "Immersive Shooting AI_RU",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 22794
@@ -7287,7 +7682,8 @@
       "name": "SynthDose_1.3.9_RU",
       "enabled": true,
       "optional": true,
-      "version": "1.3.9.0",
+      "version": "1.3.9",
+      "author": "8LOMU8",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 22806
@@ -7310,7 +7706,7 @@
       "name": "Dark Future RU",
       "enabled": true,
       "optional": true,
-      "version": "d2026.1.8.0",
+      "version": "2026.1.8",
       "package": {
         "hash": "4e61d6e18fe3413e3ca9c06af20d28d081d6ccc05107f95a4658e6747f745310",
         "size": 82267,
@@ -7329,7 +7725,9 @@
       "name": "WalkByDefault RU",
       "enabled": true,
       "optional": true,
-      "version": "2.2.0.0",
+      "version": "2.2",
+      "author": "play6ner",
+      "title": "WalkByDefault2.0_ru",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 18600
@@ -7352,7 +7750,9 @@
       "name": "Quickhack_Fixes RU",
       "enabled": true,
       "optional": true,
-      "version": "1.2.1.0",
+      "version": "1.2.1",
+      "author": "play6ner",
+      "title": "Quickhack_Fixes_ru",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 19489
@@ -7375,7 +7775,9 @@
       "name": "Random Netrunners RU",
       "enabled": true,
       "optional": true,
-      "version": "1.0.0.0",
+      "version": "1.0",
+      "author": "k33to",
+      "title": "Russian translation for Random Netrunners 1.1.0",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 18924
@@ -7398,7 +7800,9 @@
       "name": "New Game Plus RU",
       "enabled": true,
       "optional": true,
-      "version": "1.1.91.0",
+      "version": "1.1.91",
+      "author": "Procion",
+      "title": "New Game Plus - RU Translation",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 15468
@@ -7421,7 +7825,8 @@
       "name": "New Lifepath Intro - Fresh Start RU",
       "enabled": true,
       "optional": true,
-      "version": "1.3.0.0",
+      "version": "1.3",
+      "author": "ValikBLR",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 18464
@@ -7444,7 +7849,9 @@
       "name": "Enhanced Vehicle System RU",
       "enabled": true,
       "optional": true,
-      "version": "1.7.0.0",
+      "version": "1.7",
+      "author": "Masuryan",
+      "title": "Enhanced Vehicle System Russian Translation",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 18410
@@ -7467,7 +7874,9 @@
       "name": "Computer Anywhere RU",
       "enabled": true,
       "optional": true,
-      "version": "1.2.0.0",
+      "version": "1.2",
+      "author": "8LOMU8",
+      "title": "Computer Anywhere_2.1.1_RU",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 24309
@@ -7491,6 +7900,8 @@
       "enabled": true,
       "optional": true,
       "version": "0.0.0.18",
+      "author": "8LOMU8",
+      "title": "Auto Drive Enhanced_0.0.0.20_RU",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 23229
@@ -7513,7 +7924,9 @@
       "name": "Black Chrome RU",
       "enabled": true,
       "optional": true,
-      "version": "1.1.10.0",
+      "version": "1.1.10",
+      "author": "8LOMU8",
+      "title": "Black Chrome_1.1.10_RU",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 22106
@@ -7536,7 +7949,8 @@
       "name": "Extra Hands RU",
       "enabled": true,
       "optional": true,
-      "version": "2.1.1.0",
+      "version": "2.1.1",
+      "author": "ValikBLR",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 14565
@@ -7559,7 +7973,9 @@
       "name": "Tyger Cache - New Iconic Weapons RU",
       "enabled": true,
       "optional": true,
-      "version": "1.0.0.0",
+      "version": "1.0",
+      "author": "Da1go",
+      "title": "Tyger Cache - New Iconic Weapons - RU Translation",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 23046
@@ -7582,7 +7998,9 @@
       "name": "Mox Cache RU",
       "enabled": true,
       "optional": true,
-      "version": "1.0.0.0",
+      "version": "1.0",
+      "author": "k33to",
+      "title": "Russian translation for Mox Cache - New Iconic Weapons 1.0.0",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 20163
@@ -7609,7 +8027,9 @@
       "name": "Lizzie's Braindances DF",
       "enabled": true,
       "optional": true,
-      "version": "2.33.0.0",
+      "version": "2.33",
+      "author": "The Mox and ArmanIII",
+      "title": "Lizzie's Braindances",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 11077
@@ -7632,7 +8052,9 @@
       "name": "Lizzie's Braindances NIF",
       "enabled": true,
       "optional": true,
-      "version": "f3.05",
+      "version": "3.05",
+      "author": "The Mox and ArmanIII",
+      "title": "Lizzie's Braindances",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 11077
@@ -7655,7 +8077,8 @@
       "name": "FPP Clothing Fix",
       "enabled": true,
       "optional": true,
-      "version": "1.0.0.0",
+      "version": "1.0",
+      "author": "xBaebsae",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 4862
@@ -7678,7 +8101,8 @@
       "name": "FPP Hands Clipping Fix",
       "enabled": true,
       "optional": true,
-      "version": "1.1.0.0",
+      "version": "1.1",
+      "author": "glek39",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 21913
@@ -7701,7 +8125,8 @@
       "name": "Render Plane Fix - Clothing (Sleeves) behind hands fix",
       "enabled": true,
       "optional": true,
-      "version": "1.3.5.0",
+      "version": "1.3.5",
+      "author": "Marco4413",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 14783
@@ -7724,7 +8149,8 @@
       "name": "Immersion Patch - Minor Activities Quest Fixes",
       "enabled": true,
       "optional": true,
-      "version": "1.15.0.0",
+      "version": "1.15",
+      "author": "anygoodname",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 27162
@@ -7747,7 +8173,8 @@
       "name": "Immersion Patch - Quest Vehicle Motion Fixes",
       "enabled": true,
       "optional": true,
-      "version": "1.10.1.0",
+      "version": "1.10.1",
+      "author": "anygoodname",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 24772
@@ -7770,7 +8197,8 @@
       "name": "Immersion Patch - Holdin' On - Kerrys' mansion scene bug fixes",
       "enabled": true,
       "optional": true,
-      "version": "1.0.0.0",
+      "version": "1.0",
+      "author": "anygoodname",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 25792
@@ -7793,7 +8221,8 @@
       "name": "Stealthrunner - Immersive Cyberware Patch",
       "enabled": true,
       "optional": true,
-      "version": "1.0.0.0",
+      "version": "1.0",
+      "author": "Kaethela",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 23014
@@ -7816,7 +8245,9 @@
       "name": "PL Vanilla Clothes Refits for EBB",
       "enabled": true,
       "optional": true,
-      "version": "1.0.0.0",
+      "version": "1.0",
+      "author": "SneakyBlackCat",
+      "title": "Phantom Liberty Vanilla Clothes Refits for Enhanced Big Breast",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 9461
@@ -7839,7 +8270,9 @@
       "name": "Vanilla Clothes Refits for EBB",
       "enabled": true,
       "optional": true,
-      "version": "f1.03",
+      "version": "1.03",
+      "author": "SneakyBlackCat",
+      "title": "Vanilla Clothes Refits for Enhanced Big Breast.",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 5408
@@ -7862,7 +8295,9 @@
       "name": "Immersion patch - No crowd panic from using devices",
       "enabled": true,
       "optional": true,
-      "version": "1.2.0.0",
+      "version": "1.2",
+      "author": "anygoodname",
+      "title": "Immersion patch - No crowd panic from using devices.",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 7353
@@ -7875,6 +8310,43 @@
             "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/immersion-patch-no-crowd-panic-from-using-devices-ea70a231e626d983.tar.zst.001",
             "size": 3584,
             "blake3": "0105b473afdc57402e05fb589463138386d2d6a95353a86e9a9229dc8d9d17cd"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "mod",
+      "id": "acm",
+      "name": "ACM",
+      "enabled": true,
+      "optional": true,
+      "version": "2026.10.6",
+      "package": {
+        "hash": "f4e69961bdce169f7f42a1d6cf82dab68f44c21a385e7f3a5e6566dad7fc3f99",
+        "size": 89165,
+        "parts": [
+          {
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.4/acm-f4e69961bdce169f.tar.zst.001",
+            "size": 20901,
+            "blake3": "86eadadcc4af5bf8ae289406a333db19415a978ba44f8dde0e80b7f709330c0a"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "mod",
+      "id": "lyno-settings",
+      "name": "LYNO Settings",
+      "enabled": true,
+      "optional": true,
+      "package": {
+        "hash": "2cc460dacf7833040db366e8b823051d8672b63f556c1a9219d0a67d4d78592b",
+        "size": 64111416,
+        "parts": [
+          {
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.4/lyno-settings-2cc460dacf783304.tar.zst.001",
+            "size": 45052268,
+            "blake3": "25a5df95681f06c6951c3ae41701ff0fd72e600b2572b862e7362da69d1e1c92"
           }
         ]
       }
