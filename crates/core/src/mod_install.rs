@@ -914,6 +914,20 @@ pub fn move_entry(list: &mut ModList, has_build: bool, managed: impl Fn(&str) ->
     true
 }
 
+/// The author's [`move_entry`]: their build section is the next release ([`crate::author`]), so a build mod or
+/// separator goes anywhere too. Only the separator of the player's section stays: what is under it doesn't ship.
+pub fn move_any(list: &mut ModList, name: &str, after: Option<&str>) -> bool {
+    let pos = |list: &ModList, n: &str| list.entries.iter().position(|e| e.name == n && e.state != EntryState::Unmanaged);
+    let Some(from) = pos(list, name) else { return false };
+    if list.entries[from].separator_title() == Some(USER_SEPARATOR) {
+        return false;
+    }
+    let entry = list.entries.remove(from);
+    let to = after.and_then(|a| pos(list, a)).map_or(list.entries.len(), |i| i + 1);
+    list.entries.insert(to, entry);
+    true
+}
+
 /// Adds a separator of the player into the profile's list below `after` (as
 /// in [`move_entry`]). MO2 makes one an empty folder `<title>_separator`; it
 /// writes the `meta.ini` itself. Returns the folder.
@@ -1332,6 +1346,13 @@ mod tests {
         assert!(!move_entry(&mut l, true, managed, "Guns_separator", None), "so does a build separator");
         assert!(is_users(&l, true, "Mine_separator") && !is_users(&l, true, "Build"));
         assert!(!move_entry(&mut l, true, managed, "LYNO USER MODS_separator", None));
+
+        // The author moves the build's too, across the sections either way.
+        assert!(move_any(&mut l, "Guns_separator", Some("Build 2")));
+        assert!(move_any(&mut l, "Build", Some("A")));
+        assert!(move_any(&mut l, "C", Some("Guns_separator")));
+        assert_eq!(order(&l), ["Build 2", "Guns_separator", "C", "LYNO USER MODS_separator", "Mine_separator", "A", "Build", "B"]);
+        assert!(!move_any(&mut l, "LYNO USER MODS_separator", None));
 
         // Without the build every mod is the player's, DLC entries stay lowest.
         let mut l = list("+B\n+A\n*DLC: EP1\n");

@@ -233,13 +233,16 @@ export function Mods() {
   // Like MO2, overwrite/ is the last row of the list: above every mod.
   const showOverwrite = !!overwrite && overwrite.files > 0 && filter === "all" && !q;
   const showUser = (shownUser.length > 0 || dropping || showOverwrite) && filter !== "changes";
-  // A drag reorders the player's own rows; MO2 would overwrite the list on exit, so it waits for it to close.
-  // A selected mod takes the player's other selected mods along (build mods keep their places); an unselected one becomes the selection.
+  // A drag reorders the player's own rows, the author's any; MO2 would overwrite the list on exit, so it waits for it to close.
+  // A selected mod takes the player's other selected mods along (build mods keep their places, the author's come too);
+  // an unselected one becomes the selection.
   const startMove = (e: React.PointerEvent, target: Target) =>
     !locked &&
     pressToDrag(e, (ev) => {
       const together = target.kind === "mod" && selected.has(target.folder);
-      const files = together ? (userMods ?? []).flatMap((r) => (r.kind === "mod" && selected.has(r.name) ? [r.name] : [])) : [target.folder];
+      // `targets` holds the list's order: the build section, then the player's.
+      const order = author ? [...targets.keys()] : (userMods ?? []).flatMap((r) => (r.kind === "mod" ? [r.name] : []));
+      const files = together ? order.filter((f) => selected.has(f)) : [target.folder];
       if (target.kind === "mod" && !together) {
         setSelected(new Set(files));
         anchor.current = target.folder;
@@ -408,6 +411,7 @@ export function Mods() {
                     // A search shows every match, folded or not.
                     open={!!query.trim() || !collapsed.has(g.title)}
                     onToggle={() => toggleGroup(g.title!)}
+                    onPress={author ? (e) => startMove(e, { ...overwriteTarget, kind: "separator", folder: `${g.title}_separator`, label: g.title! }) : undefined}
                   />
                 )}
                 {(!g.title || query.trim() || !collapsed.has(g.title)) && g.mods.map((m) => !isBuildMod(m) ? userRow(m) : (
@@ -416,6 +420,7 @@ export function Mods() {
                     data-drop-after={m.name}
                     data-drop-build
                     data-row={m.name}
+                    onPointerDown={author ? (e) => startMove(e, buildTarget(m)) : undefined}
                     onClick={(e) => select(e, m.name)}
                     onContextMenu={(e) => openMenu(e, buildTarget(m))}
                     className={`h-10 cursor-pointer border-b border-line/60 last:border-b-0 ${rowTone(selected.has(m.name), menu?.target.folder === m.name)} ${line(m.name)}`}
@@ -444,7 +449,7 @@ export function Mods() {
                     </td>
                     <VersionCell version={m.version} update={nexusUpdate.get(m.name)} />
                     <td className="pr-5">
-                      <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
                         {m.optional && m.installed && (
                           <Switch
                             checked={m.enabled}

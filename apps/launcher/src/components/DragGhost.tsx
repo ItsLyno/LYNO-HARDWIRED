@@ -59,7 +59,7 @@ export function DragGhost() {
       const spot = dropSpotAt(e.clientX, e.clientY);
       // A separator of the player stays in their section; their mods go among the build's too.
       if (!d || !spot || (d.move && movesSeparator(d) && spot.build)) return;
-      const { run, refreshUserMods, installArchive } = useApp.getState();
+      const { run, refreshUserMods, refreshBuild, installArchive } = useApp.getState();
       const files = d.files ?? [d.file];
       if (!d.move) void installArchive(d.file, spot.after);
       else if (!(spot.after && files.includes(spot.after)))
@@ -70,7 +70,8 @@ export function DragGhost() {
             await api.moveUserMod(f, after);
             after = f;
           }
-          await refreshUserMods();
+          // The author's build section is the build's list.
+          await Promise.all([refreshUserMods(), refreshBuild()]);
         });
     };
     const esc = (e: KeyboardEvent) => e.key === "Escape" && useApp.setState({ drag: null });
@@ -110,7 +111,8 @@ export function DragGhost() {
   );
 }
 
-/** A separator of the player moves only within their section: MO2 would put build mods under it. */
+/** A separator of the player moves only within their section: MO2 would put build mods under it. The author's go
+ *  anywhere: their build section is the next release. */
 export function movesSeparator(d: { file: string; files?: string[] }): boolean {
-  return (d.files ?? [d.file]).some((f) => f.endsWith("_separator"));
+  return !useApp.getState().settings?.authorMode && (d.files ?? [d.file]).some((f) => f.endsWith("_separator"));
 }

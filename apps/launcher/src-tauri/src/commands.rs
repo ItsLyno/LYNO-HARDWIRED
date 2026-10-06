@@ -873,7 +873,11 @@ pub fn move_user_mod(state: TauriState<'_, AppState>, folder: String, after: Opt
     let path = inst.modlist_path(&profile(&inst));
     let mut list = ModList::load(&path).map_err(err)?;
     let installed = State::load(&install::state_path(&inst)).map_err(err)?;
-    if !mod_install::move_entry(&mut list, install::has_build(&inst), |f| installed.is_managed_folder(f), &folder, after.as_deref()) {
+    let moved = match state.settings.lock().unwrap().author_mode {
+        true => mod_install::move_any(&mut list, &folder, after.as_deref()),
+        false => mod_install::move_entry(&mut list, install::has_build(&inst), |f| installed.is_managed_folder(f), &folder, after.as_deref()),
+    };
+    if !moved {
         return Err("Перетаскивать можно только ваши моды: порядок сборки задаёт её автор".into());
     }
     list.save(&path).map_err(err)?;
