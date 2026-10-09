@@ -1,11 +1,11 @@
 {
-  "version": "0.7.6",
-  "notes": "Режим автора: моды и разделители сборки теперь можно перетаскивать, порядок попадает в следующий выпуск.",
-  "pub_date": "2026-10-06T08:44:51Z",
+  "version": "0.7.7",
+  "notes": "",
+  "pub_date": "2026-10-09T11:37:34Z",
   "platforms": {
     "windows-x86_64": {
-      "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/launcher-v0.7.6/LYNO-HARDWIRED_0.7.6_x64-setup.exe",
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUejR0VmZ4WmllZkRMSU4wRjRjZVpYN3pKOGdSV2tQMjhCTUl2aVBpVDZEWW9qaldReFQ3d2x4VlN6S2luTEQxM1ZydkpoQzNOS1h2cmV3bUN0bVVsd0tuU3ZFcEUzTlFnPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkxMjc2MjkxCWZpbGU6TFlOTyBIQVJEV0lSRURfMC43LjZfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjAuNy42CmUzaVFaTEpUYmFrdFpjWHlrU2lUTjZzMHZmMGpsL1hRbk1jS3BMbjE0RDRCZXNqWld1bUIzWEpKajVTU0plQTV6SCtURExMY2dpZ1J4UkZGMlRjdUNBPT0K"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUejR0VmZ4WmllZk4rTHIvUSs2Z3dwc1dINzJNdzFpZnc3VnNCalJLNHNIVzVSQnQxTGFhSjhvc3piN3J3TDlsSkY1RkZKK0hqU0RZeURkbWNwWmt3S2JRUlhjVHk1WHdVPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkxNTQ1ODUzCWZpbGU6TFlOTyBIQVJEV0lSRURfMC43LjdfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjAuNy43CnhpWVU2L3VWbFpxSnFuNm5YWG9mZlBGUGRYVzl4a1YzTVVrd01NOHJlSSt1YlJZakc5aTJvNzg4enZMTXQ2WDdUaTZXNGFnWTczOUJaeU0ybWwyYkNnPT0K",
+      "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/launcher-v0.7.7/LYNO-HARDWIRED_0.7.7_x64-setup.exe"
     }
   }
 }
