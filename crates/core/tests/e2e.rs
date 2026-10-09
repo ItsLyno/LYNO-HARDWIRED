@@ -393,6 +393,14 @@ fn build_install_update() {
     assert!(out2.warnings.iter().any(|w| w.starts_with("overwrite/ has 1 file(s)")), "{:?}", out2.warnings);
     let m2 = out2.manifest;
 
+    // The player has a mod of their own named as the build's new one: the update stops before it downloads or
+    // touches anything, and goes once the player renames theirs.
+    write(&user_root, "mods/LYNO Settings/mine.txt", b"mine");
+    let (_, result) = try_install(&user, &m2);
+    assert!(matches!(result, Err(lyno_core::Error::FolderTaken(ref f)) if f == "LYNO Settings"), "{result:?}");
+    assert_eq!(std::fs::read(user_root.join("mods/LYNO Settings/mine.txt")).unwrap(), b"mine");
+    std::fs::rename(user_root.join("mods/LYNO Settings"), user_root.join("mods/My Settings")).unwrap();
+
     requests.lock().unwrap().clear();
     let actions = install(&user, &m2);
     assert_eq!(
@@ -417,8 +425,8 @@ fn build_install_update() {
     );
     assert!(user_root.join("mods/My Tweak/x.archive").exists());
     let list = ModList::load(&user.modlist_path("LYNO")).unwrap();
-    let tail: Vec<_> = list.entries.iter().rev().take(2).rev().map(|e| e.name.as_str()).collect();
-    assert_eq!(tail, ["My Tweak", "LYNO Settings"], "the player's mod stays under the build mod it was under");
+    let tail: Vec<_> = list.entries.iter().rev().take(3).rev().map(|e| e.name.as_str()).collect();
+    assert_eq!(tail, ["LYNO Settings", "LYNO USER MODS_separator", "My Tweak"], "the player's mod goes over the build, in their section");
     assert_eq!(list.get("Archive Mod").unwrap().state, EntryState::Disabled, "player's choice survives the update");
     assert_eq!(list.get("CET").unwrap().state, EntryState::Enabled);
     let st = State::load(&state_path(&user)).unwrap();

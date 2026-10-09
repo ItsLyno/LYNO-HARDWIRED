@@ -77,10 +77,12 @@ updater reads. Launcher logs go through `log::` macros to `tauri-plugin-log`.
   `launcher-release.yml`.
 - **Reused packages keep URLs into older releases.** Old `build-*` releases must
   never be deleted; nothing in code may assume all assets are in the latest release.
-- **Player mods are untouchable**: anything not in `state.json` (`plan::is_players`) keeps its
-  place. Among build mods it sticks to the build entry above it across updates
-  (`plan::target_modlist`); the player's separators and new mods live under the
-  `LYNO USER MODS` separator (`plan::USER_SEPARATOR`). `build` never ships what is
+- **Player mods are untouchable**: anything not in `state.json` (`plan::is_players`) is the
+  player's, wherever it stands. Their mods and separators live under the `LYNO USER MODS`
+  separator (`plan::USER_SEPARATOR`), over the whole build; updates move strays from the
+  build section there (`plan::target_modlist`), only their own version of an optional
+  build mod keeps that mod's place. A build mod never installs over a folder of theirs
+  (`Error::FolderTaken`). `build` never ships what is
   under it: the author may build from a launcher instance with personal mods
   (for the author, a mod in the build section is the next release).
 - **The author's disk is the bottleneck** of `lyno-pack` (hundreds of mods,

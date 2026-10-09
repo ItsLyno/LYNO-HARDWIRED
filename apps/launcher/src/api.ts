@@ -2,6 +2,7 @@ import { getVersion } from "@tauri-apps/api/app";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
+import { open as tauriOpen } from "@tauri-apps/plugin-dialog";
 import { openUrl as tauriOpenUrl } from "@tauri-apps/plugin-opener";
 import { mock } from "./mock";
 
@@ -352,7 +353,8 @@ export interface ArchiveRoot {
   valid: boolean;
 }
 
-/** The player's own mods, in MO2's order: among the build's, then their section (under LYNO USER MODS). */
+/** The player's own mods, in MO2's order: their section (under LYNO USER MODS); among the build's only their version
+ *  of a build mod, or one put there in MO2 until the next update moves it to the section. */
 export type UserRow =
   | { kind: "separator"; title: string; color: string | null }
   | {
@@ -515,8 +517,12 @@ export const api = isTauri()
       nexusDownload: (game: string, modId: number, fileId: number) => invoke<number>("nexus_download", { game, modId, fileId }),
       nexusLimits: () => invoke<RateLimit | null>("nexus_limits"),
       downloadsRecent: () => invoke<DownloadItem[]>("downloads_recent"),
+      deleteDownload: (file: string) => invoke<void>("delete_download", { file }),
       /** A file name in MO2's downloads or an absolute path; `after`: the list entry it was dropped below. */
       installArchive: (file: string, after: string | null) => invoke<number>("install_archive", { file, after }),
+      /** MO2's "Install a new mod from an archive": the archives picked in a file dialog, none when cancelled. */
+      pickArchives: async () =>
+        (await tauriOpen({ multiple: true, filters: [{ name: "Архивы модов", extensions: ["zip", "7z", "rar"] }] })) ?? [],
       archiveTarget: (file: string) => invoke<ArchiveTarget>("archive_target", { file }),
       installRoots: (id: number) => invoke<ArchiveRoot[]>("install_roots", { id }),
       installSetRoot: (id: number, root: string) => invoke<void>("install_set_root", { id, root }),

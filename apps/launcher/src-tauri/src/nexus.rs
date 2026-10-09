@@ -838,6 +838,18 @@ pub async fn downloads_recent(app: AppHandle) -> CmdResult<Vec<DownloadItem>> {
     tauri::async_runtime::spawn_blocking(move || mod_install::recent_downloads(&inst, 40)).await.map_err(err)?.map_err(err)
 }
 
+/// Deletes an archive of MO2's downloads with its `.meta`.
+#[tauri::command]
+pub fn delete_download(app: AppHandle, file: String) -> CmdResult<()> {
+    let (inst, _) = instance(&app.state::<AppState>())?;
+    mod_install::delete_download(&inst, &file).map_err(|e| {
+        log::error!("delete download {file:?}: {e}");
+        format!("Не удалось удалить загрузку: {e}")
+    })?;
+    log::info!("deleted download {file:?}");
+    Ok(())
+}
+
 /// An archive of the downloads list (a file name in MO2's downloads) or a
 /// path dropped from Explorer.
 fn archive_path(inst: &Instance, file: &str) -> CmdResult<PathBuf> {

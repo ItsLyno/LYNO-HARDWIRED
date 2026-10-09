@@ -175,6 +175,7 @@ pub fn cached_bytes(inst: &Instance, manifest: &Manifest, plan: &UpdatePlan) -> 
 
 impl Installer<'_> {
     pub fn apply(&self, plan: &UpdatePlan, on: &mut (dyn FnMut(Event) + Send)) -> Result<()> {
+        self.check_folders(plan)?;
         let cache = cache_dir(self.inst);
         let (jobs, job_of) = jobs(self.manifest, plan, &cache);
         let fetch = Prefetch::new(&jobs, plan.download_size, self.cancel);
@@ -202,6 +203,23 @@ impl Installer<'_> {
             emit(Event::Done);
         }
         result
+    }
+
+    /// A build mod's new folder taken by a mod of the player's with that name:
+    /// swapping it in would delete theirs. Checked before anything downloads. A
+    /// folder with the record of this very package is ours, left by an update
+    /// cut short between the swap and saving the state.
+    fn check_folders(&self, plan: &UpdatePlan) -> Result<()> {
+        let state = State::load(&state_path(self.inst))?;
+        for action in &plan.actions {
+            let (Action::Install { id } | Action::Update { id, .. }) = action else { continue };
+            let spec = self.spec(id)?;
+            let ours = state.mods.get(id).is_some_and(|m| m.folder == spec.name) || files::load(self.inst, id, &spec.package.hash).is_some();
+            if !ours && self.inst.mods_dir().join(&spec.name).exists() {
+                return Err(Error::FolderTaken(spec.name.clone()));
+            }
+        }
+        Ok(())
     }
 
     fn install(

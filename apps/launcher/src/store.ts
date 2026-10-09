@@ -437,10 +437,9 @@ export interface ReplaceAsk {
 }
 
 /** Where a dropped archive lands: below this entry of the list (`after`), `null` for the end of the player's section.
- *  `build`: a row of the build's section, where a row of the player's can't go. */
+ *  Only rows the dragged one may go under carry `data-drop-after`: for a player, those of their section. */
 export interface DropSpot {
   after: string | null;
-  build?: boolean;
 }
 
 /** The drop spot under a point of the window: rows of the mod list carry `data-drop-after`. Like in MO2, the gap
@@ -454,7 +453,7 @@ export function dropSpotAt(x: number, y: number): DropSpot | null {
     const rows = [...document.querySelectorAll<HTMLElement>("[data-drop-after]")];
     el = rows[rows.indexOf(el) - 1] ?? el;
   }
-  return { after: el.dataset.dropAfter ?? null, build: el.dataset.dropBuild !== undefined };
+  return { after: el.dataset.dropAfter ?? null };
 }
 
 export function isJobActive(job: NexusJob): boolean {

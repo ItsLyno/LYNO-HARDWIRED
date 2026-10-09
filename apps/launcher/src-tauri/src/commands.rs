@@ -452,6 +452,9 @@ pub fn start_update(app: AppHandle) -> CmdResult<()> {
                     lyno_core::Error::Download(_) => format!(
                         "Не удалось скачать сборку: {e}. Скачанное сохранено — следующее обновление продолжит с того же места."
                     ),
+                    lyno_core::Error::FolderTaken(folder) => format!(
+                        "В сборке появился мод «{folder}», а у вас уже есть свой мод с таким названием. Переименуйте свой и обновите сборку снова."
+                    ),
                     e => e.to_string(),
                 };
                 Finished { ok: false, error: Some(error) }
@@ -691,7 +694,8 @@ pub enum UserRow {
 }
 
 /// The player's own mods: not in the manifest, so the build's list doesn't show them.
-/// Their section, and their mods among the build's (`plan::target_modlist` keeps them there).
+/// Their section, and their mods still among the build's: their version of a build mod, or one put
+/// there in MO2 (`plan::target_modlist` moves it to the section with the next update).
 #[tauri::command]
 pub fn user_mods(state: TauriState<'_, AppState>) -> CmdResult<Vec<UserRow>> {
     let settings = state.settings.lock().unwrap().clone();
@@ -866,7 +870,7 @@ fn separator_folder(title: &str) -> CmdResult<String> {
 }
 
 /// Drags a mod or separator of the player below `after` (`None`: the end), in the current
-/// profile only: the order is a profile's, as in MO2. A mod may go among the build's.
+/// profile only: the order is a profile's, as in MO2. Within their section, over the build; the author's anywhere.
 #[tauri::command]
 pub fn move_user_mod(state: TauriState<'_, AppState>, folder: String, after: Option<String>) -> CmdResult<()> {
     let inst = editable(&state)?;

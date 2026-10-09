@@ -51,14 +51,13 @@ export function DragGhost() {
       ghost.current?.style.setProperty("translate", `${e.clientX - d0.x}px ${e.clientY - d0.y}px`);
       const d = useApp.getState().drag;
       const over = dropSpotAt(e.clientX, e.clientY);
-      if (d && (over?.after !== d.over?.after || over?.build !== d.over?.build || !over !== !d.over)) useApp.setState({ drag: { ...d, over } });
+      if (d && (over?.after !== d.over?.after || !over !== !d.over)) useApp.setState({ drag: { ...d, over } });
     };
     const up = (e: PointerEvent) => {
       const d = useApp.getState().drag;
       useApp.setState({ drag: null });
       const spot = dropSpotAt(e.clientX, e.clientY);
-      // A separator of the player stays in their section; their mods go among the build's too.
-      if (!d || !spot || (d.move && movesSeparator(d) && spot.build)) return;
+      if (!d || !spot) return;
       const { run, refreshUserMods, refreshBuild, installArchive } = useApp.getState();
       const files = d.files ?? [d.file];
       if (!d.move) void installArchive(d.file, spot.after);
@@ -87,7 +86,6 @@ export function DragGhost() {
 
   if (!drag) return null;
   const Icon = drag.move ? ArrowDownUp : Package;
-  const blocked = drag.move && movesSeparator(drag) && drag.over?.build;
   return (
     <div
       ref={ghost}
@@ -96,23 +94,18 @@ export function DragGhost() {
     >
       <Icon size={13} className="shrink-0 text-neon" />
       <span className="max-w-40 shrink-0 truncate">{drag.label}</span>
-      <span className={`truncate ${blocked ? "text-warn" : "text-faint"}`}>
-        {blocked
-          ? "· только среди ваших модов"
-          : !drag.over
-            ? drag.move
-              ? ""
-              : "· в список модов"
-            : drag.over.after && !drag.over.after.endsWith("_separator")
-              ? `· после ${drag.over.after}`
+      {/* Where it lands, said as MO2's priority: lower in the list wins a conflict. */}
+      <span className="truncate text-faint">
+        {!drag.over
+          ? drag.move
+            ? ""
+            : "· в список модов"
+          : drag.over.after === null
+            ? "· в конец: важнее всех"
+            : !drag.over.after.endsWith("_separator")
+              ? `· важнее ${drag.over.after}`
               : "· сюда"}
       </span>
     </div>
   );
-}
-
-/** A separator of the player moves only within their section: MO2 would put build mods under it. The author's go
- *  anywhere: their build section is the next release. */
-export function movesSeparator(d: { file: string; files?: string[] }): boolean {
-  return !useApp.getState().settings?.authorMode && (d.files ?? [d.file]).some((f) => f.endsWith("_separator"));
 }

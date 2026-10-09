@@ -1,4 +1,4 @@
-import { Check, ChevronUp, Download, FolderOpen, GripVertical, Loader2 } from "lucide-react";
+import { Check, ChevronUp, Download, FolderOpen, Loader2, Plus, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { api, type DownloadItem, type NexusJob, type RateLimit } from "../api";
 import { formatBytes } from "../format";
@@ -58,7 +58,7 @@ function Downloads() {
         <ChevronUp size={12} className={`transition-transform ${open ? "" : "rotate-180"}`} />
       </button>
       {open && (
-        <div className="panel absolute bottom-11 left-0 z-40 flex max-h-[60vh] w-[440px] flex-col overflow-hidden bg-surface shadow-2xl">
+        <div className="panel absolute bottom-11 left-0 z-40 flex max-h-[60vh] w-[380px] flex-col overflow-hidden bg-surface shadow-2xl">
           {active.length > 0 && (
             <ul className="divide-y divide-line/60 border-b border-line">
               {active.map((j) => (
@@ -67,7 +67,9 @@ function Downloads() {
             </ul>
           )}
           <div className="flex h-9 shrink-0 items-center justify-between px-4">
-            <span className="label">Последние загрузки</span>
+            <span className="label" title="Перетащите загрузку в список модов, чтобы поставить её в нужное место. Архивы из проводника можно бросать прямо на окно.">
+              Последние загрузки
+            </span>
             <button
               onClick={() => run(() => api.openFolder("downloads"))}
               className="flex items-center gap-1.5 text-muted hover:text-fg"
@@ -90,9 +92,6 @@ function Downloads() {
               ))}
             </ul>
           </div>
-          <p className="border-t border-line/60 px-4 py-2 text-[11px] text-faint">
-            Перетащите загрузку в список модов, чтобы поставить её в нужное место. Архивы из проводника можно бросать прямо на окно.
-          </p>
         </div>
       )}
     </div>
@@ -137,8 +136,10 @@ function ActiveJob({ job, onOpen }: { job: NexusJob; onOpen: () => void }) {
 }
 
 function DownloadRow({ item, onDragStart }: { item: DownloadItem; onDragStart: () => void }) {
-  const { installArchive, setPage } = useApp();
+  const { installArchive, refreshDownloads, run, setPage } = useApp();
+  const [confirm, setConfirm] = useState(false);
   const label = item.modName || item.fileName;
+  const details = [item.fileTitle, formatBytes(item.size), item.fileName].filter(Boolean).join(" · ");
 
   const press = (e: React.PointerEvent) =>
     pressToDrag(e, (ev) => {
@@ -146,32 +147,47 @@ function DownloadRow({ item, onDragStart }: { item: DownloadItem; onDragStart: (
       setPage("mods");
       useApp.setState({ drag: { file: item.fileName, label, x: ev.clientX, y: ev.clientY, over: null } });
     });
+  const remove = () => {
+    if (!confirm) return setConfirm(true);
+    void run(async () => {
+      await api.deleteDownload(item.fileName);
+      await refreshDownloads();
+    });
+  };
+  const btn = "flex size-6 shrink-0 items-center justify-center rounded-full text-muted hover:bg-raised hover:text-fg";
 
   return (
-    <li onPointerDown={press} className="group flex cursor-grab items-center gap-2 px-2 py-1.5 hover:bg-raised/60 active:cursor-grabbing">
-      <GripVertical size={13} className="shrink-0 text-faint opacity-0 group-hover:opacity-100" />
-      <div className="min-w-0 flex-1">
-        <div className="truncate text-[13px]">
-          {label}
-          {item.version && <span className="ml-1.5 font-mono text-[11px] text-muted">{item.version}</span>}
-        </div>
-        <div className="truncate text-[11px] text-faint">
-          {item.fileTitle ? `${item.fileTitle} · ` : ""}
-          {formatBytes(item.size)}
-        </div>
-      </div>
+    <li
+      onPointerDown={press}
+      onPointerLeave={() => setConfirm(false)}
+      title={details}
+      className="group flex h-8 cursor-grab items-center gap-1 pl-4 pr-2 hover:bg-raised/60 active:cursor-grabbing"
+    >
+      <span className="min-w-0 flex-1 truncate text-[13px]">
+        {label}
+        {item.version && <span className="ml-1.5 font-mono text-[11px] text-muted">{item.version}</span>}
+      </span>
+      {confirm ? (
+        <button onPointerDown={(e) => e.stopPropagation()} onClick={remove} className="shrink-0 rounded-full px-2 py-0.5 text-bad hover:bg-bad/10">
+          Удалить?
+        </button>
+      ) : (
+        <button onPointerDown={(e) => e.stopPropagation()} onClick={remove} className="flex size-6 shrink-0 items-center justify-center rounded-full text-muted opacity-0 hover:bg-bad/10 hover:text-bad group-hover:opacity-100" title="Удалить архив">
+          <Trash2 size={13} />
+        </button>
+      )}
       {item.installed ? (
-        <span className="flex shrink-0 items-center gap-1 pr-2 text-ok" title="Установлен">
+        <span className="flex size-6 shrink-0 items-center justify-center text-ok" title="Установлен">
           <Check size={13} />
         </span>
       ) : (
         <button
           onPointerDown={(e) => e.stopPropagation()}
           onClick={() => void installArchive(item.fileName, null)}
-          className="shrink-0 rounded-full px-2.5 py-1 text-muted hover:bg-raised hover:text-fg"
-          title="В конец списка ваших модов"
+          className={btn}
+          title="Установить в конец списка ваших модов"
         >
-          Установить
+          <Plus size={14} />
         </button>
       )}
     </li>

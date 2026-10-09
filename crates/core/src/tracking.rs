@@ -177,7 +177,11 @@ fn stale(api: &NexusApi, cache: &Cache, mods: &[Tracked], now: u64, force: bool)
         let mut recent = Vec::new();
         for t in mods {
             match cache.get(game, t.mod_id) {
-                Some(c) if !force && now.saturating_sub(c.at) < Period::Month.secs() => recent.push((t.mod_id, c.at)),
+                // A mod without a file id is compared by the page's version: an entry recorded
+                // without the page (an nxm download, another folder of the page) has to be asked again.
+                Some(c) if !force && now.saturating_sub(c.at) < Period::Month.secs() && !(t.file_id.is_none() && c.page.is_none() && !c.unavailable) => {
+                    recent.push((t.mod_id, c.at))
+                }
                 _ => {
                     out.insert((game.to_owned(), t.mod_id));
                 }
@@ -365,10 +369,19 @@ pub fn ancestors(files: &ModFiles, file_id: u64) -> HashSet<u64> {
     out
 }
 
-/// Versions as authors write them: `v1.2` and `1.2` are the same, and so are
-/// `1.2.0` on the page and `1.2` from `meta.ini` (MO2 pads versions, see `meta::display_version`).
+/// Versions as authors write them: `v1.2`, `V.1.2` and `1.2` are the same, and so are
+/// `1.2.0`, `1.2.0.0` on the page and `1.2` from `meta.ini` (MO2 pads versions, see
+/// `meta::display_version`), and `1`, `1.0`.
 fn same_version(a: &str, b: &str) -> bool {
-    let norm = |s: &str| crate::meta::display_version(s.trim().trim_start_matches(['v', 'V']));
+    let norm = |s: &str| {
+        let s = s.trim().trim_start_matches(['v', 'V']).trim_start_matches('.');
+        let mut v = crate::meta::display_version(s).to_lowercase();
+        // `display_version` keeps `1.0` (MO2 shows two segments); for comparing, `1` is the same.
+        while let Some(short) = v.strip_suffix(".0") {
+            v = short.to_owned();
+        }
+        v
+    };
     norm(a) == norm(b)
 }
 
@@ -387,13 +400,20 @@ pub fn status(t: &Tracked, checked: Option<&Checked>) -> Status {
             _ => Status::Unknown,
         };
     };
+    // Authors reupload the same version (a fixed archive, a renamed file) and chain or archive
+    // the old file: no update for the player. `meta.ini` may have no version; the file's has.
+    let have = t.version.as_deref().or_else(|| file(installed).and_then(|f| f.version.as_deref()));
+    let same = |f: &FileInfo| matches!((f.version.as_deref(), have), (Some(a), Some(b)) if same_version(a, b));
     let next = newest(&c.files, installed);
     if next != installed {
         if let Some(f) = file(next).filter(|f| f.is_current()) {
+            if same(f) {
+                return Status::UpToDate;
+            }
             return Status::Update { file: Some(f.into()), version: f.version.clone() };
         }
     }
-    if file(installed).is_some_and(FileInfo::is_current) {
+    if file(installed).is_some_and(FileInfo::is_current) || c.files.files.iter().any(|f| f.is_current() && same(f)) {
         return Status::UpToDate;
     }
     // The installed file was moved to old versions or deleted without a
@@ -502,6 +522,20 @@ mod tests {
             Status::Update { file: None, version: Some("v1.3".into()) }
         );
         assert_eq!(status(&tracked(None, "1.2"), None), Status::Unknown);
+    }
+
+    #[test]
+    fn same_version_reupload_is_not_an_update() {
+        assert!(same_version("1", "1.0.0") && same_version("V.2.1", "2.1.0.0") && !same_version("1.1", "1.10"));
+        // Chained reupload of the same version.
+        let c = checked(vec![file(1, "OLD_VERSION", "1.2", 10), file(2, "MAIN", "1.2.0", 20)], &[(1, 2)]);
+        assert_eq!(status(&tracked(Some(1), "1.2"), Some(&c)), Status::UpToDate);
+        // Archived without a chain, two main files, one of them the installed version.
+        let c = checked(vec![file(1, "ARCHIVED", "1.2", 10), file(2, "MAIN", "1.2", 20), file(3, "MAIN", "1.2", 20)], &[]);
+        assert_eq!(status(&tracked(Some(1), "1.2"), Some(&c)), Status::UpToDate);
+        // No version in meta.ini: the installed file's version counts.
+        let c = checked(vec![file(1, "OLD_VERSION", "1.2", 10), file(2, "MAIN", "1.2", 20)], &[(1, 2)]);
+        assert_eq!(status(&Tracked { version: None, ..tracked(Some(1), "") }, Some(&c)), Status::UpToDate);
     }
 
     #[test]

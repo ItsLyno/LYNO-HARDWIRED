@@ -63,6 +63,7 @@ pub fn run() {
         }))
         .plugin(log_plugin())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             log::info!("LYNO//HARDWIRED {} started", app.package_info().version);
@@ -137,6 +138,7 @@ pub fn run() {
             nexus::nexus_fomod_install,
             nexus::nexus_limits,
             nexus::downloads_recent,
+            nexus::delete_download,
             nexus::archive_target,
             nexus::install_archive,
             nexus::install_roots,

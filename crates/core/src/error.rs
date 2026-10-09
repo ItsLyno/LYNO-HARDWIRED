@@ -29,6 +29,9 @@ pub enum Error {
     /// A FOMOD installer can't be installed as chosen.
     #[error("FOMOD: {0}")]
     Fomod(String),
+    /// A build mod's folder is taken by a mod of the player's with that name.
+    #[error("mod folder {0:?} is the player's: the build's mod of that name can't go over it")]
+    FolderTaken(String),
     #[error(transparent)]
     Json(#[from] serde_json::Error),
 }

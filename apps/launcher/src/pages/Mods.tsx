@@ -1,10 +1,10 @@
-import { ChevronRight, ExternalLink, Power, PowerOff, FolderOpen, Lock, MoreHorizontal, Pencil, RefreshCw, Search, Trash2, X, type LucideIcon, TriangleAlert, Undo2, ArrowUp, Plus, Wrench, Palette, Eraser, PackagePlus, SeparatorHorizontal, ScrollText } from "lucide-react";
+import { ChevronRight, ExternalLink, Power, PowerOff, FolderOpen, Lock, MoreHorizontal, Pencil, RefreshCw, Search, Trash2, X, type LucideIcon, TriangleAlert, Undo2, ArrowUp, Plus, RotateCw, CircleArrowUp, Wrench, Palette, Eraser, PackagePlus, SeparatorHorizontal, ScrollText } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from "react";
 import { api, type ModRow, type Need, type UserRow } from "../api";
 import { Button } from "../components/Button";
 import { Chip } from "../components/Chip";
 import { LogViewer } from "../components/LogViewer";
-import { movesSeparator, pressToDrag } from "../components/DragGhost";
+import { pressToDrag } from "../components/DragGhost";
 import { Notices } from "../components/Notices";
 import { PageTitle } from "../components/PageTitle";
 import { formatBytes, plural } from "../format";
@@ -12,12 +12,12 @@ import { activeInstance, useApp } from "../store";
 
 type Mod = Extract<ModRow, { kind: "mod" }>;
 type UserMod = Extract<UserRow, { kind: "mod" }>;
-/** A build group shows the player's mods placed among the build's too. */
+/** A build group shows the player's mods still among the build's too: their version of a build mod, or one put there in MO2. */
 type Group = { title: string | null; color: string | null; mods: (Mod | UserMod)[] };
 type UserSeparator = Extract<UserRow, { kind: "separator" }>;
 /** The player's mods under one of their separators; `sep` null: right under the section's header. */
 type UserGroup = { sep: UserSeparator | null; mods: UserMod[] };
-type Filter = "all" | "off" | "changes";
+type Filter = "all" | "off" | "changes" | "updates";
 /** A row the context menu acts on: a mod, a separator of the player or MO2's overwrite. `id`: manifest id of a build mod. */
 type Target = {
   kind: "mod" | "separator" | "overwrite";
@@ -44,12 +44,28 @@ type Dialog = { kind: "delete" | "reinstall" | "rename" | "color" | "separator" 
 const USER_SEPARATOR = "LYNO USER MODS_separator";
 
 export function Mods() {
-  const { run, build, buildError, status, progress, setModEnabled, settings, nexus, nexusUpdates, nexusChecking, checkNexus, userMods, refreshUserMods, refreshBuild, drag, fileOver, overwrite } =
+  const { run, build, buildError, status, progress, setModEnabled, settings, nexus, nexusUpdates, nexusChecking, checkNexus, userMods, refreshUserMods, refreshBuild, drag, fileOver, overwrite, installArchive } =
     useApp();
-  // Both sections mirror MO2, where mods may have changed since the launcher last looked.
+  // Both sections mirror MO2, where mods may have changed since the launcher last looked: reread on open and,
+  // like MO2's Refresh, on F5 (which would otherwise reload the whole webview).
+  const [reloading, setReloading] = useState(false);
+  const reload = async () => {
+    setReloading(true);
+    try {
+      await Promise.all([refreshUserMods(), refreshBuild()]);
+    } finally {
+      setReloading(false);
+    }
+  };
   useEffect(() => {
-    void refreshUserMods();
-    void refreshBuild();
+    void reload();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "F5") return;
+      e.preventDefault();
+      void reload();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, []);
   // A player's build mods come with the build: only the author (`canUpdate`) is shown their Nexus updates.
   const nexusUpdate = new Map(
@@ -145,14 +161,26 @@ export function Mods() {
 
   const isChange = (m: Mod) => !!m.recent || m.outdated || m.damaged || (!m.installed && !m.removed && !!build?.installedVersion);
   const isOff = (m: Mod) => !m.enabled || m.removed;
-  const keep = (m: Mod) => filter === "all" || (filter === "off" ? isOff(m) : isChange(m));
-  const keepUser = (r: UserMod) => filter === "all" || (filter === "off" && !r.enabled);
+  const keep = (m: Mod) =>
+    filter === "all" || (filter === "off" ? isOff(m) : filter === "updates" ? nexusUpdate.has(m.name) : isChange(m));
+  const keepUser = (r: UserMod) => filter === "all" || (filter === "off" ? !r.enabled : filter === "updates" && nexusUpdate.has(r.name));
   const amongBuild = (userMods ?? []).filter((r): r is UserMod => r.kind === "mod" && r.after !== null);
   const groups = groupMods(build?.mods ?? [], amongBuild, query, keep, keepUser);
+  // The whole list's order, lowest first, as MO2 applies it: a mod lower in the list wins a conflict. Numbered so
+  // which way is "more important" reads at a glance; separators and mods not on disk have no place in it.
+  const priority = new Map(
+    [
+      ...groupMods(build?.mods ?? [], amongBuild, "", () => true, () => true).flatMap((g) => g.mods),
+      ...(userMods ?? []).filter((r): r is UserMod => r.kind === "mod" && r.after === null),
+    ]
+      .filter((m) => !isBuildMod(m) || (m.installed && !m.removed))
+      .map((m, i) => [m.name, i + 1] as const),
+  );
   const all = (build?.mods ?? []).filter((m): m is Mod => m.kind === "mod");
   const shown = groups.reduce((n, g) => n + g.mods.length, 0);
   const offCount = all.filter(isOff).length;
   const changeCount = all.filter(isChange).length;
+  const updateCount = nexusUpdate.size;
   // MO2 rewrites modlist.txt on exit, so switching mods while it runs would be lost.
   const locked = !!progress || !!status?.gameRunning || !!status?.mo2Running;
   const lockReason = progress
@@ -199,12 +227,11 @@ export function Mods() {
     );
   }
   const last = build?.lastUpdate ?? null;
-  // Where an archive being dragged or dropped from Explorer, or a row of the player, would land: a mod anywhere,
-  // among the build's too (updates keep it under the build row above it).
+  // Where an archive being dragged or dropped from Explorer, or a row of the player, would land: in the player's
+  // section, over the build (the author's anywhere). Only those rows are drop targets.
   const spot = drag?.over ?? (fileOver && !fileOver.outside ? fileOver : null);
   const dropping = !!drag || (!!fileOver && !fileOver.outside);
-  // A separator of the player moves only within their section: MO2 would put build mods under it.
-  const lineAfter = spot && !(drag?.move && movesSeparator(drag) && spot.build) && (spot.after === null ? "end" : spot.after);
+  const lineAfter = spot && (spot.after === null ? "end" : spot.after);
   const userRows = (userMods ?? []).filter((r) => r.kind === "separator" || (r.after === null && keepUser(r)));
   const q = query.trim().toLowerCase();
   const shownUser = userRows.filter((r) => !q || r.kind === "separator" || r.name.toLowerCase().includes(q));
@@ -254,7 +281,8 @@ export function Mods() {
     <UserModRow
       key={r.name}
       row={r}
-      build={r.after !== null}
+      drop={author || r.after === null}
+      priority={priority.get(r.name)}
       update={nexusUpdate.get(r.name)}
       needs={needs.get(r.name)}
       locked={locked}
@@ -289,18 +317,10 @@ export function Mods() {
         >
           Моды
         </PageTitle>
-        <div className="flex items-center gap-4">
-          <Button
-            variant="ghost"
-            disabled={!!nexusChecking || !nexus?.account}
-            title={nexus?.account ? "Узнать на Nexus Mods, вышли ли новые версии модов" : "Войдите в Nexus Mods в настройках"}
-            onClick={() => void checkNexus(false)}
-          >
-            <RefreshCw size={14} className={nexusChecking ? "animate-spin" : ""} />
-            {nexusChecking ? `Проверка ${nexusChecking.done}/${nexusChecking.total}` : "Проверить обновления"}
-          </Button>
-          {(offCount > 0 || changeCount > 0) && (
-            <div className="flex items-center gap-1.5">
+        {/* What the list shows, then what to do with it: icon buttons for the rare ones, a label for the main one. */}
+        <div className="flex items-center gap-3">
+          {(offCount > 0 || changeCount > 0 || updateCount > 0 || filter !== "all") && (
+            <div className="flex items-center gap-0.5 rounded-full bg-surface p-0.5">
               <Chip active={filter === "all"} onClick={() => setFilter("all")}>
                 Все
               </Chip>
@@ -314,9 +334,14 @@ export function Mods() {
                   Изменения
                 </Chip>
               )}
+              {updateCount > 0 && (
+                <Chip active={filter === "updates"} onClick={() => setFilter("updates")} count={updateCount}>
+                  Обновления
+                </Chip>
+              )}
             </div>
           )}
-          <label className="relative w-72">
+          <label className="relative w-64">
             <Search size={15} className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-faint" />
             <input
               value={query}
@@ -326,6 +351,29 @@ export function Mods() {
               className="h-9 w-full rounded-full bg-surface pr-4 pl-9 text-sm outline-none placeholder:text-faint focus:ring-1 focus:ring-neon/50"
             />
           </label>
+          <div className="mx-1 h-5 w-px bg-line" />
+          <Button variant="ghost" size="icon" disabled={reloading} title="Перечитать список модов с диска (F5)" onClick={() => void reload()}>
+            <RotateCw size={15} className={reloading ? "animate-spin" : ""} />
+          </Button>
+          <Button
+            variant="ghost"
+            size={nexusChecking ? "md" : "icon"}
+            disabled={!!nexusChecking || !nexus?.account}
+            title={nexus?.account ? "Проверить обновления модов на Nexus Mods" : "Войдите в Nexus Mods в настройках, чтобы проверять обновления"}
+            onClick={() => void checkNexus(false)}
+          >
+            <CircleArrowUp size={15} className={nexusChecking ? "animate-pulse" : ""} />
+            {nexusChecking && <span className="font-mono text-[12px] tabular-nums">{`${nexusChecking.done}/${nexusChecking.total}`}</span>}
+          </Button>
+          <Button
+            title="Установить мод из архива (zip, 7z, rar), как в MO2. Архив можно и перетащить на список"
+            onClick={async () => {
+              for (const file of await api.pickArchives()) await installArchive(file, null);
+            }}
+          >
+            <PackagePlus size={15} />
+            Установить мод
+          </Button>
         </div>
       </div>
 
@@ -363,16 +411,16 @@ export function Mods() {
                 onClick={() => jump(n.key)}
                 title={n.title}
                 className={`flex h-8 w-full items-center gap-2.5 px-4 text-left text-[13px] transition-colors hover:bg-raised/60 hover:text-fg ${
-                  active === n.key ? "bg-raised text-fg" : "text-muted"
-                } ${collapsed.has(n.key) && !q ? "opacity-60" : ""}`}
+                  active === n.key ? "bg-raised text-fg" : "text-fg/80"
+                } ${collapsed.has(n.key) && !q ? "opacity-70" : ""}`}
               >
                 <span className="h-3.5 w-1 shrink-0 rounded-full" style={{ background: n.color ?? "var(--color-line)" }} />
                 <span className="min-w-0 flex-1 truncate">{n.title}</span>
-                <span className="font-mono text-[11px] text-faint tabular-nums">{n.count}</span>
+                <span className="font-mono text-[11px] text-muted tabular-nums">{n.count}</span>
               </button>
             ))}
           </nav>
-          <p className="shrink-0 border-t border-line px-4 py-3 text-[11px] leading-relaxed text-faint">
+          <p className="shrink-0 border-t border-line px-4 py-3 text-[11px] leading-relaxed text-muted">
             Все моды принадлежат их авторам. Если мод понравился — поддержите автора на Nexus Mods.
           </p>
         </aside>
@@ -387,13 +435,19 @@ export function Mods() {
         >
           <table className="w-full table-fixed text-left select-none">
             <colgroup>
+              <col className="w-16" />
               <col />
               <col className="w-32" />
               <col className="w-24" />
             </colgroup>
             <thead className="sticky top-0 z-10 bg-surface">
               <tr className="label h-9 border-b border-line">
-                <th className="pl-5 font-medium">Название</th>
+                <th className="pl-5 font-medium" title={PRIORITY_HINT}>
+                  #
+                </th>
+                <th className="font-medium" title={PRIORITY_HINT}>
+                  Название <span className="font-normal text-faint">· ниже в списке — важнее</span>
+                </th>
                 <th className="font-medium">Версия</th>
                 <th className="pr-5" />
               </tr>
@@ -402,8 +456,7 @@ export function Mods() {
               <tbody key={g.title ?? `group-${i}`} data-group={g.title ?? undefined}>
                 {g.title && (
                   <SeparatorRow
-                    build
-                    dropKey={`${g.title}_separator`}
+                    dropKey={author ? `${g.title}_separator` : undefined}
                     lineClass={line(`${g.title}_separator`)}
                     title={g.title}
                     color={g.color}
@@ -417,15 +470,15 @@ export function Mods() {
                 {(!g.title || query.trim() || !collapsed.has(g.title)) && g.mods.map((m) => !isBuildMod(m) ? userRow(m) : (
                   <tr
                     key={m.id}
-                    data-drop-after={m.name}
-                    data-drop-build
+                    data-drop-after={author ? m.name : undefined}
                     data-row={m.name}
                     onPointerDown={author ? (e) => startMove(e, buildTarget(m)) : undefined}
                     onClick={(e) => select(e, m.name)}
                     onContextMenu={(e) => openMenu(e, buildTarget(m))}
                     className={`h-10 cursor-pointer border-b border-line/60 last:border-b-0 ${rowTone(selected.has(m.name), menu?.target.folder === m.name)} ${line(m.name)}`}
                   >
-                    <td className="pl-5">
+                    <PriorityCell n={priority.get(m.name)} />
+                    <td>
                      <div className="flex min-w-0 items-center gap-2">
                       <span className={`truncate ${m.enabled && !m.removed ? "" : "text-faint"}`}>{m.title ?? m.name}</span>
                       <span className="flex shrink-0 items-center gap-1">
@@ -477,6 +530,7 @@ export function Mods() {
               <tbody data-group={USER_SEPARATOR}>
                 <SeparatorRow
                   title={isBuild ? "Мои моды" : "Моды"}
+                  hint={isBuild ? "поверх сборки: важнее любого её мода" : undefined}
                   color={null}
                   count={userModsShown}
                   open={userOpen}
@@ -487,7 +541,7 @@ export function Mods() {
                 {userOpen && userGroups[0].mods.map(userRow)}
                 {dropping && shownUser.length === 0 && !drag?.move && (
                   <tr data-drop-after={USER_SEPARATOR}>
-                    <td colSpan={3} className="px-5 py-4 text-center text-[13px] text-neon">
+                    <td colSpan={4} className="px-5 py-4 text-center text-[13px] text-neon">
                       Отпустите архив, чтобы установить его в ваши моды
                     </td>
                   </tr>
@@ -525,7 +579,8 @@ export function Mods() {
                   className={`h-10 cursor-pointer hover:bg-raised/50 ${menu?.target.kind === "overwrite" ? "bg-raised/50" : ""}`}
                   title="Файлы, которые игра и моды создали через Mod Organizer 2: настройки CET, логи, кэш. Они важнее любого мода."
                 >
-                  <td className="pl-5">
+                  <td />
+                  <td>
                     <div className="flex min-w-0 items-center gap-2">
                       <span className="truncate text-muted">Overwrite</span>
                       <Badge tone="state">{`${overwrite!.files} ${plural(overwrite!.files, "файл", "файла", "файлов")} · ${formatBytes(overwrite!.size)}`}</Badge>
@@ -1090,12 +1145,13 @@ function rowKey(r: UserRow): string {
   return r.kind === "mod" ? r.name : `${r.title}_separator`;
 }
 
-// The player's own mods: theirs to switch, in MO2's list order, in their section or among the build's. Updates of
+// The player's own mods: theirs to switch, in MO2's list order, in their section over the build. Updates of
 // the build never touch them.
 function UserModRow(props: {
   row: UserMod;
-  /** Among the build's: a separator of the player doesn't land on it. */
-  build: boolean;
+  /** A drop target: in the player's section, or any row for the author. */
+  drop: boolean;
+  priority?: number;
   update?: NexusUpdate;
   needs?: Need[];
   locked: boolean;
@@ -1117,15 +1173,15 @@ function UserModRow(props: {
     });
   return (
     <tr
-      data-drop-after={r.name}
-      data-drop-build={props.build || undefined}
+      data-drop-after={props.drop ? r.name : undefined}
       data-row={r.name}
       onPointerDown={props.onPress}
       onClick={props.onSelect}
       onContextMenu={props.onContext}
       className={`h-10 cursor-pointer border-b border-line/60 last:border-b-0 ${rowTone(props.selected, props.active)} ${props.lineClass}`}
     >
-      <td className="pl-5">
+      <PriorityCell n={props.priority} />
+      <td>
         <div className="flex min-w-0 items-center gap-2">
           <span className={`truncate ${r.enabled ? "" : "text-faint"}`}>{r.name}</span>
           <span className="flex shrink-0 items-center gap-1">
@@ -1165,8 +1221,8 @@ function SeparatorRow(props: {
   onToggle: () => void;
   dropKey?: string;
   lineClass?: string;
-  /** One of the build's: nothing of the player's section lands on it. */
-  build?: boolean;
+  /** What the group is to the rest of the list. */
+  hint?: string;
   active?: boolean;
   onMenu?: (x: number, y: number) => void;
   onPress?: (e: React.PointerEvent) => void;
@@ -1180,8 +1236,8 @@ function SeparatorRow(props: {
     : { background: "var(--color-raised)" };
   const onMenu = props.onMenu;
   return (
-    <tr data-drop-after={props.dropKey} data-drop-build={props.build || undefined} className={props.lineClass}>
-      <td colSpan={3} className="sticky top-9 z-[5] p-0">
+    <tr data-drop-after={props.dropKey} className={props.lineClass}>
+      <td colSpan={4} className="sticky top-9 z-[5] p-0">
         <div
           style={style}
           onPointerDown={props.onPress}
@@ -1202,6 +1258,7 @@ function SeparatorRow(props: {
             <ChevronRight size={14} className={`shrink-0 opacity-70 transition-transform ${props.open ? "rotate-90" : ""}`} />
             <span className="truncate">{props.title}</span>
             <span className="font-mono text-[11px] font-normal opacity-60 tabular-nums">{props.count}</span>
+            {props.hint && <span className="truncate text-[12px] font-normal text-faint">{props.hint}</span>}
           </button>
           {onMenu && (
             <span onPointerDown={(e) => e.stopPropagation()}>
@@ -1212,6 +1269,13 @@ function SeparatorRow(props: {
       </td>
     </tr>
   );
+}
+
+const PRIORITY_HINT =
+  "Порядок, в котором Mod Organizer 2 подключает моды. Если два мода меняют один и тот же файл, побеждает тот, что ниже в списке (с большим номером). Ваши моды всегда ниже сборки.";
+
+function PriorityCell({ n }: { n?: number }) {
+  return <td className="pl-5 font-mono text-[11px] text-faint tabular-nums">{n ?? ""}</td>;
 }
 
 const COLLAPSED_KEY = "mods.collapsed";

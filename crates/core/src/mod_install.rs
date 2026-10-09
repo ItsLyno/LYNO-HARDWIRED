@@ -585,14 +585,16 @@ pub fn install_fomod(inst: &Instance, profile: &str, fomod: &Fomod, dl: &Downloa
 
 /// A new mod of the player goes to the very bottom (highest priority, like
 /// MO2 does), under `LYNO USER MODS`; one of the author's build to the end
-/// of the build section. Dropped on the list (`after`), it goes there: a
-/// player's mod among the build's too, [`crate::plan`] keeps it in place.
+/// of the build section. Dropped on the list (`after`), it goes there; a
+/// player's mod only within their section ([`crate::plan`] would move it
+/// there anyway), so one dropped among the build's goes to its end.
 fn insert(list: &mut ModList, entry: Entry, personal: bool, after: Option<&str>) {
-    if let Some(at) = after.and_then(|a| list.entries.iter().position(|e| e.name == a)) {
+    let user = list.entries.iter().position(|e| e.separator_title() == Some(USER_SEPARATOR));
+    let after = after.and_then(|a| list.entries.iter().position(|e| e.name == a)).filter(|&at| !personal || user.is_some_and(|u| at >= u));
+    if let Some(at) = after {
         list.entries.insert(at + 1, entry);
         return;
     }
-    let user = list.entries.iter().position(|e| e.separator_title() == Some(USER_SEPARATOR));
     match (personal, user) {
         (true, Some(_)) => list.entries.push(entry),
         (true, None) => {
@@ -713,6 +715,22 @@ pub fn recent_downloads(inst: &Instance, limit: usize) -> Result<Vec<DownloadIte
     out.sort_by(|a, b| b.modified.cmp(&a.modified).then_with(|| a.file_name.cmp(&b.file_name)));
     out.truncate(limit);
     Ok(out)
+}
+
+/// Deletes an archive of `downloads/` with its `.meta`, as MO2's "Delete"
+/// in its Downloads tab. Only a bare file name: nothing outside the folder.
+pub fn delete_download(inst: &Instance, file_name: &str) -> Result<()> {
+    let dir = inst.downloads_dir();
+    let path = dir.join(file_name);
+    if file_name.is_empty() || file_name.contains(['/', '\\']) || path.parent() != Some(dir.as_path()) {
+        return Err(Error::io(&path, std::io::Error::new(std::io::ErrorKind::InvalidInput, "not a file of downloads")));
+    }
+    std::fs::remove_file(&path).map_err(|e| Error::io(&path, e))?;
+    let meta = dir.join(format!("{file_name}.meta"));
+    match std::fs::remove_file(&meta) {
+        Err(e) if e.kind() != std::io::ErrorKind::NotFound => Err(Error::io(&meta, e)),
+        _ => Ok(()),
+    }
 }
 
 /// `[General]` of `<archive>.meta`, unquoted. Empty without one.
@@ -888,11 +906,12 @@ pub fn is_users(list: &ModList, has_build: bool, name: &str) -> bool {
 }
 
 /// Moves an entry of the player right below `after` (`None`: the end of the
-/// list). Their mod goes anywhere, among the build's too ([`crate::plan`]
-/// keeps it there); their separator only within their section, or MO2 would
-/// put build mods under it: an `after` outside means the section's top, as
-/// does one not in the list. `false`: `name` is the build's (`managed`: a
-/// build mod's folder; the build's separators are the ones above the section).
+/// list), within their section: their mods load over the build's
+/// ([`crate::plan`]), and their separator there would take build mods under it
+/// in MO2. An `after` outside the section means its top, as does one not in
+/// the list. A mod of theirs still among the build's (from MO2) comes into the
+/// section. `false`: `name` is the build's (`managed`: a build mod's folder;
+/// the build's separators are the ones above the section).
 pub fn move_entry(list: &mut ModList, has_build: bool, managed: impl Fn(&str) -> bool, name: &str, after: Option<&str>) -> bool {
     let pos = |list: &ModList, n: &str| list.entries.iter().position(|e| e.name == n && e.state != EntryState::Unmanaged);
     let Some(from) = pos(list, name) else { return false };
@@ -903,7 +922,7 @@ pub fn move_entry(list: &mut ModList, has_build: bool, managed: impl Fn(&str) ->
     let entry = list.entries.remove(from);
     let start = user_start(list, has_build);
     let to = match (after, after.and_then(|a| pos(list, a))) {
-        (_, Some(i)) if !separator || start.is_some_and(|s| i + 1 >= s) => i + 1,
+        (_, Some(i)) if start.is_some_and(|s| i + 1 >= s) => i + 1,
         (None, _) => list.entries.len(),
         _ => start.unwrap_or_else(|| {
             list.entries.push(Entry::separator(USER_SEPARATOR));
@@ -1222,12 +1241,13 @@ mod tests {
         let mut l = list(base);
         insert(&mut l, Entry::enabled("New"), true, Some("Mine"));
         assert_eq!(names(&l), ["A", "B", "LYNO USER MODS_separator", "Mine", "New", "Other"]);
-        // Among build mods too, the player's and the author's alike.
-        for personal in [true, false] {
-            let mut l = list(base);
-            insert(&mut l, Entry::enabled("New"), personal, Some("A"));
-            assert_eq!(names(&l), ["A", "New", "B", "LYNO USER MODS_separator", "Mine", "Other"]);
-        }
+        // Among build mods only the author's; the player's goes to the end of their section.
+        let mut l = list(base);
+        insert(&mut l, Entry::enabled("New"), false, Some("A"));
+        assert_eq!(names(&l), ["A", "New", "B", "LYNO USER MODS_separator", "Mine", "Other"]);
+        let mut l = list(base);
+        insert(&mut l, Entry::enabled("New"), true, Some("A"));
+        assert_eq!(names(&l), ["A", "B", "LYNO USER MODS_separator", "Mine", "Other", "New"]);
         let mut l = list(base);
         insert(&mut l, Entry::enabled("New"), true, Some("Gone"));
         assert_eq!(names(&l).last().unwrap(), "New");
@@ -1283,6 +1303,10 @@ mod tests {
         to_downloads(&inst, &p, &other, true).unwrap();
         let meta = std::fs::read_to_string(inst.downloads_dir().join("Other-9-2-0-1735000000.rar.meta")).unwrap();
         assert!(meta.contains("installed=true") && meta.contains("url=keep me") && !meta.contains("installed=false"), "{meta}");
+
+        delete_download(&inst, "Other-9-2-0-1735000000.rar").unwrap();
+        assert!(!p.exists() && !inst.downloads_dir().join("Other-9-2-0-1735000000.rar.meta").exists());
+        assert!(delete_download(&inst, "../state.json").is_err());
     }
 
     #[test]
@@ -1334,9 +1358,13 @@ mod tests {
         let mut l = list("+C\n+B\n-Mine_separator\n+A\n-LYNO USER MODS_separator\n+Build 2\n-Guns_separator\n+Build\n");
         assert!(move_entry(&mut l, true, managed, "C", Some("A")));
         assert_eq!(order(&l), ["Build", "Guns_separator", "Build 2", "LYNO USER MODS_separator", "A", "C", "Mine_separator", "B"]);
-        // A mod goes among the build's, under a build separator too.
+        // A mod stays in the section too: dropped among the build's, it goes to its top.
         assert!(move_entry(&mut l, true, managed, "B", Some("Guns_separator")));
-        assert_eq!(order(&l), ["Build", "Guns_separator", "B", "Build 2", "LYNO USER MODS_separator", "A", "C", "Mine_separator"]);
+        assert_eq!(order(&l), ["Build", "Guns_separator", "Build 2", "LYNO USER MODS_separator", "B", "A", "C", "Mine_separator"]);
+        // One left among the build's by MO2 comes into the section.
+        let mut m = list("+A\n-LYNO USER MODS_separator\n+Build\n+Stray\n");
+        assert!(move_entry(&mut m, true, managed, "Stray", Some("A")));
+        assert_eq!(order(&m), ["Build", "LYNO USER MODS_separator", "A", "Stray"]);
         assert!(move_entry(&mut l, true, managed, "B", None));
         assert_eq!(order(&l)[7], "B");
         // A separator of the player stays in their section: dropped on the build's, it goes to its top.

@@ -389,7 +389,7 @@ let downloads: DownloadItem[] = [
   { fileName: "Weird Layout Pack.rar", size: 40 * MB, modified: now() - 90000, modName: "Weird Layout Pack", fileTitle: null, version: null, modId: 0, fileId: 0, installed: false },
 ];
 let userMods: UserRow[] = [
-  { kind: "mod", name: "Darker Nights", enabled: true, version: "1.4", nexusUrl: null, after: "Nova LUT", buildId: null },
+  { kind: "mod", name: "Darker Nights", enabled: true, version: "1.4", nexusUrl: null, after: null, buildId: null },
   { kind: "mod", name: "Better Lightning", enabled: true, version: "3.1", nexusUrl: "https://www.nexusmods.com/cyberpunk2077/mods/15520", after: null, buildId: null },
   { kind: "separator", title: "Мои текстуры", color: "#3cf2a0" },
   { kind: "mod", name: "Photo Mode Unlocker", enabled: false, version: "1.0", nexusUrl: "https://www.nexusmods.com/cyberpunk2077/mods/2711", after: null, buildId: null },
@@ -412,14 +412,12 @@ const mockLogs: Record<string, string> = {
   "bin/x64/plugins/cyber_engine_tweaks/cyber_engine_tweaks.log": "[12:00:05] [info] CET version v1.35.0\n[12:00:06] [info] Mods loaded: 12",
 };
 const userKey = (r: UserRow) => (r.kind === "mod" ? r.name : `${r.title}_separator`);
-/** Below `after`: a row of the player's (taking its place), a build row (a mod goes among the build's) or the end. */
+/** Below `after`: a row of the player's (taking its place), or the end of their section. */
 function place(row: UserRow, after: string | null) {
   const at = after === null ? -1 : userMods.findIndex((r) => userKey(r) === after);
-  const prev = userMods[at];
-  const among = after !== null && at < 0 && after !== "LYNO USER MODS_separator" && row.kind === "mod";
-  if (row.kind === "mod") row = { ...row, after: among ? after : prev?.kind === "mod" ? prev.after : null };
+  if (row.kind === "mod") row = { ...row, after: null };
   if (after === "LYNO USER MODS_separator") userMods = [...userMods.filter((r) => r.kind === "mod" && r.after !== null), row, ...userMods.filter((r) => r.kind === "separator" || r.after === null)];
-  else if (at < 0) userMods = among ? [row, ...userMods] : [...userMods, row];
+  else if (at < 0) userMods = [...userMods, row];
   else userMods = [...userMods.slice(0, at + 1), row, ...userMods.slice(at + 1)];
 }
 const mockRoots: ArchiveRoot[] = [
@@ -732,6 +730,9 @@ export const mock = {
   },
   nexusLimits: async () => (nexus.account ? limits : null),
   downloadsRecent: async () => downloads,
+  deleteDownload: async (file: string) => {
+    downloads = downloads.filter((d) => d.fileName !== file);
+  },
   installArchive: async (file: string, after: string | null) => {
     const job: NexusJob = {
       id: ++jobSeq,
@@ -751,6 +752,7 @@ export const mock = {
     void simulateInstall(job.id, file, after);
     return job.id;
   },
+  pickArchives: async (): Promise<string[]> => ["C:\\Downloads\\Some Mod-123-1-0.zip"],
   archiveTarget: async (file: string): Promise<ArchiveTarget> => {
     const d = downloads.find((x) => x.fileName === file);
     const modName = d?.modName ?? file.split(/[\\/]/).pop() ?? file;
