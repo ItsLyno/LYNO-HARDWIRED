@@ -1,11 +1,11 @@
 {
-  "version": "0.7.7",
-  "notes": "",
-  "pub_date": "2026-10-09T11:37:34Z",
+  "version": "0.7.8",
+  "notes": "Обновление сборки больше не сбрасывает настройки модов: изменённые вами настройки сохраняются, новые ставятся из сборки.",
+  "pub_date": "2026-10-09T11:46:22Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUejR0VmZ4WmllZk4rTHIvUSs2Z3dwc1dINzJNdzFpZnc3VnNCalJLNHNIVzVSQnQxTGFhSjhvc3piN3J3TDlsSkY1RkZKK0hqU0RZeURkbWNwWmt3S2JRUlhjVHk1WHdVPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkxNTQ1ODUzCWZpbGU6TFlOTyBIQVJEV0lSRURfMC43LjdfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjAuNy43CnhpWVU2L3VWbFpxSnFuNm5YWG9mZlBGUGRYVzl4a1YzTVVrd01NOHJlSSt1YlJZakc5aTJvNzg4enZMTXQ2WDdUaTZXNGFnWTczOUJaeU0ybWwyYkNnPT0K",
-      "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/launcher-v0.7.7/LYNO-HARDWIRED_0.7.7_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUejR0VmZ4WmllZkxEUjB5eERaTndYY1VGcFdaSFdMUTFLMTN0VWN6RkN4WFpKa21SUHVhMUNxTVBkUFROeE9SZ1ExVXk5eDdWajczY2k3YUZGelZGK1RBckVjcnEwNFE4PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkxNTQ2MzgyCWZpbGU6TFlOTyBIQVJEV0lSRURfMC43LjhfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjAuNy44CldHOFJtb0hyQWR5c01lRjltSmV5ay9vWkxNdjdabTQxa0dCb1g2VzJidlhUMjJlWWVUMG9CYmVIYVZkbmk2eGhUa2tvbGdsb0QvK1U2UjNTQW5hZ0RRPT0K",
+      "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/launcher-v0.7.8/LYNO-HARDWIRED_0.7.8_x64-setup.exe"
     }
   }
 }
