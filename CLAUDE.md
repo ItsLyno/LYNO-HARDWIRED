@@ -70,7 +70,7 @@ updater reads. Launcher logs go through `log::` macros to `tauri-plugin-log`.
   `archive/pc/mod/modlist.txt` (`rules::is_generated`); never ship profile
   `saves/`, `UserSettings.json`, `modlist.txt` (`rules::is_private_profile_file`).
   New generated files from frameworks go into `rules.rs` with a test; so do new
-  settings file types (`rules::is_settings`: not damage in verify, kept on repair). Background
+  settings file types (`rules::is_settings`: not damage in verify, the player's kept on update and repair). Background
   in `docs/cyberpunk-mo2.md`.
 - **The manifest goes live last**: `release::publish` pushes `build/manifest.json`
   only after every part answers over HTTP (front ends only implement `release::Host`); same for `launcher/latest.json` in

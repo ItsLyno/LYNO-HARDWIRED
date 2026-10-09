@@ -70,6 +70,8 @@ core=true
     write(root, "mods/CET/bin/x64/plugins/cyber_engine_tweaks/bindings.json", b"{\"overlay\": \"F1\"}");
     write(root, "mods/Archive Mod/meta.ini", b"[General]\nmodid=555\nversion=2.0\n[LYNO]\noptional=true\n");
     write(root, "mods/Archive Mod/archive/pc/mod/a.archive", &noise(200_000, 2));
+    write(root, "mods/Archive Mod/bin/x64/plugins/cyber_engine_tweaks/mods/am/settings.json", b"author v1");
+    write(root, "mods/Archive Mod/bin/x64/plugins/cyber_engine_tweaks/mods/am/presets.json", b"presets v1");
     write(root, "mods/REDmod Thing/meta.ini", b"[General]\nmodid=777\n");
     write(root, "mods/REDmod Thing/mods/Thing/info.json", b"{\"name\":\"Thing\"}");
 }
@@ -356,13 +358,19 @@ fn build_install_update() {
     assert!(set_enabled(&m1, &st, &mut list, "cet", false).is_err());
     list.save(&user.modlist_path("LYNO")).unwrap();
 
-    // The user's game already created a mod settings file in overwrite.
+    // The user's game already created a mod settings file in overwrite, and
+    // the player changed a setting of the archive mod in game.
     write(&user_root, "overwrite/red4ext/plugins/mod_settings/user.ini", b"player default");
+    let am_settings = user.mods_dir().join("Archive Mod/bin/x64/plugins/cyber_engine_tweaks/mods/am");
+    std::fs::write(am_settings.join("settings.json"), b"player's").unwrap();
 
     // v2: the archive mod changes; MO2 touched CET's meta.ini on an update
     // check; the game wrote logs and caches; mod settings were moved from
     // overwrite into a settings mod; an MO2 plugin was dropped.
     write(&author, "mods/Archive Mod/archive/pc/mod/a.archive", &noise(200_000, 3));
+    write(&author, "mods/Archive Mod/bin/x64/plugins/cyber_engine_tweaks/mods/am/settings.json", b"author v2");
+    write(&author, "mods/Archive Mod/bin/x64/plugins/cyber_engine_tweaks/mods/am/presets.json", b"presets v2");
+    write(&author, "mods/Archive Mod/bin/x64/plugins/cyber_engine_tweaks/mods/am/new.ini", b"new setting");
     write(&author, "mods/CET/meta.ini", b"[General]\nmodid=107\nversion=1.35\ngameName=cyberpunk2077\nlastNexusQuery=2026-10-04\n");
     write(&author, "mods/CET/bin/x64/plugins/cyber_engine_tweaks/cyber_engine_tweaks.log", b"log");
     write(&author, "mods/CET/r6/cache/final.redscripts", b"author's bundle");
@@ -414,14 +422,21 @@ fn build_install_update() {
     assert!(requests.lock().unwrap().iter().all(|r| !r.starts_with("cet-")));
     assert!(!user_root.join("plugins/old_plugin.py").exists(), "dropped base file removed");
     assert!(user_root.join("ModOrganizer.exe").exists());
-    assert!(!user_root.join("overwrite/red4ext/plugins/mod_settings/user.ini").exists(), "build settings win");
     assert_eq!(
-        std::fs::read(user_root.join(".lyno/overwrite-backup/1.1.0/red4ext/plugins/mod_settings/user.ini")).unwrap(),
-        b"player default"
+        std::fs::read(user_root.join("overwrite/red4ext/plugins/mod_settings/user.ini")).unwrap(),
+        b"player default",
+        "the player's settings win over the build's new ones"
     );
+    assert!(!user_root.join(".lyno/overwrite-backup/1.1.0/red4ext/plugins/mod_settings/user.ini").exists());
+    // An update keeps the settings the player changed; the rest, new ones included, come from the build.
+    assert_eq!(std::fs::read(am_settings.join("settings.json")).unwrap(), b"player's");
+    assert_eq!(std::fs::read(am_settings.join("presets.json")).unwrap(), b"presets v2");
+    assert_eq!(std::fs::read(am_settings.join("new.ini")).unwrap(), b"new setting");
+    // Back as the build ships it, so the integrity check below sees only CET's binding.
+    std::fs::write(am_settings.join("settings.json"), b"author v2").unwrap();
     assert_eq!(
-        tree_hash(&user.mods_dir().join("Archive Mod")).unwrap(),
-        tree_hash(&author.join("mods/Archive Mod")).unwrap()
+        std::fs::read(user.mods_dir().join("Archive Mod/archive/pc/mod/a.archive")).unwrap(),
+        std::fs::read(author.join("mods/Archive Mod/archive/pc/mod/a.archive")).unwrap()
     );
     assert!(user_root.join("mods/My Tweak/x.archive").exists());
     let list = ModList::load(&user.modlist_path("LYNO")).unwrap();

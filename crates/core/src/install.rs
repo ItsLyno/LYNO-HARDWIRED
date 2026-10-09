@@ -273,9 +273,11 @@ impl Installer<'_> {
                     let spec = self.spec(id)?;
                     let dest = staging.join(&spec.id);
                     let hashes = unpack(i, &spec.package, &dest)?;
-                    if let Action::Repair { from_folder, .. } = action {
-                        if !state.mods.get(id).is_some_and(|m| m.reset_settings) {
-                            keep_settings(&mods_dir.join(from_folder), &dest, &hashes)?;
+                    if let Action::Update { from_folder, .. } | Action::Repair { from_folder, .. } = action {
+                        let old = state.mods.get(id);
+                        if !old.is_some_and(|m| m.reset_settings) {
+                            let record = old.and_then(|m| files::load(self.inst, id, &m.hash));
+                            keep_settings(&mods_dir.join(from_folder), &dest, &hashes, record.as_ref())?;
                         }
                     }
                     package::swap_folder(&dest, &mods_dir.join(&spec.name))?;
@@ -397,29 +399,39 @@ pub(crate) fn is_player_file(rel: &str) -> bool {
     matches!((parts.next(), parts.next(), parts.next()), (Some("profiles"), Some(_), Some(file)) if rules::is_private_profile_file(file))
 }
 
-/// A repair downloads the whole mod, but the player's settings inside it (see
-/// [`rules::is_settings`]) are what makes it theirs: copies them from the
-/// damaged folder over the fresh package. Only paths the package ships, so a
-/// stray file doesn't come back.
-fn keep_settings(old: &Path, staging: &Path, files: &[(FileEntry, String)]) -> Result<()> {
+/// An update or a repair replaces the whole mod folder, but the player's
+/// settings inside it (see [`rules::is_settings`]) are what makes it theirs:
+/// copies them from the old folder over the fresh package. A file still as
+/// the build installed it (`record`, the old package's file list) is not the
+/// player's, so the new package's version of it comes in. Without a record
+/// every existing file counts as the player's. Only paths the package ships,
+/// so a stray file doesn't come back.
+fn keep_settings(old: &Path, staging: &Path, files: &[(FileEntry, String)], record: Option<&FileList>) -> Result<()> {
     for (f, _) in files.iter().filter(|(f, _)| rules::is_settings(&f.path)) {
         let from = tree::from_slash(old, &f.path);
-        if from.is_file() {
-            let to = tree::from_slash(staging, &f.path);
-            std::fs::copy(&from, &to).map_err(|e| Error::io(&from, e))?;
+        if !from.is_file() {
+            continue;
         }
+        if let Some(shipped) = record.and_then(|r| r.files.get(&f.path)) {
+            if crate::hash::blake3_file(&from)? == shipped.blake3 {
+                continue;
+            }
+        }
+        let to = tree::from_slash(staging, &f.path);
+        std::fs::copy(&from, &to).map_err(|e| Error::io(&from, e))?;
     }
     Ok(())
 }
 
 /// MO2 gives `overwrite/` the highest priority. A file the player's game
-/// created there before the build shipped it (typically a mod settings file)
-/// would hide the build's version forever, so it is moved to `backup`.
+/// created there before the build shipped it would hide the build's version
+/// forever, so it is moved to `backup`. Settings stay: there they are the
+/// player's own, created in game before the build shipped defaults.
 fn move_shadowing_files(overwrite: &Path, mod_dir: &Path, backup: &Path) -> Result<()> {
     if !overwrite.is_dir() {
         return Ok(());
     }
-    for f in tree::list_files_with(mod_dir, &rules::is_hashed)? {
+    for f in tree::list_files_with(mod_dir, &|p| rules::is_hashed(p) && !rules::is_settings(p))? {
         let shadow = tree::from_slash(overwrite, &f.path);
         if !shadow.is_file() {
             continue;
