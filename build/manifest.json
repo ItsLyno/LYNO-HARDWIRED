@@ -1,7 +1,7 @@
 {
   "schema": 3,
   "name": "LYNO//HARDWIRED",
-  "buildVersion": "1.0.6",
+  "buildVersion": "1.0.7",
   "gameVersion": "2.31",
   "mo2Version": "2.5.2",
   "profile": "LYNO",
@@ -77,13 +77,13 @@
       "enabled": true,
       "optional": true,
       "package": {
-        "hash": "32ba79ceca2bacf4f3858af0ac2b018f89dfc5d774c70b4aae55570f90671070",
-        "size": 95976944,
+        "hash": "8ae80ee45933329e4e746412625b93d337a13343ae4b2479f8c51dd4caa8ed05",
+        "size": 81583307,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.6/lyno-settings-32ba79ceca2bacf4.tar.zst.001",
-            "size": 54396061,
-            "blake3": "909554786cd95f6c396a35306f21129ae6360f3eea8b9824b560226a71d287c2"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.7/lyno-settings-8ae80ee45933329e.tar.zst.001",
+            "size": 54188154,
+            "blake3": "0d1193b46e277c21a1f218b50a17042a99cc99c8b0b78f011330f25a2f9db3e9"
           }
         ]
       }
@@ -308,7 +308,7 @@
       "kind": "mod",
       "id": "audioware",
       "name": "Audioware",
-      "enabled": true,
+      "enabled": false,
       "optional": true,
       "version": "1.8",
       "author": "Roms1383",
@@ -428,6 +428,31 @@
       "kind": "separator",
       "title": "01 - Core - Libraries & Dependencies",
       "color": "#aa0000"
+    },
+    {
+      "kind": "mod",
+      "id": "vehicle-turret-core-vehicleturretcore-1-0-0",
+      "name": "Vehicle Turret Core - VehicleTurretCore 1.0.0",
+      "enabled": true,
+      "optional": true,
+      "version": "1.0",
+      "author": "whatmynickname",
+      "title": "Vehicle Turret Core",
+      "nexus": {
+        "game": "cyberpunk2077",
+        "modId": 33979
+      },
+      "package": {
+        "hash": "e803845fa272ef7b42aa21c96f69ccf5d3de6ec5968f36a6ccde6d83cbc5ce48",
+        "size": 180097,
+        "parts": [
+          {
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.7/vehicle-turret-core-vehicleturretcore-1-0-0-e803845fa272ef7b.tar.zst.001",
+            "size": 42749,
+            "blake3": "87320b60f277a78300b0b72d2cf3d29f90b77520adb21f90bd864ba770afece2"
+          }
+        ]
+      }
     },
     {
       "kind": "mod",
@@ -1015,20 +1040,20 @@
       "name": "DigitalVixen Core",
       "enabled": true,
       "optional": true,
-      "version": "4.9.3",
+      "version": "4.9.5",
       "author": "DigitalVixen",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 28390
       },
       "package": {
-        "hash": "c45e10e945bc043db4558e6e03954e7bb4ccadb6551b4961227ded36d8319399",
-        "size": 10151303,
+        "hash": "fe99c81441edcde46262622ac88975218fe7d5ba4f94375a875d657fdcf54f6b",
+        "size": 10187149,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.3/digitalvixen-core-c45e10e945bc043d.tar.zst.001",
-            "size": 416732,
-            "blake3": "1983697e3937e1951acdb6c31ff09368d35fc60b2d49ae0e828d7bcbe59cf846"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.7/digitalvixen-core-fe99c81441edcde4.tar.zst.001",
+            "size": 418195,
+            "blake3": "cdecb1b7c216297e044011d5307476ea146cb7663e92862c9a58997c964b8fd4"
           }
         ]
       }
@@ -1941,6 +1966,30 @@
       }
     },
     {
+      "kind": "mod",
+      "id": "immersion-patch-cyberpunk-story-quest-fixes",
+      "name": "Immersion Patch - Cyberpunk Story Quest Fixes",
+      "enabled": true,
+      "optional": true,
+      "version": "1.20",
+      "author": "anygoodname",
+      "nexus": {
+        "game": "cyberpunk2077",
+        "modId": 29152
+      },
+      "package": {
+        "hash": "902e1a1a9d1a6b484f58f75ed2faca6b97c3cb613e44cd7885c0865df64a90ae",
+        "size": 2846146,
+        "parts": [
+          {
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.7/immersion-patch-cyberpunk-story-quest-fixes-902e1a1a9d1a6b48.tar.zst.001",
+            "size": 2770594,
+            "blake3": "2143712807e7cf2509489a6e4ed64e8ff4eec3e14b009ee0226ad624e255a57a"
+          }
+        ]
+      }
+    },
+    {
       "kind": "separator",
       "title": "04 - Graphics - Rendering, LUT, Weather & VFX",
       "color": "#aa5500"
@@ -2227,13 +2276,13 @@
         "modId": 18027
       },
       "package": {
-        "hash": "e66fd8b6e5623b7676bdd2d4a109377696554939a38c20639eaa6e91c1accd1a",
+        "hash": "aab9dc37612defcbc094e7dd50d42b94208a91b63cb1c9e367f51697fccb8225",
         "size": 222928,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.6/weather-switcher-e66fd8b6e5623b76.tar.zst.001",
-            "size": 38441,
-            "blake3": "f67a66b8d47916cdba19f23175a3d257ae6c0ba86c5077606fbdc6dd893ec83a"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.7/weather-switcher-aab9dc37612defcb.tar.zst.001",
+            "size": 38440,
+            "blake3": "b74d5d160ebc991c10e8e520fd59f6cf1b12d0ab5d8d4c2e83980415917f388c"
           }
         ]
       }
@@ -2319,6 +2368,56 @@
       "kind": "separator",
       "title": "06 - Character - Body, Hair, Makeup & Creator",
       "color": "#005c8a"
+    },
+    {
+      "kind": "mod",
+      "id": "xx-s-custom-head-presets-femv-xxhead-main-file",
+      "name": "xx's Custom Head Presets - FemV - XXHead Main File",
+      "enabled": false,
+      "optional": true,
+      "version": "2",
+      "author": "csxx520",
+      "title": "xx's Custom Head Presets - FemV",
+      "nexus": {
+        "game": "cyberpunk2077",
+        "modId": 34739
+      },
+      "package": {
+        "hash": "5f57d96bcd218c9fa730ac1ba4a1b67162216323af112ed2d53f0e82134ac32b",
+        "size": 107995136,
+        "parts": [
+          {
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.7/xx-s-custom-head-presets-femv-xxhead-main-file-5f57d96bcd218c9f.tar.zst.001",
+            "size": 107901100,
+            "blake3": "ba836c9086d2d92d66b4ba891932ab1dde0a1c6e1408a1df7ac8b67a4c877a7d"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "mod",
+      "id": "ks-uv-texture-framework-1-uv-framework-4-1",
+      "name": "-KS- UV Texture Framework - 1. UV Framework 4.1",
+      "enabled": false,
+      "optional": true,
+      "version": "4.1",
+      "author": "Zosoab70 and AllKnowingLion",
+      "title": "-KS- UV Texture Framework",
+      "nexus": {
+        "game": "cyberpunk2077",
+        "modId": 3783
+      },
+      "package": {
+        "hash": "92e598691cdc616fb42eaa8f498c54439ba8337fde4d9cd88c74064324b7f467",
+        "size": 90273226,
+        "parts": [
+          {
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.7/ks-uv-texture-framework-1-uv-framework-4-1-92e598691cdc616f.tar.zst.001",
+            "size": 87155512,
+            "blake3": "d54b8a5253df65449d6c0290242cd5065176f848c7a0f2ef13970a614855f970"
+          }
+        ]
+      }
     },
     {
       "kind": "mod",
@@ -2686,30 +2785,6 @@
     },
     {
       "kind": "mod",
-      "id": "easy-access-collection-ccxl-hair",
-      "name": "EASY ACCESS COLLECTION - CCXL HAIR",
-      "enabled": true,
-      "optional": true,
-      "version": "8.0",
-      "author": "meluminary",
-      "nexus": {
-        "game": "cyberpunk2077",
-        "modId": 27125
-      },
-      "package": {
-        "hash": "a2837527a4111802022e92001d568e57c366b019c3a87125ad3ef94097dc899d",
-        "size": 23709476,
-        "parts": [
-          {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/easy-access-collection-ccxl-hair-a2837527a4111802.tar.zst.001",
-            "size": 23287087,
-            "blake3": "d274452734ac2c8bc08a27273abe1e7bff1b8823105461607852b8ba2d22dcf1"
-          }
-        ]
-      }
-    },
-    {
-      "kind": "mod",
       "id": "venus-planet-hair-collection-v-02",
       "name": "(Venus Planet) Hair Collection v.02",
       "enabled": true,
@@ -2927,9 +3002,82 @@
       }
     },
     {
+      "kind": "mod",
+      "id": "easy-access-collection-ccxl-hair-bob-pak-vol-1",
+      "name": "EASY ACCESS COLLECTION - CCXL HAIR - BOB PAK VOL 1",
+      "enabled": true,
+      "optional": true,
+      "version": "1.0",
+      "author": "meluminary",
+      "title": "EASY ACCESS COLLECTION - CCXL HAIR",
+      "nexus": {
+        "game": "cyberpunk2077",
+        "modId": 27125
+      },
+      "package": {
+        "hash": "9137a1f559aba2e454c9ebda23047f3d8401b2229b437d19a22fd70c1c0ee7e0",
+        "size": 22669092,
+        "parts": [
+          {
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.7/easy-access-collection-ccxl-hair-bob-pak-vol-1-9137a1f559aba2e4.tar.zst.001",
+            "size": 22213800,
+            "blake3": "5efba25c22e7c69fa6eed18e925cb3f0ffa38589f56b8f30ae51168cdb306748"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "mod",
+      "id": "infrab-s-nipple-shapes",
+      "name": "infrab's Nipple Shapes",
+      "enabled": true,
+      "optional": true,
+      "version": "1.3",
+      "author": "infrab",
+      "nexus": {
+        "game": "cyberpunk2077",
+        "modId": 27881
+      },
+      "package": {
+        "hash": "372c335c9a47f0610b7becfd32a6edea3a709b32d8578c007316b2b78eed57a2",
+        "size": 1381392,
+        "parts": [
+          {
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.7/infrab-s-nipple-shapes-372c335c9a47f061.tar.zst.001",
+            "size": 1212250,
+            "blake3": "79921bba4d5aec26c149b9b07045b6a5b86d476ba7b8597dc49615f81bb3852f"
+          }
+        ]
+      }
+    },
+    {
       "kind": "separator",
       "title": "07 - Clothing & Wearables",
       "color": "#005c8a"
+    },
+    {
+      "kind": "mod",
+      "id": "netrunner-suit-pt10",
+      "name": "Netrunner Suit Pt10",
+      "enabled": true,
+      "optional": true,
+      "version": "1",
+      "author": "Veegee",
+      "nexus": {
+        "game": "cyberpunk2077",
+        "modId": 34499
+      },
+      "package": {
+        "hash": "d7412280b6d78a40369e1c45924ea3c5ad9380eeb699563636f91f15f78ef9d0",
+        "size": 185456161,
+        "parts": [
+          {
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.7/netrunner-suit-pt10-d7412280b6d78a40.tar.zst.001",
+            "size": 183752504,
+            "blake3": "db6b2fef8c65684cc9db4a85adbd61df90851a32e639ebf2e8e880d3ced60ba7"
+          }
+        ]
+      }
     },
     {
       "kind": "mod",
@@ -3399,20 +3547,20 @@
       "name": "Dead's Aorta - Virtual Atelier store",
       "enabled": true,
       "optional": true,
-      "version": "1.5.1",
+      "version": "1.30",
       "author": "argisht",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 34150
       },
       "package": {
-        "hash": "4b8a99a1306fc47aca5026a1872614538410c8e527265596542c8fcc70007988",
-        "size": 254724,
+        "hash": "87ef450f0bbe856b494fd00f966c3222b36e7f744bdbf2c4823d61a6fe1ed379",
+        "size": 270792,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/dead-s-aorta-virtual-atelier-store-4b8a99a1306fc47a.tar.zst.001",
-            "size": 248859,
-            "blake3": "1ce64c4e3a6210b59cb5b33bac5099d798cc7e21a11c4a0c3d9f056481f018b7"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.7/dead-s-aorta-virtual-atelier-store-87ef450f0bbe856b.tar.zst.001",
+            "size": 252169,
+            "blake3": "b2462c368ef940c35c452b8fc887c05acbaacbdc3c4968dab10ae4eaf5db7b5b"
           }
         ]
       }
@@ -4244,6 +4392,30 @@
             "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.6/punk-ycam-immersive-bodycam-camera-system-punk-ycam-immersive-camera-system-5787234f1bb8a601.tar.zst.001",
             "size": 1474466,
             "blake3": "6c51f55dccaf9eb8b4ee3a994a848f63c6afeeccf7681377058791fc5fb34c91"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "mod",
+      "id": "immersive-third-person-best-of-both-worlds",
+      "name": "Immersive Third Person - Best Of Both Worlds",
+      "enabled": true,
+      "optional": true,
+      "version": "2.0",
+      "author": "CybrDrake",
+      "nexus": {
+        "game": "cyberpunk2077",
+        "modId": 32203
+      },
+      "package": {
+        "hash": "68419906fe90d276f4df82731aab2b93aa3869399600f2b8072ab1382f476ebb",
+        "size": 1246006875,
+        "parts": [
+          {
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.7/immersive-third-person-best-of-both-worlds-68419906fe90d276.tar.zst.001",
+            "size": 1240797693,
+            "blake3": "f3b0ad4cbc15ac89162f66348aa3e1de4da74858e065cc3618eb282fc8fa3548"
           }
         ]
       }
@@ -5541,20 +5713,20 @@
       "name": "Combat Evolved",
       "enabled": true,
       "optional": true,
-      "version": "4.16.8",
+      "version": "4.16.9",
       "author": "DigitalVixen",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 29125
       },
       "package": {
-        "hash": "dc24066117b3dcc4e6f6fcb7cf2923be42acd8d88ecdcbacce903635c28e7edc",
-        "size": 887116,
+        "hash": "bb4844661d8f57a6c1fcc1df666375a2e0cdb7402e05150b59c4f4feac462a11",
+        "size": 890273,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/combat-evolved-dc24066117b3dcc4.tar.zst.001",
-            "size": 113416,
-            "blake3": "8b62461794f4df475122d1463e9734b299978684cf9128f5cbd4895651aae104"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.7/combat-evolved-bb4844661d8f57a6.tar.zst.001",
+            "size": 113978,
+            "blake3": "e25dc40a90531e11a431e0b1833c40ca1f53edd31b2f901701d909b160f8c73c"
           }
         ]
       }
@@ -6057,20 +6229,20 @@
       "name": "Anti-Theft Measures",
       "enabled": true,
       "optional": true,
-      "version": "1.3",
+      "version": "2.3",
       "author": "NightlyNow",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 27229
       },
       "package": {
-        "hash": "895795f6ee5e5fe62c13ea2b8142242c80acbce20a2927846c62a505519e4bcc",
-        "size": 2663245,
+        "hash": "c450538ba167f3d921a01ebc023610d481169951f2845fb1bd2e7c9d665f1e0b",
+        "size": 3941384,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/anti-theft-measures-895795f6ee5e5fe6.tar.zst.001",
-            "size": 275975,
-            "blake3": "02978f4695a8be61e734f6c033d52e5db7ee703d8c93320fa60f16ca2970ec11"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.7/anti-theft-measures-c450538ba167f3d9.tar.zst.001",
+            "size": 3766504,
+            "blake3": "ee250c65dbc33a174659cb575b49f18042ab39fae84826e22aa1bf0f6d8a27de"
           }
         ]
       }
@@ -6079,7 +6251,7 @@
       "kind": "mod",
       "id": "immersive-odometer-and-fuel-system",
       "name": "Immersive Odometer and Fuel System",
-      "enabled": true,
+      "enabled": false,
       "optional": true,
       "version": "5.1",
       "author": "elminister",
@@ -6143,6 +6315,54 @@
             "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/immersive-components-dd284da9e6c1784e.tar.zst.001",
             "size": 6659,
             "blake3": "75252cea777d72278d140b4056df65dfe144cd4a82d829bd301c1388ceb6cbdf"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "mod",
+      "id": "taxi-work-in-night-city",
+      "name": "Taxi Work in Night City",
+      "enabled": true,
+      "optional": true,
+      "version": "0.4.6",
+      "author": "RollermineC",
+      "nexus": {
+        "game": "cyberpunk2077",
+        "modId": 15624
+      },
+      "package": {
+        "hash": "6d95309bc98d97fcd5268d108ef58ee5eb75520762ee8bd58523cbcc671c56b9",
+        "size": 15888428,
+        "parts": [
+          {
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.7/taxi-work-in-night-city-6d95309bc98d97fc.tar.zst.001",
+            "size": 15738182,
+            "blake3": "4ae98320fb923f082ee6c0739e9f0174ed1bbaa021e78155fe851b7602faae9b"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "mod",
+      "id": "consumable-animations",
+      "name": "Consumable Animations",
+      "enabled": true,
+      "optional": true,
+      "version": "1.1.3-for-2.31",
+      "author": "Dark Fortune Teller",
+      "nexus": {
+        "game": "cyberpunk2077",
+        "modId": 26762
+      },
+      "package": {
+        "hash": "3c6ddae2a45100c1620a96102ba21a19f011149a0ab79b74926a24cd3bfd3225",
+        "size": 3395861,
+        "parts": [
+          {
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.7/consumable-animations-3c6ddae2a45100c1.tar.zst.001",
+            "size": 2825191,
+            "blake3": "35369c49310da89233785dd21e37a791c05a7ef42b27da613c9f32fa55b32c3e"
           }
         ]
       }
@@ -6227,6 +6447,30 @@
     },
     {
       "kind": "mod",
+      "id": "japantown-north-verticality-expanded",
+      "name": "Japantown North Verticality Expanded",
+      "enabled": true,
+      "optional": true,
+      "version": "1.4",
+      "author": "Lord Trilobite",
+      "nexus": {
+        "game": "cyberpunk2077",
+        "modId": 25441
+      },
+      "package": {
+        "hash": "1bae491c2b0a4be6e579fa2f93349ecf288e5676bff69ae8ebfc729961ed31ee",
+        "size": 2044083,
+        "parts": [
+          {
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.7/japantown-north-verticality-expanded-1bae491c2b0a4be6.tar.zst.001",
+            "size": 1261636,
+            "blake3": "356a70f67d12bf8f1cbee7f0dbd50931acbb3a36388510b041e4e99cde06041a"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "mod",
       "id": "japantown-north-penthouse-player-apartment",
       "name": "Japantown North Penthouse - Player Apartment",
       "enabled": true,
@@ -6245,30 +6489,6 @@
             "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/japantown-north-penthouse-player-apartment-413f10ec5b777f11.tar.zst.001",
             "size": 267346,
             "blake3": "67ad2227d4b3ff5eeb32e3205ab6ff03259c8106bd9572b1e01f5f6f65647ba3"
-          }
-        ]
-      }
-    },
-    {
-      "kind": "mod",
-      "id": "japantown-north-verticality-expanded",
-      "name": "Japantown North Verticality Expanded",
-      "enabled": true,
-      "optional": true,
-      "version": "1.2",
-      "author": "Lord Trilobite",
-      "nexus": {
-        "game": "cyberpunk2077",
-        "modId": 25441
-      },
-      "package": {
-        "hash": "4123a636f34dd28887f70ad94c8e7867d5e713388153e64a5deb2bdc62b2d8ae",
-        "size": 1525830,
-        "parts": [
-          {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/japantown-north-verticality-expanded-4123a636f34dd288.tar.zst.001",
-            "size": 870693,
-            "blake3": "56dc9613cbaeb0ef175eb1efdd39bc6ed2e1c235a9bbdef7a8b8302d6f4f5649"
           }
         ]
       }
@@ -6794,9 +7014,34 @@
     },
     {
       "kind": "mod",
+      "id": "ncgt-a-driving-simulation-ncgt",
+      "name": "NCGT - A Driving Simulation - NCGT",
+      "enabled": true,
+      "optional": true,
+      "version": "23.2b",
+      "author": "Cyb3rPho3nix",
+      "title": "NCGT - A Driving Simulation",
+      "nexus": {
+        "game": "cyberpunk2077",
+        "modId": 31730
+      },
+      "package": {
+        "hash": "df992e363db55ddc23f1f06aad36611c7ee112fcc87e8c8943f94fe2882bfa4e",
+        "size": 243807524,
+        "parts": [
+          {
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.7/ncgt-a-driving-simulation-ncgt-df992e363db55ddc.tar.zst.001",
+            "size": 212768652,
+            "blake3": "bff970b014ecc2281edacecbbcfa1d6262fa536d05702d215183e697b46e8721"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "mod",
       "id": "enhanced-vehicle-system",
       "name": "Enhanced Vehicle System",
-      "enabled": false,
+      "enabled": true,
       "optional": true,
       "version": "17.8",
       "author": "YG",
@@ -6817,31 +7062,6 @@
       }
     },
     {
-      "kind": "mod",
-      "id": "ncgt-a-driving-simulation-ncgt",
-      "name": "NCGT - A Driving Simulation - NCGT",
-      "enabled": false,
-      "optional": true,
-      "version": "23.1a",
-      "author": "Cyb3rPho3nix",
-      "title": "NCGT - A Driving Simulation",
-      "nexus": {
-        "game": "cyberpunk2077",
-        "modId": 31730
-      },
-      "package": {
-        "hash": "00b9e502af4ac82e105a897b3e7e973ccb4ec9559641bd4d95d2d2d16c5c80df",
-        "size": 237118005,
-        "parts": [
-          {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.6/ncgt-a-driving-simulation-ncgt-00b9e502af4ac82e.tar.zst.001",
-            "size": 212597332,
-            "blake3": "e1dcbb526603dcd9aee8ef6bbfbfa2cab92dec84997a4842e5ef4975cada15bd"
-          }
-        ]
-      }
-    },
-    {
       "kind": "separator",
       "title": "24 - Vehicles - Traffic, Fleet & World Spawns",
       "color": "#00007f"
@@ -6850,7 +7070,7 @@
       "kind": "mod",
       "id": "night-city-traffic-overhaul",
       "name": "Night City Traffic Overhaul",
-      "enabled": true,
+      "enabled": false,
       "optional": true,
       "version": "2.40",
       "author": "cradilyex",
@@ -6974,6 +7194,31 @@
     },
     {
       "kind": "mod",
+      "id": "cino-eblc-crab-2042-garage-cino-ram-1-0-0-main",
+      "name": "CINO EBLC-CRAB 2042 (Garage) - CINO RAM 1.0.0 Main",
+      "enabled": true,
+      "optional": true,
+      "version": "1.0",
+      "author": "whatmynickname",
+      "title": "CINO EBLC-CRAB 2042 (Garage)",
+      "nexus": {
+        "game": "cyberpunk2077",
+        "modId": 33978
+      },
+      "package": {
+        "hash": "aa42802b34c77d17a611efd84bc7ba52eabe306d5aeec32c456ef724dbf1419b",
+        "size": 71213283,
+        "parts": [
+          {
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.7/cino-eblc-crab-2042-garage-cino-ram-1-0-0-main-aa42802b34c77d17.tar.zst.001",
+            "size": 68601726,
+            "blake3": "776aa5f1fed5751f3ea11452d4d7650f8bb3d930e4621ca56c4c0c885f160b5c"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "mod",
       "id": "garage-manager",
       "name": "Garage Manager",
       "enabled": true,
@@ -7016,6 +7261,31 @@
             "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/camaro-ss-2010-garage-52f7695599258474.tar.zst.001",
             "size": 22643141,
             "blake3": "d4e0d97155bbac4c630f5b4668f3ff532b9f134aa7f17fc3bf88cb4b1e546e15"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "mod",
+      "id": "solvind-emkv90-tor-2042-garage-solvind-tor-1-0-0-main",
+      "name": "Solvind EMKV90-TOR 2042 (Garage) - Solvind-TOR_1.0.0_main",
+      "enabled": true,
+      "optional": true,
+      "version": "1.0",
+      "author": "whatmynickname",
+      "title": "Solvind EMKV90-TOR 2042 (Garage)",
+      "nexus": {
+        "game": "cyberpunk2077",
+        "modId": 33977
+      },
+      "package": {
+        "hash": "b40e52791ec0c32708d52d2065da65cf0a59f3af37f489b0efec88dd1b1fb344",
+        "size": 58478907,
+        "parts": [
+          {
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.7/solvind-emkv90-tor-2042-garage-solvind-tor-1-0-0-main-b40e52791ec0c327.tar.zst.001",
+            "size": 57073601,
+            "blake3": "71df7b800f64863e8c4d8d46b54ce33157f659f2dcb03ae5be64d8b2f9980b17"
           }
         ]
       }
@@ -8245,6 +8515,25 @@
             "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.6/lyno-cet-3e6e5893c52b0ce4.tar.zst.001",
             "size": 11840,
             "blake3": "d0e8affe17fd6a2fc926f5785e4d7eebd232967484524de3abe3d59961110c98"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "mod",
+      "id": "lyno-combat-tactics",
+      "name": "LYNO Combat Tactics",
+      "enabled": true,
+      "optional": true,
+      "version": "0.3",
+      "package": {
+        "hash": "a40c29e67c5e483f6790c89fd26ecde7d27ba76a6db57aa5d28d64bec953d846",
+        "size": 69551,
+        "parts": [
+          {
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.7/lyno-combat-tactics-a40c29e67c5e483f.tar.zst.001",
+            "size": 18715,
+            "blake3": "36fe7d66badf8dbc2337620d8546e9c1b7bed58ff33ea63cdea8ab2385f98e61"
           }
         ]
       }
