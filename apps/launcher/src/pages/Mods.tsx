@@ -94,6 +94,8 @@ export function Mods() {
     r.kind === "mod"
       ? { kind: "mod", color: null, folder: r.name, label: r.name, id: null, nexusUrl: r.nexusUrl, installed: true, enabled: r.enabled, optional: false, removed: false, buildId: r.buildId, published: false, needs: needs.get(r.name) ?? [] }
       : { kind: "separator", color: r.color, folder: rowKey(r), label: r.title, id: null, nexusUrl: null, installed: true, enabled: true, optional: false, removed: false, buildId: null, published: false, needs: [] };
+  // The author changes the build's separators like the player their own: title and color, from the launcher.
+  const buildSeparator = (g: Group): Target => ({ kind: "separator", color: g.color, folder: `${g.title}_separator`, label: g.title!, id: null, nexusUrl: null, installed: true, enabled: true, optional: false, removed: false, buildId: null, published: false, needs: [] });
   const overwriteTarget: Target = { kind: "overwrite", color: null, folder: "overwrite", label: "Overwrite", id: null, nexusUrl: null, installed: true, enabled: true, optional: false, removed: false, buildId: null, published: false, needs: [] };
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
@@ -103,6 +105,20 @@ export function Mods() {
   const [current, setCurrent] = useState<string | null>(null);
   const [dialog, setDialog] = useState<Dialog | null>(null);
   const [history, setHistory] = useState(false);
+  // Typing anywhere on the page searches, as in Explorer: a letter outside a text field goes to the search box.
+  // Space stays the list's switch, the rest of the keys their own.
+  const searchRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    const onType = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey || e.altKey || e.key.length !== 1 || e.key === " ") return;
+      const t = e.target as HTMLElement | null;
+      if (t?.closest("input, textarea, select, [contenteditable=true]") || document.querySelector("[aria-modal=true], [role=menu]")) return;
+      // Focused during keydown, the box itself receives the character.
+      searchRef.current?.focus();
+    };
+    window.addEventListener("keydown", onType);
+    return () => window.removeEventListener("keydown", onType);
+  }, []);
   // Like MO2's list: a click selects a mod, Ctrl adds or takes one away, Shift a range of the rows shown.
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const anchor = useRef<string | null>(null);
@@ -350,8 +366,15 @@ export function Mods() {
             <Search size={15} className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-faint" />
             <input
               value={query}
+              ref={searchRef}
+              onKeyDown={(e) => {
+                // Esc empties the search and gives the keys back to the list.
+                if (e.key !== "Escape") return;
+                setQuery("");
+                listRef.current?.focus();
+              }}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Поиск по названию"
+              placeholder="Поиск: просто начните печатать"
               spellCheck={false}
               className="h-9 w-full rounded-full bg-surface pr-4 pl-9 text-sm outline-none placeholder:text-faint focus:ring-1 focus:ring-neon/50"
             />
@@ -412,22 +435,7 @@ export function Mods() {
               </button>
             )}
           </div>
-          <nav className="min-h-0 flex-1 overflow-y-auto py-1.5">
-            {nav.map((n) => (
-              <button
-                key={n.key}
-                onClick={() => jump(n.key)}
-                title={n.title}
-                className={`flex h-8 w-full items-center gap-2.5 px-4 text-left text-[13px] transition-colors hover:bg-raised/60 hover:text-fg ${
-                  active === n.key ? "bg-raised text-fg" : "text-fg/80"
-                } ${collapsed.has(n.key) && !q ? "opacity-70" : ""}`}
-              >
-                <span className="h-3.5 w-1 shrink-0 rounded-full" style={{ background: n.color ?? "var(--color-line)" }} />
-                <span className="min-w-0 flex-1 truncate">{n.title}</span>
-                <span className="font-mono text-[11px] text-muted tabular-nums">{n.count}</span>
-              </button>
-            ))}
-          </nav>
+          <CategoryNav nav={nav} active={active} folded={(key) => collapsed.has(key) && !q} searching={!!q} onJump={jump} />
           <p className="shrink-0 border-t border-line px-4 py-3 text-[11px] leading-relaxed text-muted">
             Все моды принадлежат их авторам. Если мод понравился — поддержите автора на Nexus Mods.
           </p>
@@ -472,7 +480,9 @@ export function Mods() {
                     // A search shows every match, folded or not.
                     open={!!query.trim() || !collapsed.has(g.title)}
                     onToggle={() => toggleGroup(g.title!)}
-                    onPress={author ? (e) => startMove(e, { ...overwriteTarget, kind: "separator", folder: `${g.title}_separator`, label: g.title! }) : undefined}
+                    active={menu?.target.folder === `${g.title}_separator`}
+                    onMenu={author ? (x, y) => setMenu({ target: buildSeparator(g), x, y }) : undefined}
+                    onPress={author ? (e) => startMove(e, buildSeparator(g)) : undefined}
                   />
                 )}
                 {(!g.title || query.trim() || !collapsed.has(g.title)) && g.mods.map((m) => !isBuildMod(m) ? userRow(m) : (
@@ -624,6 +634,65 @@ export function Mods() {
       {history && <ModlistHistory locked={locked} lockReason={lockReason} onClose={() => setHistory(false)} onRestored={reload} />}
       {dialog?.kind === "logs" ? <LogViewer onClose={() => setDialog(null)} /> : dialog && <ModDialog dialog={dialog} onClose={() => setDialog(null)} />}
     </div>
+  );
+}
+
+type NavItem = { key: string; title: string; color: string | null; count: number };
+
+// Two dozen categories are as long a list as the mods were: the sidebar folds them into sections named by the
+// separators themselves, "NN - Section - Category" (`navSections`), so the build's author keeps them in MO2.
+function CategoryNav(props: { nav: NavItem[]; active: string | null | undefined; folded: (key: string) => boolean; searching: boolean; onJump: (key: string) => void }) {
+  const [open, setOpen] = useState<Set<string>>(loadOpenSections);
+  const toggle = (name: string) => {
+    const next = new Set(open);
+    if (!next.delete(name)) next.add(name);
+    setOpen(next);
+    saveOpenSections(next);
+  };
+  const item = (n: NavItem, label: string, nested: boolean) => (
+    <button
+      key={n.key}
+      onClick={() => props.onJump(n.key)}
+      title={n.title}
+      className={`flex h-8 w-full items-center gap-2.5 pr-4 text-left text-[13px] transition-colors hover:bg-raised/60 hover:text-fg ${nested ? "pl-9" : "pl-4"} ${
+        props.active === n.key ? "bg-raised text-fg" : "text-fg/80"
+      } ${props.folded(n.key) ? "opacity-70" : ""}`}
+    >
+      <span className="h-3.5 w-1 shrink-0 rounded-full" style={{ background: n.color ?? "var(--color-line)" }} />
+      <span className="min-w-0 flex-1 truncate">{label}</span>
+      <span className="font-mono text-[11px] text-muted tabular-nums">{n.count}</span>
+    </button>
+  );
+  return (
+    <nav className="min-h-0 flex-1 overflow-y-auto py-1.5">
+      {navSections(props.nav).map((e) => {
+        if (!("section" in e)) return item(e.item, e.label, false);
+        // A search shows where its matches are: every section with one is open.
+        const shown = props.searching || open.has(e.section);
+        const here = e.items.some((i) => i.item.key === props.active);
+        return (
+          <div key={`section-${e.items[0].item.key}`}>
+            <button
+              onClick={() => toggle(e.section)}
+              aria-expanded={shown}
+              className={`flex h-8 w-full items-center gap-2 pr-4 pl-3 text-left text-[13px] font-semibold transition-colors hover:bg-raised/60 hover:text-fg ${
+                here && !shown ? "bg-raised text-fg" : "text-fg/90"
+              }`}
+            >
+              <ChevronRight size={14} className={`shrink-0 opacity-60 transition-transform ${shown ? "rotate-90" : ""}`} />
+              <span className="flex shrink-0 gap-0.5">
+                {[...new Set(e.items.map((i) => i.item.color ?? "var(--color-line)"))].slice(0, 3).map((c) => (
+                  <span key={c} className="h-3.5 w-1 rounded-full" style={{ background: c }} />
+                ))}
+              </span>
+              <span className="min-w-0 flex-1 truncate">{e.section}</span>
+              <span className="font-mono text-[11px] font-normal text-muted tabular-nums">{e.items.reduce((n, i) => n + i.item.count, 0)}</span>
+            </button>
+            {shown && e.items.map((i) => item(i.item, i.label, true))}
+          </div>
+        );
+      })}
+    </nav>
   );
 }
 
@@ -885,7 +954,7 @@ function ModDialog({ dialog, onClose }: { dialog: Dialog; onClose: () => void })
     onClose();
     void run(async () => {
       await action();
-      await Promise.all([refreshUserMods(), t.id ? refreshBuild() : null]);
+      await Promise.all([refreshUserMods(), t.id || t.kind === "separator" ? refreshBuild() : null]);
     });
   };
   const newName = name.trim();
@@ -974,8 +1043,8 @@ function ModDialog({ dialog, onClose }: { dialog: Dialog; onClose: () => void })
         void startRollback(t.id!, t.folder, keepSettings);
       },
     },
-    rename: { title: t.kind === "separator" ? "Переименовать разделитель" : "Переименовать мод", body: nameInput, confirm: "Переименовать", ok: submit },
-    separator: { title: "Новый разделитель", body: nameInput, confirm: "Добавить", ok: submit },
+    rename: { title: t.kind === "separator" ? "Переименовать разделитель" : "Переименовать мод", body: t.kind === "separator" ? <>{nameInput}{SEPARATOR_HINT}</> : nameInput, confirm: "Переименовать", ok: submit },
+    separator: { title: "Новый разделитель", body: <>{nameInput}{SEPARATOR_HINT}</>, confirm: "Добавить", ok: submit },
     toMod: {
       title: "Сделать модом",
       body: (
@@ -1319,6 +1388,13 @@ function SeparatorRow(props: {
   );
 }
 
+const SEPARATOR_HINT = (
+  <p className="text-[12px] text-muted">
+    «02 - Fixes - Engine» попадёт в раздел «Fixes» в сайдбаре вместе с соседними разделителями этого раздела. Номер в
+    начале держит порядок в MO2 и в сайдбаре не показывается.
+  </p>
+);
+
 const PRIORITY_HINT =
   "Порядок, в котором Mod Organizer 2 подключает моды. Если два мода меняют один и тот же файл, побеждает тот, что ниже в списке (с большим номером). Ваши моды всегда ниже сборки.";
 
@@ -1344,6 +1420,43 @@ function saveCollapsed(titles: Set<string>) {
   } catch {
     // Folding is a convenience; losing it is fine.
   }
+}
+
+const SECTIONS_KEY = "mods.sections";
+
+function loadOpenSections(): Set<string> {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(SECTIONS_KEY) ?? "[]") as string[]);
+  } catch {
+    return new Set();
+  }
+}
+
+function saveOpenSections(names: Set<string>) {
+  try {
+    localStorage.setItem(SECTIONS_KEY, JSON.stringify([...names]));
+  } catch {
+    // Like folding: a convenience.
+  }
+}
+
+type NavEntry = { item: NavItem; label: string } | { section: string; items: { item: NavItem; label: string }[] };
+
+/** Separators titled "NN - Section - Category" (the number keeps the order readable in MO2, the sidebar drops it):
+ *  neighbours with the same section go under it. A title without one, or a section of a single category, stays as is. */
+function navSections(nav: NavItem[]): NavEntry[] {
+  const out: NavEntry[] = [];
+  for (const item of nav) {
+    const title = item.title.replace(/^\d+\s*-\s*/, "");
+    const cut = title.indexOf(" - ");
+    const section = cut > 0 ? title.slice(0, cut).trim() : null;
+    const last = out[out.length - 1];
+    if (!section) out.push({ item, label: title });
+    else if (last && "section" in last && last.section === section) last.items.push({ item, label: title.slice(cut + 3).trim() });
+    else out.push({ section, items: [{ item, label: title.slice(cut + 3).trim() }] });
+  }
+  // A section of one category is just a longer name for it.
+  return out.map((e) => ("section" in e && e.items.length === 1 ? { item: e.items[0].item, label: `${e.section} · ${e.items[0].label}` } : e));
 }
 
 function isBuildMod(m: Mod | UserMod): m is Mod {

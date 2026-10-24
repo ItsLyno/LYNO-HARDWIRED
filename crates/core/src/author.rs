@@ -44,6 +44,10 @@ pub struct Pending {
     /// Mods or separators of both lists are in another order, or separators
     /// were added or removed.
     pub reordered: bool,
+    /// Titles of separators the installed build has under another title or
+    /// color, or not at all: MO2 knows a separator by its title only, so a
+    /// renamed one is a new one.
+    pub separators: Vec<String>,
     /// Under `LYNO USER MODS`: not shipped.
     pub personal: Vec<String>,
 }
@@ -55,6 +59,7 @@ impl Pending {
             && self.renamed.is_empty()
             && self.toggled.is_empty()
             && !self.reordered
+            && self.separators.is_empty()
     }
 }
 
@@ -87,13 +92,29 @@ pub fn pending(inst: &Instance, installed: &Manifest) -> Result<Pending> {
     }
     pending.removed = installed.mod_specs().filter(|m| !now.contains_key(&m.id)).map(|m| m.name.clone()).collect();
 
-    // Order of what both lists have, by id, with separators by title.
+    let was_separators: HashSet<(&str, Option<&str>)> = installed
+        .mods
+        .iter()
+        .filter_map(|e| match e {
+            ModEntry::Separator { title, color } => Some((title.as_str(), color.as_deref())),
+            ModEntry::Mod(_) => None,
+        })
+        .collect();
+    pending.separators = build
+        .iter()
+        .filter(managed)
+        .filter_map(|e| e.separator_title().map(|title| (title, metas.get(&e.name).and_then(|m| m.color.as_deref()))))
+        .filter(|(title, color)| !was_separators.contains(&(*title, *color)))
+        .map(|(title, _)| title.to_owned())
+        .collect();
+
+    // Order of what both lists have, by id; separators are places in it, their titles are `separators`.
     let ids: HashSet<&str> = now.keys().map(String::as_str).filter(|id| was.contains_key(id)).collect();
     let before: Vec<String> = installed
         .mods
         .iter()
         .filter_map(|e| match e {
-            ModEntry::Separator { title, .. } => Some(format!("{title}\0")),
+            ModEntry::Separator { .. } => Some("\0".to_owned()),
             ModEntry::Mod(m) => ids.contains(m.id.as_str()).then(|| m.id.clone()),
         })
         .collect();
@@ -101,7 +122,7 @@ pub fn pending(inst: &Instance, installed: &Manifest) -> Result<Pending> {
         .iter()
         .filter(managed)
         .filter_map(|e| match e.separator_title() {
-            Some(title) => Some(format!("{title}\0")),
+            Some(_) => Some("\0".to_owned()),
             None => {
                 let id = mod_id(&e.name, &metas.get(&e.name).cloned().unwrap_or_default());
                 ids.contains(id.as_str()).then_some(id)
@@ -159,6 +180,7 @@ pub fn adopt(inst: &Instance, manifest: &Manifest, out_dir: Option<&Path>) -> Re
         base_damaged: false,
         mods,
         removed: Default::default(),
+        separators: manifest.separator_folders(),
         last_update: Some(record),
     };
     state.save(&path)?;

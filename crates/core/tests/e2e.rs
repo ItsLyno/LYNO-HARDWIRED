@@ -221,6 +221,62 @@ fn players_remove_optional_build_mods() {
     assert!(!st.removed.contains("redmod-thing") && st.removed.contains("archive-mod"));
 }
 
+/// The author renames a separator (MO2 keeps one by its title): the old one
+/// leaves the player's list and `mods/`, it doesn't turn into the player's.
+/// Also for a player whose launcher installed the build before separators
+/// were recorded: the saved manifest of the installed build names them.
+#[test]
+fn renamed_build_separator_goes_away() {
+    use lyno_core::install::{installed_manifest_path, load_state};
+    let tmp = tempfile::tempdir().unwrap();
+    let author = tmp.path().join("author");
+    let release = tmp.path().join("release");
+    author_instance(&author);
+    let (base_url, _) = serve(release.clone());
+    let out = tmp.path().join("out");
+    let mut no_info = |_: &ModMeta| ModInfo { author: None, title: None };
+    let m1 = build(&author, &options("1.0.0", &base_url, &out, None), &mut no_info, &mut |_| {}).unwrap();
+    upload(&m1, &release);
+    let m1 = m1.manifest;
+    let user = Instance::new(tmp.path().join("user"));
+    install(&user, &m1);
+    let st = State::load(&state_path(&user)).unwrap();
+    assert_eq!(st.separators.iter().collect::<Vec<_>>(), ["Core_separator", "Extras_separator"]);
+
+    // As an older launcher left it: no record of separators, the installed manifest saved.
+    State { separators: Default::default(), ..st }.save(&state_path(&user)).unwrap();
+    std::fs::write(installed_manifest_path(&user), serde_json::to_string(&m1).unwrap()).unwrap();
+    // The player's own separator and mod, in their section.
+    let list_path = user.modlist_path("LYNO");
+    let text = std::fs::read_to_string(&list_path).unwrap();
+    let text = text.replacen('\n', "\n+My Mod\r\n-My Stuff_separator\r\n-LYNO USER MODS_separator\r\n", 1);
+    std::fs::write(&list_path, text).unwrap();
+    write(&user.mods_dir(), "My Mod/archive/pc/mod/mine.archive", b"mine");
+    std::fs::create_dir_all(user.mods_dir().join("My Stuff_separator")).unwrap();
+
+    std::fs::rename(author.join("mods/Extras_separator"), author.join("mods/10 - Extras - Optional_separator")).unwrap();
+    let list = std::fs::read_to_string(author.join("profiles/LYNO/modlist.txt")).unwrap();
+    write(&author, "profiles/LYNO/modlist.txt", list.replace("-Extras_separator", "-10 - Extras - Optional_separator").as_bytes());
+    let m2 = build(&author, &options("1.1.0", &base_url, &out, Some(m1.clone())), &mut no_info, &mut |_| {}).unwrap();
+    upload(&m2, &release);
+    let m2 = m2.manifest;
+    let current = ModList::load(&list_path).unwrap();
+    // What the launcher does before planning an update.
+    load_state(&user, &m2, &current).unwrap();
+    install(&user, &m2);
+
+    let list = ModList::load(&list_path).unwrap();
+    let names: Vec<&str> = list.entries.iter().map(|e| e.name.as_str()).collect();
+    assert!(!names.contains(&"Extras_separator"), "{names:?}");
+    assert!(names.contains(&"10 - Extras - Optional_separator"));
+    assert!(names.contains(&"My Stuff_separator") && names.contains(&"My Mod"), "the player's stay");
+    assert!(!user.mods_dir().join("Extras_separator").exists());
+    assert!(user.mods_dir().join("10 - Extras - Optional_separator").is_dir());
+    assert!(user.mods_dir().join("My Stuff_separator").is_dir());
+    let st = State::load(&state_path(&user)).unwrap();
+    assert!(st.separators.contains("10 - Extras - Optional_separator") && !st.separators.contains("Extras_separator"));
+}
+
 /// A download fails halfway through a first install (here: an asset is
 /// missing; a lost connection that outlasts the retries ends the same way).
 /// What was complete is installed, what was downloaded stays, and the next
@@ -750,6 +806,17 @@ fn author_releases_from_launcher_instance() {
     assert_eq!(pending(&inst, &m2).unwrap(), Pending { personal: vec!["My Test".into()], ..Default::default() });
     assert_eq!(check().damaged, []);
     assert!(inst.root().join("mods/My Test/archive/pc/mod/test.archive").exists());
+
+    // A separator recolored, another renamed (in MO2 or the launcher: its folder and list entry): changes of the build,
+    // not of its order.
+    lyno_core::meta::save_color(&inst.mods_dir().join("Core_separator/meta.ini"), Some("#ff3b5c")).unwrap();
+    lyno_core::mod_install::rename(&inst, "Extras_separator", "10 - Extras - Optional_separator").unwrap();
+    let p = pending(&inst, &m2).unwrap();
+    assert_eq!(p.separators, ["Core", "10 - Extras - Optional"], "{p:?}");
+    assert!(!p.reordered && !p.is_empty(), "{p:?}");
+    lyno_core::meta::save_color(&inst.mods_dir().join("Core_separator/meta.ini"), Some("#0393e1")).unwrap();
+    lyno_core::mod_install::rename(&inst, "10 - Extras - Optional_separator", "Extras_separator").unwrap();
+    assert_eq!(pending(&inst, &m2).unwrap(), Pending { personal: vec!["My Test".into()], ..Default::default() });
 
     // Rename (kept by `[LYNO] id=`), reorder and drop a mod.
     write(inst.root(), "mods/New Mod/meta.ini", b"[LYNO]\nid=new-mod\n");
