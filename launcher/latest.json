@@ -1,11 +1,11 @@
 {
-  "version": "0.8.0",
-  "notes": "Добавлена проверка версии игры. Разбор логов после выхода из игры и история списка модов",
-  "pub_date": "2026-10-24T12:42:11Z",
+  "version": "0.8.1",
+  "notes": "",
+  "pub_date": "2026-10-24T13:56:18Z",
   "platforms": {
     "windows-x86_64": {
-      "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/launcher-v0.8.0/LYNO-HARDWIRED_0.8.0_x64-setup.exe",
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUejR0VmZ4WmllZlBmYXhjNVFNU3dFMmc0VXJGNGY4RG1tY2V6c0tXZEJsOGZ4VTlmOEZXamZybmhqY2hGcGZKUU9zNzBrL2ErS0RTc29zSjd4SkdRaG9LRDhvWGJhNUEwPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyODQ1NzMxCWZpbGU6TFlOTyBIQVJEV0lSRURfMC44LjBfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjAuOC4wCk9yY3AvMmpmclliSzVoQmdhem9PQ0Rqdm5YTHIvRloxd3dJLysxUE1RY1Z1MlJRVFpsVmZkVzJEczFYeVZwK3Rqc21sdE1CdDU1T09WS3ViMktwa0JBPT0K"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUejR0VmZ4WmllZkROV2tOUzkyckJjYk44VktWajBDMExaSHlGWWxNTnlhTmY0c3o4ejJXQUk3ZXBUNnNRUkEvV3dKdEgwa1FSTmFURFhyc2FWbUhDcG5TNW5nZ1preXdnPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyODUwMTc4CWZpbGU6TFlOTyBIQVJEV0lSRURfMC44LjFfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjAuOC4xClpiOXZqSnZ6NWZQaGNnTDRlb3RMdFUvb0E2NVNseTZPQXRTY3pPZXlmUVZydjFTSnIxQXpWYkxMV2t4K2hORmlCOGdMb2FvQmlEcDJyMlpuNTFORUNBPT0K",
+      "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/launcher-v0.8.1/LYNO-HARDWIRED_0.8.1_x64-setup.exe"
     }
   }
 }
