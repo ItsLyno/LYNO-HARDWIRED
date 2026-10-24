@@ -9,6 +9,7 @@ use std::time::{Duration, Instant};
 
 use lyno_core::author;
 use lyno_core::download::Downloader;
+use lyno_core::install::{self, Installer};
 use lyno_core::github::GitHub;
 use lyno_core::manifest::{ChangelogEntry, Manifest};
 use lyno_core::mo2::Instance;
@@ -130,6 +131,62 @@ fn adopt(inst: &Instance, manifest: &Manifest, out: Option<&std::path::Path>) ->
     let json = serde_json::to_string_pretty(manifest).map_err(err)?;
     std::fs::write(installed_manifest_path(inst), json).map_err(err)?;
     log::info!("build {} adopted as installed", manifest.build_version);
+    Ok(())
+}
+
+/// Puts the installed build's version of build mod `id` back into `folder`
+/// (its folder in the list now), over the author's edits or a Nexus update,
+/// in the background like an update: progress arrives as `update-progress`,
+/// the outcome as `update-finished`. The installed build is the one released
+/// from this instance, so its package is on GitHub.
+#[tauri::command]
+pub fn author_rollback(app: AppHandle, id: String, folder: String, keep_settings: bool) -> CmdResult<()> {
+    let state = app.state::<AppState>();
+    let settings = ready(&state)?;
+    if running_processes() != (false, false) {
+        return Err("Закройте игру и Mod Organizer 2: они держат файлы мода".into());
+    }
+    let inst = Instance::new(&settings.instance_dir);
+    let installed = installed_manifest(&inst).ok_or("Сборка не установлена")?;
+    let spec = installed.mod_specs().find(|m| m.id == id).ok_or("Этого мода нет в опубликованной версии: это новый мод выпуска")?;
+    let label = spec.title.clone().unwrap_or_else(|| folder.clone());
+    let cancel = Arc::new(AtomicBool::new(false));
+    {
+        let mut slot = state.update.lock().unwrap();
+        if slot.is_some() {
+            return Err("Дождитесь окончания обновления".into());
+        }
+        *slot = Some(cancel.clone());
+    }
+
+    std::thread::spawn(move || {
+        log::info!("rollback of {id:?} in {folder:?} to build {} (keep settings: {keep_settings})", installed.build_version);
+        let installer = Installer { inst: &inst, manifest: &installed, downloader: &Downloader::new(), cancel: &cancel };
+        let mut last_emit = Instant::now() - Duration::from_secs(1);
+        let result = installer.rollback(&id, &folder, keep_settings, &mut |event| {
+            let is_bytes = matches!(event, install::Event::Bytes { .. });
+            if !is_bytes || last_emit.elapsed() >= Duration::from_millis(100) {
+                last_emit = Instant::now();
+                let _ = app.emit("update-progress", event);
+            }
+        });
+        *app.state::<AppState>().update.lock().unwrap() = None;
+        let (ok, error) = match result {
+            Ok(()) => {
+                log::info!("rollback of {id:?} finished");
+                (true, None)
+            }
+            Err(lyno_core::Error::Cancelled) => {
+                log::info!("rollback of {id:?} cancelled");
+                (false, None)
+            }
+            Err(e) => {
+                log::error!("rollback of {id:?} failed: {e}");
+                (false, Some(format!("Не удалось вернуть опубликованную версию «{label}»: {e}")))
+            }
+        };
+        let _ = app.emit("update-finished", serde_json::json!({ "ok": ok, "error": error }));
+    });
     Ok(())
 }
 

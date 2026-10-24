@@ -738,6 +738,37 @@ fn author_releases_from_launcher_instance() {
     assert_eq!(p.removed, ["REDmod Thing"]);
     assert!(p.reordered && p.added.is_empty() && p.toggled.is_empty(), "{p:?}");
 
+    // The author takes back edits of a mod: its published package comes again from the
+    // release, the list stays as they made it.
+    let installer = Installer { inst: &inst, manifest: &m2, downloader: &Downloader::new(), cancel: &AtomicBool::new(false) };
+    let am = inst.mods_dir().join("Archive Mod");
+    let am_settings = am.join("bin/x64/plugins/cyber_engine_tweaks/mods/am/settings.json");
+    write(&am, "archive/pc/mod/a.archive", &noise(200_000, 11));
+    write(&am, "archive/pc/mod/extra.archive", b"try");
+    std::fs::write(&am_settings, b"author v2").unwrap();
+    let list_before = std::fs::read(&path).unwrap();
+    let mut events = Vec::new();
+    installer.rollback("archive-mod", "Archive Mod", true, &mut |e| events.push(e)).unwrap();
+    assert!(matches!(events.last(), Some(Event::Done)), "{events:?}");
+    assert!(!am.join("archive/pc/mod/extra.archive").exists());
+    assert_eq!(std::fs::read(&am_settings).unwrap(), b"author v2", "settings kept on request");
+    // "New Mod" was renamed above, outside the launcher: its recorded folder is gone.
+    let report = check();
+    assert_eq!(report.damaged.iter().map(|d| d.folder.as_str()).collect::<Vec<_>>(), ["New Mod"], "{report:?}");
+    assert_eq!(report.customized.iter().map(|c| c.id.as_str()).collect::<Vec<_>>(), ["archive-mod"]);
+    installer.rollback("archive-mod", "Archive Mod", false, &mut |_| {}).unwrap();
+    assert_eq!(std::fs::read(&am_settings).unwrap(), b"author v1");
+    assert_eq!(std::fs::read(&path).unwrap(), list_before, "the list is the author's");
+
+    // A renamed mod keeps its new folder and stays the same mod.
+    write(&inst.mods_dir().join("Newer Mod"), "archive/pc/mod/new.archive", b"edited");
+    installer.rollback("new-mod", "Newer Mod", false, &mut |_| {}).unwrap();
+    assert_eq!(std::fs::read(inst.root().join("mods/Newer Mod/archive/pc/mod/new.archive")).unwrap(), b"new");
+    assert_eq!(pending(&inst, &m2).unwrap().renamed, [("New Mod".to_string(), "Newer Mod".to_string())]);
+    assert_eq!(check().damaged, [], "the rolled back folder is recorded under its new name");
+    assert!(installer.rollback("new-mod", "CET", false, &mut |_| {}).is_err(), "another mod's folder");
+    assert!(std::fs::read(inst.root().join("mods/CET/bin/x64/plugins/cyber_engine_tweaks.asi")).is_ok());
+
     // A build from another instance is not adopted.
     let other = Instance::new(tmp.path().join("other"));
     install(&other, &m1);

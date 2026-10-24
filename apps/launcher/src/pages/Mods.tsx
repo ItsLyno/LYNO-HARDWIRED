@@ -1,4 +1,4 @@
-import { ChevronRight, ExternalLink, Power, PowerOff, FolderOpen, Lock, MoreHorizontal, Pencil, RefreshCw, Search, Trash2, X, type LucideIcon, TriangleAlert, Undo2, ArrowUp, Plus, RotateCw, CircleArrowUp, Wrench, Palette, Eraser, PackagePlus, SeparatorHorizontal, ScrollText } from "lucide-react";
+import { ChevronRight, ExternalLink, Power, PowerOff, FolderOpen, Lock, MoreHorizontal, Pencil, RefreshCw, Search, Trash2, X, type LucideIcon, TriangleAlert, Undo2, ArrowUp, Plus, RotateCw, CircleArrowUp, Wrench, Palette, Eraser, PackagePlus, SeparatorHorizontal, ScrollText, History } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from "react";
 import { api, type ModRow, type Need, type UserRow } from "../api";
 import { Button } from "../components/Button";
@@ -32,13 +32,15 @@ type Target = {
   removed: boolean;
   /** The player's version of this optional build mod. */
   buildId: string | null;
+  /** A build mod of the installed (published) build: the author can take back their edits. */
+  published: boolean;
   needs: Need[];
   color: string | null;
 };
 type Menu = { target: Target; x: number; y: number };
 /** `after`: where a new separator goes. */
 /** `many`: every selected row a delete goes to. */
-type Dialog = { kind: "delete" | "reinstall" | "rename" | "color" | "separator" | "toMod" | "clear" | "logs"; target: Target; after?: string | null; many?: Target[] };
+type Dialog = { kind: "delete" | "reinstall" | "rollback" | "rename" | "color" | "separator" | "toMod" | "clear" | "logs"; target: Target; after?: string | null; many?: Target[] };
 
 /** MO2's folder of the separator above the player's own mods (`plan::USER_SEPARATOR`). */
 const USER_SEPARATOR = "LYNO USER MODS_separator";
@@ -84,13 +86,14 @@ export function Mods() {
     optional: m.optional,
     removed: m.removed,
     buildId: null,
+    published: m.published,
     needs: needs.get(m.name) ?? [],
   });
   const userTarget = (r: UserRow): Target =>
     r.kind === "mod"
-      ? { kind: "mod", color: null, folder: r.name, label: r.name, id: null, nexusUrl: r.nexusUrl, installed: true, enabled: r.enabled, optional: false, removed: false, buildId: r.buildId, needs: needs.get(r.name) ?? [] }
-      : { kind: "separator", color: r.color, folder: rowKey(r), label: r.title, id: null, nexusUrl: null, installed: true, enabled: true, optional: false, removed: false, buildId: null, needs: [] };
-  const overwriteTarget: Target = { kind: "overwrite", color: null, folder: "overwrite", label: "Overwrite", id: null, nexusUrl: null, installed: true, enabled: true, optional: false, removed: false, buildId: null, needs: [] };
+      ? { kind: "mod", color: null, folder: r.name, label: r.name, id: null, nexusUrl: r.nexusUrl, installed: true, enabled: r.enabled, optional: false, removed: false, buildId: r.buildId, published: false, needs: needs.get(r.name) ?? [] }
+      : { kind: "separator", color: r.color, folder: rowKey(r), label: r.title, id: null, nexusUrl: null, installed: true, enabled: true, optional: false, removed: false, buildId: null, published: false, needs: [] };
+  const overwriteTarget: Target = { kind: "overwrite", color: null, folder: "overwrite", label: "Overwrite", id: null, nexusUrl: null, installed: true, enabled: true, optional: false, removed: false, buildId: null, published: false, needs: [] };
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const [collapsed, setCollapsed] = useState<Set<string>>(loadCollapsed);
@@ -723,6 +726,18 @@ function ModMenu(props: {
       title: !own ? "Мод сборки можно только выключить" : props.locked ? props.lockReason : undefined,
       onClick: dialog("rename"),
     },
+    // The author's undo for a build mod: the published package over their edits or a Nexus update.
+    ...(author && t.id && t.published
+      ? [
+          {
+            label: "Вернуть опубликованную версию",
+            icon: History,
+            disabled: props.locked,
+            title: props.locked ? props.lockReason : "Мод скачается с GitHub в том виде, в каком вышел в установленной версии сборки",
+            onClick: dialog("rollback"),
+          },
+        ]
+      : []),
     ...(t.buildId
       ? [
           {
@@ -846,11 +861,12 @@ function ModMenu(props: {
 }
 
 function ModDialog({ dialog, onClose }: { dialog: Dialog; onClose: () => void }) {
-  const { run, settings, refreshUserMods, refreshBuild, startRepair } = useApp();
+  const { run, settings, status, refreshUserMods, refreshBuild, startRepair, startRollback } = useApp();
   const t = dialog.target;
   const initial = { rename: t.kind === "separator" ? t.label : t.folder, separator: "", toMod: "Overwrite" }[dialog.kind as string] ?? "";
   const [name, setName] = useState(initial);
   const [color, setColor] = useState(t.color ?? "#3cf2a0");
+  const [keepSettings, setKeepSettings] = useState(false);
   const repair = !!t.id && !settings?.authorMode;
 
   useEffect(() => {
@@ -924,6 +940,32 @@ function ModDialog({ dialog, onClose }: { dialog: Dialog; onClose: () => void })
         if (!repair) return act(() => api.reinstallMod(t.folder));
         onClose();
         void startRepair([t.id!], false, false);
+      },
+    },
+    rollback: {
+      title: "Вернуть опубликованную версию?",
+      body: (
+        <>
+          <p>
+            Файлы мода заменятся версией из сборки {status?.installedVersion ?? ""}, скачанной с GitHub: ваши правки и обновления
+            с Nexus пропадут. Название папки, место в списке и включённость останутся.
+          </p>
+          <label className="flex cursor-pointer items-start gap-2.5">
+            <input
+              type="checkbox"
+              checked={keepSettings}
+              onChange={(e) => setKeepSettings(e.target.checked)}
+              className="mt-0.5 accent-[var(--color-accent)]"
+            />
+            <span>Оставить мои файлы настроек мода. Иначе вернутся и настройки, с которыми мод вышел.</span>
+          </label>
+        </>
+      ),
+      confirm: "Вернуть",
+      danger: true,
+      ok: () => {
+        onClose();
+        void startRollback(t.id!, t.folder, keepSettings);
       },
     },
     rename: { title: t.kind === "separator" ? "Переименовать разделитель" : "Переименовать мод", body: nameInput, confirm: "Переименовать", ok: submit },

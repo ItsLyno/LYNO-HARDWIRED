@@ -94,6 +94,8 @@ interface AppStore {
   setModEnabled: (id: string, enabled: boolean) => Promise<void>;
   verify: () => Promise<void>;
   startRepair: (ids: string[], base: boolean, resetSettings: boolean) => Promise<void>;
+  /** Author: the published version of a build mod back over their edits. */
+  startRollback: (id: string, folder: string, keepSettings: boolean) => Promise<void>;
   onUpdateEvent: (e: UpdateEvent) => void;
   onVerifyEvent: (e: UpdateEvent) => void;
   onUpdateFinished: (ok: boolean, error: string | null) => void;
@@ -231,6 +233,17 @@ export const useApp = create<AppStore>((set, get) => ({
     try {
       await api.startRepair(ids, base, resetSettings);
       set({ verifyReport: null, page: "mods" });
+      await get().refreshStatus();
+    } catch (e) {
+      set({ progress: null, error: String(e) });
+    }
+  },
+  // A rollback downloads like an update: its progress shows where update progress does.
+  startRollback: async (id, folder, keepSettings) => {
+    set({ progress: noProgress });
+    try {
+      await api.authorRollback(id, folder, keepSettings);
+      set({ verifyReport: null });
       await get().refreshStatus();
     } catch (e) {
       set({ progress: null, error: String(e) });

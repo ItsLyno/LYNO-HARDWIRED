@@ -178,6 +178,9 @@ pub enum ModRow {
         recent: Option<&'static str>,
         /// Marked for repair by an integrity check; the next update downloads it again.
         damaged: bool,
+        /// In the installed build (`state.json`): the author can take back their edits of it
+        /// (`author_rollback`). False for a mod of the next release.
+        published: bool,
         /// An optional mod the player removed (`remove_build_mod`): updates leave it out.
         removed: bool,
     },
@@ -228,6 +231,7 @@ fn build_rows(
                         recent: None,
                         damaged: false,
                         removed: false,
+                        published: installed.mods.contains_key(&id),
                     }
                 }
             };
@@ -349,6 +353,7 @@ pub async fn fetch_build(app: AppHandle) -> CmdResult<Option<BuildInfo>> {
             recent: recent(&m.id),
             damaged: have.is_some_and(|h| h.damaged),
             removed: plan::is_removed(m, &installed),
+            published: have.is_some(),
         }
     };
     let mods = match installed.build_version {

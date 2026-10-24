@@ -4,7 +4,9 @@
 //! edited or reordered. For a player these are damage or foreign mods; for the
 //! author they are the next release. An update or a repair would undo them
 //! ([`crate::plan`] takes unknown mods for the player's and downloads
-//! edited ones again), so the launcher keeps both off in author mode.
+//! edited ones again), so the launcher keeps both off in author mode. The
+//! author takes back edits of one mod on purpose, with
+//! [`crate::install::Installer::rollback`]: files only, the list stays theirs.
 //!
 //! Content changes inside build mods come from [`crate::verify`], which already
 //! compares every file with the record of the installed package. [`pending`]

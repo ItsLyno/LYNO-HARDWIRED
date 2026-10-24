@@ -70,6 +70,8 @@ export type ModRow =
       damaged: boolean;
       /** An optional mod the player removed: updates leave it out until they bring it back. */
       removed: boolean;
+      /** In the installed build: the author can take back their edits (`authorRollback`). False for a mod of the next release. */
+      published: boolean;
     };
 
 export interface LastUpdate {
@@ -472,6 +474,9 @@ export const api = isTauri()
       authorChanges: () => invoke<Pending>("author_changes"),
       /** Records the published build as installed: the author has just released it from this instance. */
       authorAdopt: () => invoke<void>("author_adopt"),
+      /** The installed build's version of the mod back into `folder`, as an update: `update-progress`, then `update-finished`. */
+      authorRollback: (id: string, folder: string, keepSettings: boolean) =>
+        invoke<void>("author_rollback", { id, folder, keepSettings }),
       /** Checks the token (null: the saved one) for push access, then turns author mode on. */
       authorEnable: (token: string | null) => invoke<void>("author_enable", { token }),
       authorSecrets: () => invoke<SecretsStatus>("author_secrets"),

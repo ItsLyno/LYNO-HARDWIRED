@@ -58,6 +58,7 @@ function mod(name: string, author: string, version: string, size: number, nexusI
     recent: null,
     damaged: false,
     removed: false,
+    published: true,
     ...extra,
   } as ModRow;
 }
@@ -606,6 +607,12 @@ export const mock = {
     await delay(300);
     status = { ...status, installedVersion: build.latestVersion };
     build = { ...build, installedVersion: build.latestVersion, upToDate: true, changes: 0, downloadSize: 0 };
+  },
+  authorRollback: async (_id: string, _folder: string, _keepSettings: boolean) => {
+    if (status.gameRunning || status.mo2Running) throw new Error("Закройте игру и Mod Organizer 2: они держат файлы мода");
+    cancelled = false;
+    status = { ...status, updating: true };
+    void simulateUpdate();
   },
   authorEnable: async (token: string | null) => {
     await delay(400);

@@ -29,7 +29,7 @@ Core modules: `publish.rs` (author side: build manifest, reuse unchanged package
 `nexus_sso.rs` (log in with Nexus; needs an application slug, `LYNO_NEXUS_APP` at build time), `nxm.rs` (nxm:// links, registering the launcher as their handler),
 `tracking.rs` (version tracking of mods from Nexus, cache `.lyno/nexus.json`; `needs`: requirements on a mod's Nexus page, GraphQL v2, that the list doesn't meet), `archive.rs` (zip/7z/rar layout by MO2's Cyberpunk checker; `roots`/`map_under` for the manual "pick the mod folder" install), `fomod.rs` (FOMOD installers: parse, evaluate steps/flags, files to install; the UI wizard only shows its results),
 `mod_install.rs` (install a Nexus download, an archive of MO2's `downloads/` or one from disk; stops halfway with `Outcome::Fomod` / `Manual` / `Deferred` (MO2 running) for the launcher's queue to park),
-`plan.rs` (manifest + state → actions + new `modlist.txt`), `install.rs` (apply plan),
+`plan.rs` (manifest + state → actions + new `modlist.txt`), `install.rs` (apply plan; `rollback`: the author's undo of one mod to the installed build's package),
 `prefetch.rs` (parallel part downloads running ahead of `install`), `download.rs` (one part: resume, retries),
 `verify.rs` (integrity check; repair = flags in `state.json` that `plan` turns into `Repair` actions),
 `files.rs` (per-file hashes recorded at unpack, `.lyno/files/`; launcher-local, not in the manifest), `report.rs` (diagnostic zip),

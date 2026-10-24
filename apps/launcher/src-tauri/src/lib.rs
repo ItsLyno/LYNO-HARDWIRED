@@ -104,6 +104,7 @@ pub fn run() {
             commands::restore_build_mod,
             author::author_changes,
             author::author_adopt,
+            author::author_rollback,
             author::author_secrets,
             author::author_enable,
             author::author_set_secret,

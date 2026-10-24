@@ -354,6 +354,78 @@ impl Installer<'_> {
         Ok(())
     }
 
+    /// The author's undo for one build mod (see [`crate::author`]): puts the
+    /// installed build's package of `id` into `folder`, the mod's folder as it
+    /// is now, over their edits or a Nexus update. Old releases stay on GitHub,
+    /// so the package downloads even after a newer build went out. Only the
+    /// files change: the folder keeps its name, its place and its switch in
+    /// the list (a rename or a toggle is a change of its own, see
+    /// [`crate::author::pending`]), and `overwrite/` stays as the author left it.
+    /// `keep_settings`: settings files the author changed stay theirs, as in a repair.
+    pub fn rollback(&self, id: &str, folder: &str, keep_settings: bool, on: &mut (dyn FnMut(Event) + Send)) -> Result<()> {
+        let spec = self.spec(id)?;
+        let state_file = state_path(self.inst);
+        let mut state = State::load(&state_file)?;
+        let installed = state.mods.get(id).ok_or_else(|| Error::Manifest(format!("mod {id:?} is not installed")))?.clone();
+        let mods_dir = self.inst.mods_dir();
+        let dir = mods_dir.join(folder);
+        // The folder must be this mod's: by `[LYNO] id`, or the installed folder gone from the disk.
+        let ours = match dir.is_dir() {
+            true => crate::publish::mod_id(folder, &meta::ModMeta::load(&dir.join("meta.ini")).unwrap_or_default()) == id,
+            false => folder == installed.folder,
+        };
+        if !ours || state.mods.iter().any(|(other, m)| other != id && m.folder == folder) {
+            return Err(Error::Manifest(format!("folder {folder:?} is not mod {id:?}")));
+        }
+
+        let jobs = [Job::new(&spec.package, &spec.id, &cache_dir(self.inst))];
+        let fetch = Prefetch::new(&jobs, spec.package.download_size(), self.cancel);
+        let on = Mutex::new(on);
+        let emit = |e: Event| (on.lock().unwrap())(e);
+        let report = |r: Report| {
+            emit(match r {
+                Report::Bytes { done, total } => Event::Bytes { done, total },
+                Report::Retry { attempt, delay, error } => Event::Retry { attempt, delay_secs: delay.as_secs(), error },
+            })
+        };
+        emit(Event::Step { index: 1, total: 1, label: format!("Возврат опубликованной версии: {folder}") });
+        report(fetch.bytes());
+        let hashes = std::thread::scope(|scope| {
+            for _ in 0..prefetch::PARALLEL_DOWNLOADS {
+                scope.spawn(|| fetch.worker(self.downloader, &report));
+            }
+            let result = fetch.wait(0);
+            fetch.finish();
+            result
+        })
+        .and_then(|()| {
+            let staging = self.inst.root().join(".lyno").join("staging").join(&spec.id);
+            let paths = jobs[0].paths();
+            let hashes = package::unpack(&paths, &staging, &spec.package.hash)?;
+            for p in &paths {
+                let _ = std::fs::remove_file(p);
+            }
+            if keep_settings {
+                let record = files::load(self.inst, id, &installed.hash);
+                self::keep_settings(&dir, &staging, &hashes, record.as_ref())?;
+            }
+            // A renamed folder is the mod by `[LYNO] id`, which the published `meta.ini` may lack.
+            let meta_path = staging.join("meta.ini");
+            let meta = if meta_path.is_file() { meta::ModMeta::load(&meta_path)? } else { meta::ModMeta::default() };
+            if crate::publish::mod_id(folder, &meta) != id {
+                meta::ModMeta { lyno_id: Some(id.to_owned()), ..Default::default() }.save(&meta_path)?;
+            }
+            package::swap_folder(&staging, &dir)?;
+            Ok(hashes)
+        })?;
+        files::save(self.inst, &FileList::new(&spec.id, &spec.package.hash, &hashes))?;
+        let restored = InstalledMod { folder: folder.to_owned(), hash: spec.package.hash.clone(), damaged: false, reset_settings: false };
+        state.mods.insert(spec.id.clone(), restored);
+        state.save(&state_file)?;
+        emit(Event::Done);
+        Ok(())
+    }
+
     fn spec(&self, id: &str) -> Result<&ModSpec> {
         self.manifest
             .mod_specs()
