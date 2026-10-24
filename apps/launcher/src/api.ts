@@ -159,6 +159,8 @@ export interface Pending {
   /** Switched on or off: the build ships the author's state as the default. */
   toggled: string[];
   reordered: boolean;
+  /** Separators new to the build, renamed or recolored: titles. */
+  separators: string[];
   /** Under LYNO USER MODS: not shipped. */
   personal: string[];
 }

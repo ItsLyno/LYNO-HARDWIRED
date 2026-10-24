@@ -93,6 +93,8 @@ export function Mods() {
     r.kind === "mod"
       ? { kind: "mod", color: null, folder: r.name, label: r.name, id: null, nexusUrl: r.nexusUrl, installed: true, enabled: r.enabled, optional: false, removed: false, buildId: r.buildId, published: false, needs: needs.get(r.name) ?? [] }
       : { kind: "separator", color: r.color, folder: rowKey(r), label: r.title, id: null, nexusUrl: null, installed: true, enabled: true, optional: false, removed: false, buildId: null, published: false, needs: [] };
+  // The author changes the build's separators like the player their own: title and color, from the launcher.
+  const buildSeparator = (g: Group): Target => ({ kind: "separator", color: g.color, folder: `${g.title}_separator`, label: g.title!, id: null, nexusUrl: null, installed: true, enabled: true, optional: false, removed: false, buildId: null, published: false, needs: [] });
   const overwriteTarget: Target = { kind: "overwrite", color: null, folder: "overwrite", label: "Overwrite", id: null, nexusUrl: null, installed: true, enabled: true, optional: false, removed: false, buildId: null, published: false, needs: [] };
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
@@ -473,7 +475,9 @@ export function Mods() {
                     // A search shows every match, folded or not.
                     open={!!query.trim() || !collapsed.has(g.title)}
                     onToggle={() => toggleGroup(g.title!)}
-                    onPress={author ? (e) => startMove(e, { ...overwriteTarget, kind: "separator", folder: `${g.title}_separator`, label: g.title! }) : undefined}
+                    active={menu?.target.folder === `${g.title}_separator`}
+                    onMenu={author ? (x, y) => setMenu({ target: buildSeparator(g), x, y }) : undefined}
+                    onPress={author ? (e) => startMove(e, buildSeparator(g)) : undefined}
                   />
                 )}
                 {(!g.title || query.trim() || !collapsed.has(g.title)) && g.mods.map((m) => !isBuildMod(m) ? userRow(m) : (
@@ -944,7 +948,7 @@ function ModDialog({ dialog, onClose }: { dialog: Dialog; onClose: () => void })
     onClose();
     void run(async () => {
       await action();
-      await Promise.all([refreshUserMods(), t.id ? refreshBuild() : null]);
+      await Promise.all([refreshUserMods(), t.id || t.kind === "separator" ? refreshBuild() : null]);
     });
   };
   const newName = name.trim();
@@ -1033,8 +1037,8 @@ function ModDialog({ dialog, onClose }: { dialog: Dialog; onClose: () => void })
         void startRollback(t.id!, t.folder, keepSettings);
       },
     },
-    rename: { title: t.kind === "separator" ? "Переименовать разделитель" : "Переименовать мод", body: nameInput, confirm: "Переименовать", ok: submit },
-    separator: { title: "Новый разделитель", body: nameInput, confirm: "Добавить", ok: submit },
+    rename: { title: t.kind === "separator" ? "Переименовать разделитель" : "Переименовать мод", body: t.kind === "separator" ? <>{nameInput}{SEPARATOR_HINT}</> : nameInput, confirm: "Переименовать", ok: submit },
+    separator: { title: "Новый разделитель", body: <>{nameInput}{SEPARATOR_HINT}</>, confirm: "Добавить", ok: submit },
     toMod: {
       title: "Сделать модом",
       body: (
@@ -1377,6 +1381,13 @@ function SeparatorRow(props: {
     </tr>
   );
 }
+
+const SEPARATOR_HINT = (
+  <p className="text-[12px] text-muted">
+    «02 - Fixes - Engine» попадёт в раздел «Fixes» в сайдбаре вместе с соседними разделителями этого раздела. Номер в
+    начале держит порядок в MO2 и в сайдбаре не показывается.
+  </p>
+);
 
 const PRIORITY_HINT =
   "Порядок, в котором Mod Organizer 2 подключает моды. Если два мода меняют один и тот же файл, побеждает тот, что ниже в списке (с большим номером). Ваши моды всегда ниже сборки.";

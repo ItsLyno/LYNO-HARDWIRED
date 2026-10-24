@@ -181,6 +181,7 @@ function listLines(p: Pending): [string, string][] {
   if (p.removed.length > 0) lines.push([`Удалены (${p.removed.length})`, p.removed.join(", ")]);
   if (p.renamed.length > 0) lines.push([`Переименованы (${p.renamed.length})`, p.renamed.map(([a, b]) => `${a} → ${b}`).join(", ")]);
   if (p.toggled.length > 0) lines.push([`Включены или выключены (${p.toggled.length})`, p.toggled.join(", ")]);
+  if (p.separators.length > 0) lines.push([`Разделители (${p.separators.length})`, `новые, переименованы или другой цвет: ${p.separators.join(", ")}`]);
   if (p.reordered) lines.push(["Порядок", "изменён порядок модов или разделителей"]);
   return lines;
 }

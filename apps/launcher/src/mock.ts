@@ -138,6 +138,7 @@ const pending: Pending = {
   renamed: [["Nova LUT", "Nova LUT 2"]],
   toggled: ["HD Reworked Project"],
   reordered: true,
+  separators: ["04 - Visuals - Lighting & Weather"],
   personal: ["My Test Weapon"],
 };
 

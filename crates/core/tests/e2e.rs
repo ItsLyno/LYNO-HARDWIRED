@@ -780,6 +780,17 @@ fn author_releases_from_launcher_instance() {
     assert_eq!(check().damaged, []);
     assert!(inst.root().join("mods/My Test/archive/pc/mod/test.archive").exists());
 
+    // A separator recolored, another renamed (in MO2 or the launcher: its folder and list entry): changes of the build,
+    // not of its order.
+    lyno_core::meta::save_color(&inst.mods_dir().join("Core_separator/meta.ini"), Some("#ff3b5c")).unwrap();
+    lyno_core::mod_install::rename(&inst, "Extras_separator", "10 - Extras - Optional_separator").unwrap();
+    let p = pending(&inst, &m2).unwrap();
+    assert_eq!(p.separators, ["Core", "10 - Extras - Optional"], "{p:?}");
+    assert!(!p.reordered && !p.is_empty(), "{p:?}");
+    lyno_core::meta::save_color(&inst.mods_dir().join("Core_separator/meta.ini"), Some("#0393e1")).unwrap();
+    lyno_core::mod_install::rename(&inst, "10 - Extras - Optional_separator", "Extras_separator").unwrap();
+    assert_eq!(pending(&inst, &m2).unwrap(), Pending { personal: vec!["My Test".into()], ..Default::default() });
+
     // Rename (kept by `[LYNO] id=`), reorder and drop a mod.
     write(inst.root(), "mods/New Mod/meta.ini", b"[LYNO]\nid=new-mod\n");
     std::fs::rename(inst.mods_dir().join("New Mod"), inst.mods_dir().join("Newer Mod")).unwrap();
