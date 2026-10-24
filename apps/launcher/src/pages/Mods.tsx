@@ -97,10 +97,30 @@ export function Mods() {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const [collapsed, setCollapsed] = useState<Set<string>>(loadCollapsed);
+  // A category picked in the sidebar: the table shows only it instead of the whole list of hundreds of mods.
+  const [focus, setFocusState] = useState<string | null>(loadFocus);
+  const setFocus = (key: string | null) => {
+    setFocusState(key);
+    saveFocus(key);
+  };
   const [menu, setMenu] = useState<Menu | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const [current, setCurrent] = useState<string | null>(null);
   const [dialog, setDialog] = useState<Dialog | null>(null);
+  // Typing anywhere on the page searches, as in Explorer: a letter outside a text field goes to the search box.
+  // Space stays the list's switch, the rest of the keys their own.
+  const searchRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    const onType = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey || e.altKey || e.key.length !== 1 || e.key === " ") return;
+      const t = e.target as HTMLElement | null;
+      if (t?.closest("input, textarea, select, [contenteditable=true]") || document.querySelector("[aria-modal=true], [role=menu]")) return;
+      // Focused during keydown, the box itself receives the character.
+      searchRef.current?.focus();
+    };
+    window.addEventListener("keydown", onType);
+    return () => window.removeEventListener("keydown", onType);
+  }, []);
   // Like MO2's list: a click selects a mod, Ctrl adds or takes one away, Shift a range of the rows shown.
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const anchor = useRef<string | null>(null);
@@ -138,18 +158,13 @@ export function Mods() {
     setCollapsed(next);
     saveCollapsed(next);
   };
-  // The sidebar opens a folded group and scrolls it under the table header.
-  const jump = (key: string) => {
-    if (collapsed.has(key)) toggleGroup(key);
-    requestAnimationFrame(() => {
-      const list = listRef.current;
-      const group = list?.querySelector<HTMLElement>(`tbody[data-group="${CSS.escape(key)}"]`);
-      if (!list || !group) return;
-      const top = list.scrollTop + group.getBoundingClientRect().top - list.getBoundingClientRect().top - HEADER_PX;
-      list.scrollTo({ top, behavior: "smooth" });
-    });
+  // The sidebar shows a category on its own, unfolded, from its top; `null`: the whole list.
+  const pick = (key: string | null) => {
+    if (key && collapsed.has(key)) toggleGroup(key);
+    setFocus(key);
+    listRef.current?.scrollTo({ top: 0 });
   };
-  // The group under the table header is the one highlighted in the sidebar.
+  // In the whole list, the group under the table header is the one marked in the sidebar.
   const trackCurrent = () => {
     const list = listRef.current;
     if (!list) return;
@@ -248,18 +263,8 @@ export function Mods() {
   const userSeps = userGroups.slice(1).filter((g) => g.mods.length > 0 || (!q && filter === "all"));
   // An archive from the downloads opens folded groups to land in; a moved row doesn't: the list would jump under the pointer.
   const expand = dropping && !drag?.move;
-  const userOpen = !!q || expand || !collapsed.has(USER_SEPARATOR);
   const groupOpen = (key: string) => !!q || expand || !collapsed.has(key);
   const userModsShown = shownUser.filter((r) => r.kind === "mod").length;
-  // The row a drop at the end of the list lands under: the last one shown.
-  const lastUser = [userGroups[0], ...userSeps].reverse().find((g) => g.sep || g.mods.length > 0);
-  const endKey = !lastUser
-    ? USER_SEPARATOR
-    : lastUser.sep && !groupOpen(rowKey(lastUser.sep))
-      ? rowKey(lastUser.sep)
-      : lastUser.mods.length > 0
-        ? lastUser.mods[lastUser.mods.length - 1].name
-        : rowKey(lastUser.sep!);
   // Like MO2, overwrite/ is the last row of the list: above every mod.
   const showOverwrite = !!overwrite && overwrite.files > 0 && filter === "all" && !q;
   const showUser = (shownUser.length > 0 || dropping || showOverwrite) && filter !== "changes";
@@ -304,7 +309,23 @@ export function Mods() {
     ...(showUser ? [{ key: USER_SEPARATOR, title: isBuild ? "Мои моды" : "Моды", color: null, count: userModsShown }] : []),
     ...(showUser ? userSeps.map((g) => ({ key: rowKey(g.sep!), title: g.sep!.title, color: g.sep!.color, count: g.mods.length })) : []),
   ];
-  const active = nav.some((n) => n.key === current) ? current : nav[0]?.key;
+  // A category left out by a filter or search shows the whole list again; so does an archive dragged in from
+  // the downloads, which may land anywhere in the player's section.
+  const view = focus && nav.some((n) => n.key === focus) && !expand ? focus : null;
+  // A player's separator on its own needs its section open.
+  const userOpen = !!q || expand || (view !== null && view !== USER_SEPARATOR) || !collapsed.has(USER_SEPARATOR);
+  const userHead = view === null || view === USER_SEPARATOR;
+  const userSepShown = (key: string) => userHead || view === key;
+  // The row a drop at the end of the list lands under: the last one shown.
+  const lastUser = [userGroups[0], ...userSeps].reverse().find((g) => g.sep || g.mods.length > 0);
+  const endKey = !lastUser
+    ? USER_SEPARATOR
+    : lastUser.sep && !groupOpen(rowKey(lastUser.sep))
+      ? rowKey(lastUser.sep)
+      : lastUser.mods.length > 0
+        ? lastUser.mods[lastUser.mods.length - 1].name
+        : rowKey(lastUser.sep!);
+  const active = view ?? (nav.some((n) => n.key === current) ? current : null);
   const allFolded = nav.length > 0 && nav.every((n) => collapsed.has(n.key));
   const line = (key: string) => (lineAfter === key || (lineAfter === "end" && key === endKey) ? DROP_LINE : "");
 
@@ -348,8 +369,19 @@ export function Mods() {
             <Search size={15} className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-faint" />
             <input
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Поиск по названию"
+              ref={searchRef}
+              onKeyDown={(e) => {
+                // Esc empties the search and gives the keys back to the list.
+                if (e.key !== "Escape") return;
+                setQuery("");
+                listRef.current?.focus();
+              }}
+              onChange={(e) => {
+                // A search looks through the whole list; the sidebar then narrows it down to a category.
+                if (!query && e.target.value) setFocus(null);
+                setQuery(e.target.value);
+              }}
+              placeholder="Поиск: просто начните печатать"
               spellCheck={false}
               className="h-9 w-full rounded-full bg-surface pr-4 pl-9 text-sm outline-none placeholder:text-faint focus:ring-1 focus:ring-neon/50"
             />
@@ -398,7 +430,7 @@ export function Mods() {
         <aside className="panel flex w-80 shrink-0 flex-col overflow-hidden">
           <div className="label flex h-9 shrink-0 items-center justify-between border-b border-line pr-2 pl-4">
             <span className="font-medium">Категории</span>
-            {nav.length > 0 && (
+            {nav.length > 0 && view === null && (
               <button
                 onClick={() => setAllCollapsed(allFolded ? [] : nav.map((n) => n.key))}
                 className="rounded-full px-2 py-0.5 text-[12px] text-muted transition-colors hover:bg-raised hover:text-fg"
@@ -408,14 +440,26 @@ export function Mods() {
             )}
           </div>
           <nav className="min-h-0 flex-1 overflow-y-auto py-1.5">
+            {nav.length > 0 && (
+              <button
+                onClick={() => pick(null)}
+                className={`mb-1 flex h-8 w-full items-center gap-2.5 px-4 text-left text-[13px] font-medium transition-colors hover:bg-raised/60 hover:text-fg ${
+                  view === null ? "bg-raised text-fg" : "text-fg/80"
+                }`}
+              >
+                <span className="h-3.5 w-1 shrink-0 rounded-full bg-neon" />
+                <span className="min-w-0 flex-1 truncate">{q || filter !== "all" ? "Все найденные" : "Все моды"}</span>
+                <span className="font-mono text-[11px] text-muted tabular-nums">{shown + userModsShown}</span>
+              </button>
+            )}
             {nav.map((n) => (
               <button
                 key={n.key}
-                onClick={() => jump(n.key)}
+                onClick={() => pick(n.key)}
                 title={n.title}
                 className={`flex h-8 w-full items-center gap-2.5 px-4 text-left text-[13px] transition-colors hover:bg-raised/60 hover:text-fg ${
-                  active === n.key ? "bg-raised text-fg" : "text-fg/80"
-                } ${collapsed.has(n.key) && !q ? "opacity-70" : ""}`}
+                  view === n.key ? "bg-raised text-fg" : active === n.key ? "bg-raised/40 text-fg" : "text-fg/80"
+                } ${collapsed.has(n.key) && !q && view === null ? "opacity-70" : ""}`}
               >
                 <span className="h-3.5 w-1 shrink-0 rounded-full" style={{ background: n.color ?? "var(--color-line)" }} />
                 <span className="min-w-0 flex-1 truncate">{n.title}</span>
@@ -433,7 +477,8 @@ export function Mods() {
           onScroll={trackCurrent}
           onKeyDown={onKey}
           tabIndex={0}
-          data-drop-zone
+          // A row moved within one category on its own: the empty space below isn't the end of the whole list.
+          data-drop-zone={view === null || !drag?.move ? "" : undefined}
           className={`panel min-h-0 flex-1 overflow-y-auto outline-none transition-shadow ${dropping ? "ring-1 ring-neon/40" : ""}`}
         >
           <table className="w-full table-fixed text-left select-none">
@@ -455,7 +500,7 @@ export function Mods() {
                 <th className="pr-5" />
               </tr>
             </thead>
-            {groups.map((g, i) => (
+            {groups.filter((g) => view === null || g.title === view).map((g, i) => (
               <tbody key={g.title ?? `group-${i}`} data-group={g.title ?? undefined}>
                 {g.title && (
                   <SeparatorRow
@@ -529,7 +574,7 @@ export function Mods() {
                 ))}
               </tbody>
             ))}
-            {showUser && (
+            {showUser && userHead && (
               <tbody data-group={USER_SEPARATOR}>
                 <SeparatorRow
                   title={isBuild ? "Мои моды" : "Моды"}
@@ -553,7 +598,7 @@ export function Mods() {
             )}
             {showUser &&
               userOpen &&
-              userSeps.map((g) => {
+              userSeps.filter((g) => userSepShown(rowKey(g.sep!))).map((g) => {
                 const key = rowKey(g.sep!);
                 const target = userTarget(g.sep!);
                 return (
@@ -574,7 +619,7 @@ export function Mods() {
                   </tbody>
                 );
               })}
-            {showUser && userOpen && showOverwrite && (
+            {showUser && userOpen && userHead && showOverwrite && (
               <tbody>
                 <tr
                   onClick={(e) => openMenu(e, overwriteTarget)}
@@ -1321,7 +1366,8 @@ function PriorityCell({ n }: { n?: number }) {
 }
 
 const COLLAPSED_KEY = "mods.collapsed";
-/** Height of the sticky table header (`h-9`): separators stick under it, jumps land under it. */
+const FOCUS_KEY = "mods.focus";
+/** Height of the sticky table header (`h-9`): separators stick under it, the sidebar marks the group under it. */
 const HEADER_PX = 36;
 
 function loadCollapsed(): Set<string> {
@@ -1337,6 +1383,23 @@ function saveCollapsed(titles: Set<string>) {
     localStorage.setItem(COLLAPSED_KEY, JSON.stringify([...titles]));
   } catch {
     // Folding is a convenience; losing it is fine.
+  }
+}
+
+function loadFocus(): string | null {
+  try {
+    return localStorage.getItem(FOCUS_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function saveFocus(key: string | null) {
+  try {
+    if (key === null) localStorage.removeItem(FOCUS_KEY);
+    else localStorage.setItem(FOCUS_KEY, key);
+  } catch {
+    // Like folding: a convenience.
   }
 }
 
