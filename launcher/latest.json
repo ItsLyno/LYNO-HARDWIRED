@@ -1,11 +1,11 @@
 {
-  "version": "0.7.9",
-  "notes": "Режим автора: «Вернуть опубликованную версию» в меню мода — откат мода сборки к версии с GitHub поверх правок или обновления с Nexus",
-  "pub_date": "2026-10-24T10:06:29Z",
+  "version": "0.8.0",
+  "notes": "Добавлена проверка версии игры. Разбор логов после выхода из игры и история списка модов",
+  "pub_date": "2026-10-24T12:42:11Z",
   "platforms": {
     "windows-x86_64": {
-      "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/launcher-v0.7.9/LYNO-HARDWIRED_0.7.9_x64-setup.exe",
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUejR0VmZ4WmllZkoxRWROa2xBVDE1RXZpaTZ6NE9RQW5wL21WKzFkWGlxaUtNU3A5b2xVeml4Mm82VUJBUEkyM1FrT3ROOWdMUzJZU1BIeXpYRzdISnMrdnpNVmJaNlFvPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyODM2Mzg5CWZpbGU6TFlOTyBIQVJEV0lSRURfMC43LjlfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjAuNy45CldsTmhXbGx1cERENmt0ZVZtSEpjMHJIK1Nsd1FLb1JnL3BCZm5SOHJHbmY5VmZXdGo4TUNvMGdqL2tkME5FdmVUWTJBbkkzZWttSmlTRG1XUktZdEJBPT0K"
+      "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/launcher-v0.8.0/LYNO-HARDWIRED_0.8.0_x64-setup.exe",
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUejR0VmZ4WmllZlBmYXhjNVFNU3dFMmc0VXJGNGY4RG1tY2V6c0tXZEJsOGZ4VTlmOEZXamZybmhqY2hGcGZKUU9zNzBrL2ErS0RTc29zSjd4SkdRaG9LRDhvWGJhNUEwPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyODQ1NzMxCWZpbGU6TFlOTyBIQVJEV0lSRURfMC44LjBfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjAuOC4wCk9yY3AvMmpmclliSzVoQmdhem9PQ0Rqdm5YTHIvRloxd3dJLysxUE1RY1Z1MlJRVFpsVmZkVzJEczFYeVZwK3Rqc21sdE1CdDU1T09WS3ViMktwa0JBPT0K"
     }
   }
 }
