@@ -6,6 +6,7 @@
 
 pub mod archive;
 pub mod author;
+pub mod diagnose;
 pub mod download;
 pub mod error;
 pub mod files;
@@ -14,6 +15,7 @@ pub mod game;
 pub mod github;
 pub mod hash;
 pub mod hash_cache;
+pub mod history;
 pub mod install;
 pub mod manifest;
 pub mod meta;

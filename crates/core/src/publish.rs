@@ -193,6 +193,15 @@ pub fn build(
         warnings.push("no core mods ([LYNO] core=true on a separator or a mod): players can switch off every mod".into());
     }
     warnings.extend(overwrite_warning(&inst.overwrite_dir())?);
+    let game_exe = inst.game_path().and_then(|d| crate::game::exe_version(&d)).map(|v| v.patch());
+    if let Some(exe) = &game_exe {
+        if crate::game::compare_patch(exe, &opts.game_version) != Some(std::cmp::Ordering::Equal) {
+            warnings.push(format!(
+                "game version {:?} given, but the game this instance runs is patch {exe}: players are checked against {exe}",
+                opts.game_version
+            ));
+        }
+    }
     packer.cache.save()?;
     let Packer { assets, repacked, .. } = packer;
     remove_stray_files(&opts.out_dir, &assets)?;
@@ -202,6 +211,7 @@ pub fn build(
         name: opts.name.clone(),
         build_version: opts.build_version.clone(),
         game_version: opts.game_version.clone(),
+        game_exe,
         mo2_version: opts.mo2_version.clone(),
         profile: opts.profile.clone(),
         redmod,

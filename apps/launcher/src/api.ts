@@ -39,6 +39,53 @@ export interface Status {
   gameRunning: boolean;
   mo2Running: boolean;
   updating: boolean;
+  /** Patch of the player's Cyberpunk2077.exe. */
+  gamePatch: string | null;
+  /** The installed build was made for another patch. */
+  gameMismatch: GameMismatch | null;
+}
+
+export interface GameMismatch {
+  /** The build's patch. */
+  expected: string;
+  /** The player's; null when the exe's version doesn't read as a patch. */
+  found: string | null;
+  /** The game is newer than the build; null: unknown. */
+  newer: boolean | null;
+}
+
+/** Errors the frameworks logged in the game's last run. */
+export interface RunReport {
+  /** redscript didn't compile: no script mod worked. */
+  scriptsFailed: boolean;
+  problems: RunProblem[];
+}
+
+export interface RunProblem {
+  /** redscript, RED4ext, CET, a RED4ext plugin or "CET: <mod>". */
+  source: string;
+  /** Relative to overwrite/, as readOverwriteLog takes it. */
+  log: string;
+  /** The mod the errors point at. */
+  modFolder: string | null;
+  samples: string[];
+  count: number;
+  /** The same error in another run: what "don't show again" remembers. */
+  key: string;
+}
+
+/** A snapshot of the profile's mod list, taken before the launcher changed it. */
+export interface HistoryRow {
+  /** When it was taken, ms since epoch. */
+  id: number;
+  /** The change that came after it. */
+  label: string;
+  /** Changes right after that one, merged into it. */
+  more: number;
+  build: string | null;
+  diff: { switched: number; off: number; gone: number; moved: boolean };
+  /** Why it can't come back. */
+  blocked: string | null;
 }
 
 export interface ChangelogEntry {
@@ -79,6 +126,20 @@ export interface LastUpdate {
   to: string;
   /** Folder names of mods the update removed. */
   removed: string[];
+  /** The player's copies of mods the update brought into the build: switched off, still on disk. */
+  ownCopies: OwnCopy[];
+}
+
+export interface OwnCopy {
+  /** The build mod. */
+  id: string;
+  title: string;
+  /** The player may switch the build's off and keep theirs. */
+  optional: boolean;
+  /** The player's folder. */
+  folder: string;
+  /** It had the build mod's folder name and was renamed to make way. */
+  renamedFrom: string | null;
 }
 
 export type Folder = "instance" | "game" | "saves" | "logs" | "downloads" | "overwrite";
@@ -492,6 +553,11 @@ export const api = isTauri()
       openModFolder: (id: string) => invoke<void>("open_mod_folder", { id }),
       openFolder: (folder: Folder) => invoke<void>("open_folder", { folder }),
       launchGame: () => invoke<void>("launch_game", { executable: null }),
+      /** Once the game has closed: errors in its logs; null when none or no run was seen. */
+      lastRun: () => invoke<RunReport | null>("last_run"),
+      modlistHistory: () => invoke<HistoryRow[]>("modlist_history"),
+      /** Order and on/off of the snapshot back into the profile's list; needs MO2 closed. */
+      modlistRestore: (id: number) => invoke<void>("modlist_restore", { id }),
       /** Another of MO2's executables, by title. */
       launchExecutable: (executable: string) => invoke<void>("launch_game", { executable }),
       /** MO2's executables besides the game the play button starts. */

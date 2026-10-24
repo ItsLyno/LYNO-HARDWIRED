@@ -105,6 +105,17 @@ impl Instance {
         })
     }
 
+    /// `gamePath` of `ModOrganizer.ini`: the game the instance runs.
+    pub fn game_path(&self) -> Option<PathBuf> {
+        let text = std::fs::read_to_string(self.ini_path()).ok()?;
+        text.lines().find_map(|l| {
+            let v = l.trim().strip_prefix("gamePath=")?;
+            let v = v.strip_prefix("@ByteArray(").and_then(|v| v.strip_suffix(')')).unwrap_or(v);
+            let v = v.replace("\\\\", "/").replace('\\', "/");
+            (!v.is_empty()).then(|| PathBuf::from(v))
+        })
+    }
+
     /// Points the instance at the user's game folder.
     ///
     /// `ModOrganizer.ini` comes from the author's machine: besides

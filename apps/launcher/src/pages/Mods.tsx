@@ -4,6 +4,7 @@ import { api, type ModRow, type Need, type UserRow } from "../api";
 import { Button } from "../components/Button";
 import { Chip } from "../components/Chip";
 import { LogViewer } from "../components/LogViewer";
+import { ModlistHistory } from "../components/ModlistHistory";
 import { pressToDrag } from "../components/DragGhost";
 import { Notices } from "../components/Notices";
 import { PageTitle } from "../components/PageTitle";
@@ -101,6 +102,7 @@ export function Mods() {
   const listRef = useRef<HTMLDivElement>(null);
   const [current, setCurrent] = useState<string | null>(null);
   const [dialog, setDialog] = useState<Dialog | null>(null);
+  const [history, setHistory] = useState(false);
   // Like MO2's list: a click selects a mod, Ctrl adds or takes one away, Shift a range of the rows shown.
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const anchor = useRef<string | null>(null);
@@ -357,6 +359,9 @@ export function Mods() {
           <div className="mx-1 h-5 w-px bg-line" />
           <Button variant="ghost" size="icon" disabled={reloading} title="Перечитать список модов с диска (F5)" onClick={() => void reload()}>
             <RotateCw size={15} className={reloading ? "animate-spin" : ""} />
+          </Button>
+          <Button variant="ghost" size="icon" title="История списка: вернуть порядок и включённость модов, как было раньше" onClick={() => setHistory(true)}>
+            <History size={15} />
           </Button>
           <Button
             variant="ghost"
@@ -616,6 +621,7 @@ export function Mods() {
           onClose={() => setMenu(null)}
         />
       )}
+      {history && <ModlistHistory locked={locked} lockReason={lockReason} onClose={() => setHistory(false)} onRestored={reload} />}
       {dialog?.kind === "logs" ? <LogViewer onClose={() => setDialog(null)} /> : dialog && <ModDialog dialog={dialog} onClose={() => setDialog(null)} />}
     </div>
   );

@@ -3,8 +3,10 @@ use std::process::Command;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
+use lyno_core::diagnose;
 use lyno_core::download::{Downloader, PartEvent};
 use lyno_core::game::{self, GameInstall};
+use lyno_core::history;
 use lyno_core::install::{self, Installer};
 use lyno_core::manifest::{ChangelogEntry, Manifest, ModEntry};
 use lyno_core::mo2::{self, Instance};
@@ -31,6 +33,14 @@ pub(crate) type CmdResult<T> = Result<T, String>;
 
 pub(crate) fn err(e: impl std::fmt::Display) -> String {
     e.to_string()
+}
+
+/// Remembers the profile's list before the launcher changes it (`history`). Only logged when it
+/// fails: the change the player asked for matters more than its undo.
+pub(crate) fn snapshot(inst: &Instance, profile: &str, label: &str, merge: bool) {
+    if let Err(e) = history::record(inst, profile, label, merge) {
+        log::warn!("modlist snapshot of {profile:?}: {e}");
+    }
 }
 
 /// Manifest of the installed build, saved after every successful update.
@@ -100,6 +110,26 @@ pub struct Status {
     game_running: bool,
     mo2_running: bool,
     updating: bool,
+    /// The patch of the player's `Cyberpunk2077.exe`.
+    game_patch: Option<String>,
+    /// The installed build was made for another patch.
+    game_mismatch: Option<game::GameMismatch>,
+}
+
+/// `get_status` runs every few seconds; the exe is read again only when it changes (a game update).
+fn exe_version(game_dir: &Path) -> Option<game::ExeVersion> {
+    type Key = (PathBuf, u64, Option<std::time::SystemTime>);
+    static CACHE: std::sync::Mutex<Option<(Key, Option<game::ExeVersion>)>> = std::sync::Mutex::new(None);
+    let meta = std::fs::metadata(game::exe_path(game_dir)).ok()?;
+    let key = (game_dir.to_owned(), meta.len(), meta.modified().ok());
+    let mut cache = CACHE.lock().unwrap();
+    if let Some((_, v)) = cache.as_ref().filter(|(k, _)| *k == key) {
+        return *v;
+    }
+    let version = game::exe_version(game_dir);
+    log::info!("game exe {}: {version:?}", game::exe_path(game_dir).display());
+    *cache = Some((key, version));
+    version
 }
 
 #[tauri::command]
@@ -109,7 +139,17 @@ pub fn get_status(state: TauriState<'_, AppState>) -> Status {
     let list = ModList::load(&inst.modlist_path(&profile(&inst))).ok();
     let installed = State::load(&install::state_path(&inst)).unwrap_or_default();
     let (game_running, mo2_running) = running_processes();
+    if game_running {
+        // Started from MO2 itself: the logs it writes at start are a few seconds older than this poll.
+        let mut launch = state.last_launch.lock().unwrap();
+        launch.get_or_insert_with(|| std::time::SystemTime::now() - std::time::Duration::from_secs(15));
+    }
+    let exe = settings.game_dir.as_deref().filter(|d| game::is_game_dir(d)).and_then(exe_version);
+    let built_for = install::has_build(&inst).then(|| installed_manifest(&inst)).flatten();
+    let game_mismatch = exe.as_ref().zip(built_for).and_then(|(exe, m)| game::check(&m.game_version, m.game_exe.as_deref(), exe));
     Status {
+        game_patch: exe.map(|v| v.patch()),
+        game_mismatch,
         mo2_installed: inst.is_installed(),
         game_found: settings.game_dir.as_deref().is_some_and(game::is_game_dir),
         game_dir: settings.game_dir,
@@ -151,6 +191,21 @@ pub struct LastUpdateInfo {
     to: String,
     /// Folder names of mods the update removed.
     removed: Vec<String>,
+    /// The player's copies of mods the update brought into the build, switched off (still on disk).
+    own_copies: Vec<OwnCopyInfo>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OwnCopyInfo {
+    /// The build mod.
+    id: String,
+    title: String,
+    /// The player may switch the build's off and keep theirs.
+    optional: bool,
+    /// The player's folder.
+    folder: String,
+    renamed_from: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -391,7 +446,22 @@ pub async fn fetch_build(app: AppHandle) -> CmdResult<Option<BuildInfo>> {
         downloaded,
         online,
         last_update: last_update.and_then(|u| {
-            Some(LastUpdateInfo { from: u.from.clone()?, to: u.to.clone(), removed: u.removed.clone() })
+            let own_copies = u
+                .own_copies
+                .iter()
+                .filter(|c| inst.mods_dir().join(&c.folder).is_dir())
+                .filter_map(|c| {
+                    let spec = manifest.mod_specs().find(|m| m.id == c.id)?;
+                    Some(OwnCopyInfo {
+                        id: c.id.clone(),
+                        title: spec.title.clone().unwrap_or_else(|| spec.name.clone()),
+                        optional: spec.optional,
+                        folder: c.folder.clone(),
+                        renamed_from: c.renamed_from.clone(),
+                    })
+                })
+                .collect();
+            Some(LastUpdateInfo { from: u.from.clone()?, to: u.to.clone(), removed: u.removed.clone(), own_copies })
         }),
     }))
 }
@@ -457,9 +527,6 @@ pub fn start_update(app: AppHandle) -> CmdResult<()> {
                     lyno_core::Error::Download(_) => format!(
                         "Не удалось скачать сборку: {e}. Скачанное сохранено — следующее обновление продолжит с того же места."
                     ),
-                    lyno_core::Error::FolderTaken(folder) => format!(
-                        "В сборке появился мод «{folder}», а у вас уже есть свой мод с таким названием. Переименуйте свой и обновите сборку снова."
-                    ),
                     e => e.to_string(),
                 };
                 Finished { ok: false, error: Some(error) }
@@ -474,6 +541,12 @@ fn run_update(app: &AppHandle, manifest: &Manifest, settings: &Settings, cancel:
     let inst = Instance::new(&settings.instance_dir);
     let current = ModList::load(&inst.modlist_path(&manifest.profile)).unwrap_or_default();
     let state = install::load_state(&inst, manifest, &current)?;
+    let label = match &state.build_version {
+        Some(v) if *v == manifest.build_version => "Перед восстановлением сборки".to_owned(),
+        Some(_) => format!("Перед обновлением сборки до {}", manifest.build_version),
+        None => "Перед установкой сборки".to_owned(),
+    };
+    snapshot(&inst, &manifest.profile, &label, false);
     let plan = plan::plan(manifest, &state, &current);
 
     let downloader = Downloader::new();
@@ -646,6 +719,8 @@ pub fn set_mod_enabled(state: TauriState<'_, AppState>, id: String, enabled: boo
         log::warn!("set_mod_enabled {id}: {e}");
         "Этот мод нельзя переключить: обновите сборку".to_owned()
     })?;
+    let folder = installed.mods.get(&id).map_or(id.as_str(), |m| m.folder.as_str());
+    snapshot(&inst, &profile(&inst), &switch_label(folder, enabled), true);
     list.save(&path).map_err(err)?;
     log::info!("mod {id} {}", if enabled { "enabled" } else { "disabled" });
     Ok(())
@@ -759,6 +834,16 @@ pub fn user_mods(state: TauriState<'_, AppState>) -> CmdResult<Vec<UserRow>> {
     Ok(rows)
 }
 
+/// A folder as the list shows it: a separator by its title.
+fn shown(folder: &str) -> String {
+    let e = Entry::enabled(folder);
+    e.separator_title().unwrap_or(folder).to_owned()
+}
+
+fn switch_label(folder: &str, enabled: bool) -> String {
+    format!("Перед {} «{folder}»", if enabled { "включением" } else { "выключением" })
+}
+
 /// Switches a mod of the player's own section on or off.
 #[tauri::command]
 pub fn set_user_mod_enabled(state: TauriState<'_, AppState>, folder: String, enabled: bool) -> CmdResult<()> {
@@ -780,6 +865,7 @@ pub fn set_user_mod_enabled(state: TauriState<'_, AppState>, folder: String, ena
         .find(|e| e.name == folder && !e.is_separator() && e.state != EntryState::Unmanaged && (settings.author_mode || !installed.is_managed_folder(&e.name)))
         .ok_or("Это не ваш мод: моды сборки включаются в её списке")?;
     entry.state = if enabled { EntryState::Enabled } else { EntryState::Disabled };
+    snapshot(&inst, &profile(&inst), &switch_label(&folder, enabled), true);
     list.save(&path).map_err(err)?;
     log::info!("user mod {folder:?} {}", if enabled { "enabled" } else { "disabled" });
     Ok(())
@@ -830,9 +916,77 @@ fn editable(state: &AppState) -> CmdResult<Instance> {
     Ok(Instance::new(&state.settings.lock().unwrap().instance_dir))
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HistoryRow {
+    id: u64,
+    label: String,
+    more: u32,
+    build: Option<String>,
+    diff: history::Diff,
+    /// Why it can't come back.
+    blocked: Option<String>,
+}
+
+/// A list from before a build update holds the old build's section: going back to it would
+/// undo the update in the list only. The author's list is theirs, the player's own MO2 too.
+fn snapshot_blocked(build_instance: bool, snapshot: &history::Snapshot, installed: &State) -> Option<String> {
+    let other = build_instance && snapshot.build != installed.build_version;
+    other.then(|| match &snapshot.build {
+        Some(v) => format!("Список сборки {v}: после обновления сборки его не вернуть"),
+        None => "Список до установки сборки: его не вернуть".to_owned(),
+    })
+}
+
+/// The profile's list snapshots, newest first, with what going back would change.
+#[tauri::command]
+pub fn modlist_history(state: TauriState<'_, AppState>) -> CmdResult<Vec<HistoryRow>> {
+    let settings = state.settings.lock().unwrap().clone();
+    let inst = Instance::new(&settings.instance_dir);
+    let profile = profile(&inst);
+    let current = ModList::load(&inst.modlist_path(&profile)).unwrap_or_default();
+    let installed = State::load(&install::state_path(&inst)).unwrap_or_default();
+    let build = install::has_build(&inst) && !settings.author_mode;
+    Ok(history::list(&inst, &profile)
+        .into_iter()
+        .map(|s| HistoryRow {
+            blocked: snapshot_blocked(build, &s, &installed),
+            diff: history::diff(&inst, &s, &current),
+            id: s.id,
+            label: s.label,
+            more: s.more,
+            build: s.build,
+        })
+        .collect())
+}
+
+/// Puts a snapshot's order and on/off back; the list before that becomes a snapshot itself.
+#[tauri::command]
+pub fn modlist_restore(state: TauriState<'_, AppState>, id: u64) -> CmdResult<()> {
+    let inst = editable(&state)?;
+    let author = state.settings.lock().unwrap().author_mode;
+    let profile = profile(&inst);
+    let installed = State::load(&install::state_path(&inst)).map_err(err)?;
+    let build = install::has_build(&inst) && !author;
+    let snap = history::list(&inst, &profile).into_iter().find(|s| s.id == id).ok_or("Этого снимка уже нет")?;
+    if let Some(why) = snapshot_blocked(build, &snap, &installed) {
+        return Err(why);
+    }
+    let manifest = build.then(|| installed_manifest(&inst)).flatten();
+    if build && manifest.is_none() {
+        return Err("Сборка не установлена".into());
+    }
+    let list = history::restored(&inst, &profile, id, manifest.as_ref().map(|m| (m, &installed))).map_err(err)?;
+    snapshot(&inst, &profile, "Перед возвратом списка", false);
+    list.save(&inst.modlist_path(&profile)).map_err(err)?;
+    log::info!("modlist of {profile:?} restored to snapshot {id} ({:?})", snap.label);
+    Ok(())
+}
+
 #[tauri::command]
 pub fn delete_mod(state: TauriState<'_, AppState>, folder: String) -> CmdResult<()> {
     let inst = own_mod(&state, &folder)?;
+    snapshot(&inst, &profile(&inst), &format!("Перед удалением «{}»", shown(&folder)), true);
     lyno_core::mod_install::remove(&inst, &folder).map_err(|e| {
         log::error!("delete mod {folder:?}: {e}");
         format!("Не удалось удалить мод: {e}")
@@ -889,6 +1043,7 @@ pub fn move_user_mod(state: TauriState<'_, AppState>, folder: String, after: Opt
     if !moved {
         return Err("Перетаскивать можно только ваши моды: порядок сборки задаёт её автор".into());
     }
+    snapshot(&inst, &profile(&inst), &format!("Перед перемещением «{}»", shown(&folder)), true);
     list.save(&path).map_err(err)?;
     log::info!("moved {folder:?} below {after:?}");
     Ok(())
@@ -1063,9 +1218,26 @@ pub fn launch_game(state: TauriState<'_, AppState>, executable: Option<String>) 
     }
     inst.set_game_path(game_dir).map_err(err)?;
     let profile = profile(&inst);
+    snapshot(&inst, &profile, "Перед запуском игры", false);
     let executable = executable.unwrap_or_else(|| mo2::game_executable(redmod).to_owned());
     log::info!("launching {executable:?} (profile {profile}, REDmod {redmod})");
-    spawn_mo2(&inst, &mo2::run_args(&profile, &executable))
+    spawn_mo2(&inst, &mo2::run_args(&profile, &executable))?;
+    if executable == mo2::game_executable(redmod) {
+        *state.last_launch.lock().unwrap() = Some(std::time::SystemTime::now());
+    }
+    Ok(())
+}
+
+/// Errors the frameworks logged in the game's last run, once it is over; the next run starts afresh.
+#[tauri::command]
+pub async fn last_run(app: AppHandle) -> CmdResult<Option<diagnose::RunReport>> {
+    let state = app.state::<AppState>();
+    let Some(since) = state.last_launch.lock().unwrap().take() else { return Ok(None) };
+    let inst = Instance::new(&state.settings.lock().unwrap().instance_dir);
+    let profile = profile(&inst);
+    let report = tauri::async_runtime::spawn_blocking(move || diagnose::last_run(&inst, &profile, since)).await.map_err(err)?;
+    log::info!("last run: scripts failed {}, {} problem(s)", report.scripts_failed, report.problems.len());
+    Ok(Some(report).filter(|r| !r.is_empty()))
 }
 
 #[tauri::command]
@@ -1271,6 +1443,7 @@ pub async fn export_report(app: AppHandle) -> CmdResult<PathBuf> {
          OS: {os}\n\
          Instance: {instance} (MO2 installed: {mo2})\n\
          Game: {game} (found: {found}, REDmod: {redmod})\n\
+         Game exe: {exe}\n\
          Manifest URL: {url}\n\
          Installed build: {installed}\n\
          Latest build: {latest}\n\
@@ -1282,6 +1455,10 @@ pub async fn export_report(app: AppHandle) -> CmdResult<PathBuf> {
         game = game_dir.map_or_else(|| "not set".into(), |d| d.display().to_string()),
         found = yes_no(game_dir.is_some_and(game::is_game_dir)),
         redmod = yes_no(game_dir.is_some_and(game::has_redmod)),
+        exe = game_dir.and_then(game::exe_version).map_or_else(
+            || "unknown".into(),
+            |v| format!("patch {} (product {:?}, file {:?})", v.patch(), v.product, v.file)
+        ),
         url = settings.manifest_url,
         installed = installed.build_version.as_deref().unwrap_or("none"),
         latest = latest.map_or_else(|| "not fetched".into(), |(v, g)| format!("{v} (game {g})")),

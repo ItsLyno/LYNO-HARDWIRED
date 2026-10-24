@@ -33,6 +33,9 @@ Core modules: `publish.rs` (author side: build manifest, reuse unchanged package
 `prefetch.rs` (parallel part downloads running ahead of `install`), `download.rs` (one part: resume, retries),
 `verify.rs` (integrity check; repair = flags in `state.json` that `plan` turns into `Repair` actions),
 `files.rs` (per-file hashes recorded at unpack, `.lyno/files/`; launcher-local, not in the manifest), `report.rs` (diagnostic zip),
+`diagnose.rs` (errors in the frameworks' logs of the last run, mapped to the mod they point at), `history.rs` (snapshots of
+`modlist.txt` before the launcher changes it, `.lyno/history/`; restore puts back order and on/off, build section by the build),
+`game.rs` (finding the game; `exe_version`: the patch from `Cyberpunk2077.exe`'s version resource, checked against `Manifest.game_exe`),
 `package.rs` (tar.zst split into ≤1.9 GB parts), `tree.rs` (tree hash), `rules.rs`
 (which files ship and which are hashed), `mo2.rs`, `modlist.rs`, `meta.rs`, `state.rs`.
 
@@ -81,8 +84,12 @@ updater reads. Launcher logs go through `log::` macros to `tauri-plugin-log`.
   player's, wherever it stands. Their mods and separators live under the `LYNO USER MODS`
   separator (`plan::USER_SEPARATOR`), over the whole build; updates move strays from the
   build section there (`plan::target_modlist`), only their own version of an optional
-  build mod keeps that mod's place. A build mod never installs over a folder of theirs
-  (`Error::FolderTaken`). `build` never ships what is
+  build mod keeps that mod's place. A build mod never installs over a folder of theirs:
+  when an update brings a mod they already have, the build's version wins and theirs stays on
+  disk, switched off (`state.last_update.own_copies`): a folder of the build mod's name moves to
+  `<name> (ваш)` first (`Installer::move_aside`), the same Nexus mod sharing files is found by
+  `Installer::own_copies`. Only on the update that brings the mod; switched back on, it stays on.
+  `build` never ships what is
   under it: the author may build from a launcher instance with personal mods
   (for the author, a mod in the build section is the next release).
 - **The author's disk is the bottleneck** of `lyno-pack` (hundreds of mods,

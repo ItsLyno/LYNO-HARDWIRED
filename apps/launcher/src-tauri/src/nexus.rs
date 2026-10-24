@@ -32,7 +32,7 @@ use lyno_core::tracking::{self, Cache, Need, Status, Tracked};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, State as TauriState};
 
-use crate::commands::{err, installed_manifest, profile, running_processes, CmdResult};
+use crate::commands::{err, installed_manifest, profile, running_processes, snapshot, CmdResult};
 use crate::secrets::{self, Secret};
 use crate::AppState;
 
@@ -743,6 +743,7 @@ fn run_job(app: &AppHandle, job: &Job) -> lyno_core::Result<Result<Next, BuildMo
                 return Ok(Ok(Next::Parked(JobState::WaitingMo2)));
             }
             update_job(app, id, |j| j.state = JobState::Installing);
+            snapshot(&inst, &profile, &install_label(&download), true);
             let outcome = mod_install::install(&inst, &profile, &archive, &download, &target)?;
             return Ok(Ok(park(app, id, &inst, download, outcome)));
         }
@@ -751,6 +752,7 @@ fn run_job(app: &AppHandle, job: &Job) -> lyno_core::Result<Result<Next, BuildMo
         Work::Resume => {
             let p = parked()?;
             update_job(app, id, |j| j.state = JobState::Installing);
+            snapshot(&inst, &profile, &install_label(&p.download), true);
             let outcome = mod_install::install(&inst, &profile, &p.archive, &p.download, &p.target)?;
             return Ok(Ok(park(app, id, &inst, p.download.clone(), outcome)));
         }
@@ -758,15 +760,21 @@ fn run_job(app: &AppHandle, job: &Job) -> lyno_core::Result<Result<Next, BuildMo
             let p = parked()?;
             let fomod = p.fomod.as_ref().ok_or(lyno_core::Error::Cancelled)?;
             update_job(app, id, |j| j.state = JobState::Installing);
+            snapshot(&inst, &profile, &install_label(&p.download), true);
             mod_install::install_fomod(&inst, &profile, fomod, &p.download, &p.target, &choice)?
         }
         Work::Root(root) => {
             let p = parked()?;
             update_job(app, id, |j| j.state = JobState::Installing);
+            snapshot(&inst, &profile, &install_label(&p.download), true);
             mod_install::install_root(&inst, &profile, &p.archive, &p.download, &p.target, &root)?
         }
     };
     Ok(Ok(Next::Done(outcome)))
+}
+
+fn install_label(download: &Download) -> String {
+    format!("Перед установкой «{}»", download.folder())
 }
 
 /// Parks a job whose install stopped halfway; anything else is done.

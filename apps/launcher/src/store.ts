@@ -13,6 +13,7 @@ import {
   type NexusStatus,
   type OverwriteInfo,
   type RateLimit,
+  type RunReport,
   type Settings,
   type Status,
   type UpdateEvent,
@@ -84,6 +85,12 @@ interface AppStore {
   overwrite: OverwriteInfo | null;
   /** Files from Explorer are over the window; `outside`: not over the mod list. */
   fileOver: (DropSpot & { outside?: boolean }) | null;
+  /** Errors in the logs of the game's last run, not yet dismissed. */
+  runReport: RunReport | null;
+  /** The play button was pressed (ms since epoch); cleared once that run is looked at. */
+  launchedAt: number | null;
+  /** `forget`: the same errors don't show again after later runs. */
+  dismissRunReport: (forget: boolean) => void;
   setPage: (page: Page) => void;
   refreshStatus: () => Promise<void>;
   refreshBuild: () => Promise<void>;
@@ -126,6 +133,28 @@ interface AppStore {
   clearError: () => void;
 }
 
+/** MO2 deploys REDmod before the game window appears; longer than that without the game is a start that failed. */
+const LAUNCH_GIVE_UP_MS = 90_000;
+const SEEN_PROBLEMS = "lyno.seenProblems";
+const MAX_SEEN = 200;
+
+function seenProblems(): string[] {
+  try {
+    const v = JSON.parse(localStorage.getItem(SEEN_PROBLEMS) ?? "[]");
+    return Array.isArray(v) ? v : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveSeenProblems(keys: string[]) {
+  try {
+    localStorage.setItem(SEEN_PROBLEMS, JSON.stringify([...new Set(keys)].slice(-MAX_SEEN)));
+  } catch {
+    // Not remembered: they show again after the next run.
+  }
+}
+
 export const useApp = create<AppStore>((set, get) => ({
   page: "mods",
   settings: null,
@@ -156,11 +185,31 @@ export const useApp = create<AppStore>((set, get) => ({
   overwrite: null,
   fileOver: null,
   replaceAsks: [],
+  runReport: null,
+  launchedAt: null,
+  dismissRunReport: (forget) => {
+    const report = get().runReport;
+    if (forget && report) saveSeenProblems([...seenProblems(), ...report.problems.map((p) => p.key)]);
+    set({ runReport: null });
+  },
   setPage: (page) => set({ page }),
   refreshStatus: async () => {
     try {
+      const before = get().status;
       const [settings, status] = await Promise.all([api.getSettings(), api.getStatus()]);
       set({ settings, status });
+      // The game closed, or never showed up after the play button (it died at start): what its logs say.
+      const { launchedAt } = get();
+      const closed = !!before?.gameRunning && !status.gameRunning;
+      const gaveUp = launchedAt !== null && Date.now() - launchedAt > LAUNCH_GIVE_UP_MS && !status.gameRunning && !status.mo2Running;
+      if (closed || gaveUp) {
+        set({ launchedAt: null });
+        const report = await api.lastRun();
+        const seen = new Set(seenProblems());
+        // Errors the player chose not to see again stay hidden, unless scripts failed altogether.
+        const fresh = report && (report.scriptsFailed || report.problems.some((p) => !seen.has(p.key)));
+        if (fresh) set({ runReport: report });
+      }
     } catch (e) {
       set({ error: String(e) });
     }

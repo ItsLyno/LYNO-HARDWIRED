@@ -375,7 +375,7 @@ fn build_install_update() {
     write(&author, "mods/CET/bin/x64/plugins/cyber_engine_tweaks/cyber_engine_tweaks.log", b"log");
     write(&author, "mods/CET/r6/cache/final.redscripts", b"author's bundle");
     write(&author, "mods/LYNO Settings/red4ext/plugins/mod_settings/user.ini", b"build settings");
-    write(&author, "mods/LYNO Settings/meta.ini", b"[LYNO]\nid=lyno-settings\n");
+    write(&author, "mods/LYNO Settings/meta.ini", b"[General]\nmodid=900\n[LYNO]\nid=lyno-settings\n");
     write(&author, "overwrite/bin/x64/plugins/cyber_engine_tweaks/mods/x/settings.json", b"{}");
     std::fs::remove_file(author.join("plugins/old_plugin.py")).unwrap();
     let mut list = ModList::load(&author.join("profiles/LYNO/modlist.txt")).unwrap();
@@ -396,18 +396,24 @@ fn build_install_update() {
     assert_eq!(new_assets, ["archive", "base", "lyno"].map(String::from).into(), "{:?}", out2.assets);
     let repacked: Vec<_> = out2.repacked.iter().map(|r| (r.name.as_str(), r.changed)).collect();
     assert_eq!(repacked, [("base", true), ("Archive Mod", true), ("LYNO Settings", false)]);
-    assert_eq!(out2.warnings.len(), 3, "{:?}", out2.warnings);
+    assert_eq!(out2.warnings.len(), 2, "{:?}", out2.warnings);
     assert!(out2.warnings.iter().any(|w| w.contains("\"CET\": 2 generated file(s)")), "{:?}", out2.warnings);
     assert!(out2.warnings.iter().any(|w| w.starts_with("overwrite/ has 1 file(s)")), "{:?}", out2.warnings);
     let m2 = out2.manifest;
 
-    // The player has a mod of their own named as the build's new one: the update stops before it downloads or
-    // touches anything, and goes once the player renames theirs.
+    // The player already has the build's new mod, installed by themselves: once in a folder of the build mod's
+    // name, once from the same Nexus page under another name. The build's version wins: theirs are kept, switched
+    // off, the first renamed to make way. An addon from that page shares no files and stays on.
     write(&user_root, "mods/LYNO Settings/mine.txt", b"mine");
-    let (_, result) = try_install(&user, &m2);
-    assert!(matches!(result, Err(lyno_core::Error::FolderTaken(ref f)) if f == "LYNO Settings"), "{result:?}");
-    assert_eq!(std::fs::read(user_root.join("mods/LYNO Settings/mine.txt")).unwrap(), b"mine");
-    std::fs::rename(user_root.join("mods/LYNO Settings"), user_root.join("mods/My Settings")).unwrap();
+    write(&user_root, "mods/Settings From Nexus/meta.ini", b"[General]\nmodid=900\n");
+    write(&user_root, "mods/Settings From Nexus/red4ext/plugins/mod_settings/user.ini", b"older");
+    write(&user_root, "mods/Settings Addon/meta.ini", b"[General]\nmodid=900\n");
+    write(&user_root, "mods/Settings Addon/r6/tweaks/addon.yaml", b"addon");
+    let mut list = ModList::load(&user.modlist_path("LYNO")).unwrap();
+    for name in ["LYNO Settings", "Settings From Nexus", "Settings Addon"] {
+        list.entries.push(lyno_core::modlist::Entry::enabled(name));
+    }
+    list.save(&user.modlist_path("LYNO")).unwrap();
 
     requests.lock().unwrap().clear();
     let actions = install(&user, &m2);
@@ -440,8 +446,21 @@ fn build_install_update() {
     );
     assert!(user_root.join("mods/My Tweak/x.archive").exists());
     let list = ModList::load(&user.modlist_path("LYNO")).unwrap();
-    let tail: Vec<_> = list.entries.iter().rev().take(3).rev().map(|e| e.name.as_str()).collect();
-    assert_eq!(tail, ["LYNO Settings", "LYNO USER MODS_separator", "My Tweak"], "the player's mod goes over the build, in their section");
+    let tail: Vec<_> = list.entries.iter().rev().take(6).rev().map(|e| (e.name.as_str(), e.state)).collect();
+    assert_eq!(
+        tail,
+        [
+            ("LYNO Settings", EntryState::Enabled),
+            ("LYNO USER MODS_separator", EntryState::Disabled),
+            ("My Tweak", EntryState::Enabled),
+            ("LYNO Settings (ваш)", EntryState::Disabled),
+            ("Settings From Nexus", EntryState::Disabled),
+            ("Settings Addon", EntryState::Enabled),
+        ],
+        "the player's mods go over the build, in their section; their copies of the build's new mod are off"
+    );
+    assert_eq!(std::fs::read(user_root.join("mods/LYNO Settings (ваш)/mine.txt")).unwrap(), b"mine");
+    assert_eq!(std::fs::read(user_root.join("mods/LYNO Settings/red4ext/plugins/mod_settings/user.ini")).unwrap(), b"build settings");
     assert_eq!(list.get("Archive Mod").unwrap().state, EntryState::Disabled, "player's choice survives the update");
     assert_eq!(list.get("CET").unwrap().state, EntryState::Enabled);
     let st = State::load(&state_path(&user)).unwrap();
@@ -450,6 +469,8 @@ fn build_install_update() {
     assert_eq!(record.from.as_deref(), Some("1.0.0"));
     assert_eq!(record.added, ["lyno-settings"]);
     assert_eq!(record.updated, ["archive-mod"]);
+    let copies: Vec<_> = record.own_copies.iter().map(|c| (c.id.as_str(), c.folder.as_str(), c.renamed_from.as_deref())).collect();
+    assert_eq!(copies, [("lyno-settings", "LYNO Settings (ваш)", Some("LYNO Settings")), ("lyno-settings", "Settings From Nexus", None)]);
     assert!(!user_root.join(".lyno/cache").exists());
 
     // Integrity check: a fresh install is intact even after MO2 and the game
@@ -483,7 +504,13 @@ fn build_install_update() {
     assert_eq!(report.customized[0].files.sample, ["bin/x64/plugins/cyber_engine_tweaks/bindings.json"]);
 
     requests.lock().unwrap().clear();
+    // The player switches their copy back on: a later repair (same build) leaves it so.
+    let mut list = ModList::load(&user.modlist_path("LYNO")).unwrap();
+    list.entries.iter_mut().find(|e| e.name == "Settings From Nexus").unwrap().state = EntryState::Enabled;
+    list.save(&user.modlist_path("LYNO")).unwrap();
     assert_eq!(repair(&["cet"], true, false), [Action::Base, Action::Repair { id: "cet".into(), from_folder: "CET".into() }]);
+    let list = ModList::load(&user.modlist_path("LYNO")).unwrap();
+    assert_eq!(list.get("Settings From Nexus").unwrap().state, EntryState::Enabled, "their choice after the update stays");
     assert!(requests.lock().unwrap().iter().all(|r| r.starts_with("cet-") || r.starts_with("base-")), "{requests:?}");
     let report = check_integrity();
     assert_eq!(report.damaged, []);
