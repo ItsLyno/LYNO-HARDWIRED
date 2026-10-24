@@ -24,6 +24,14 @@ const FETCH_ATTEMPTS: u32 = 10;
 /// bounds a stall to the same time.
 const REQUEST_WINDOW: Duration = Duration::from_secs(120);
 
+/// A Range counts bytes of what the server sends. With gzip (ureq's default,
+/// unpacked on the fly) those are not the bytes on disk: a resume asked for a
+/// slice from the middle of the compressed stream, which failed to unpack on
+/// the first read, a retry without data at the same offset until the download
+/// gave up, and again after every restart. So ureq goes without gzip and asks
+/// for the file as is; parts and mod archives are compressed anyway.
+const IDENTITY: (&str, &str) = ("Accept-Encoding", "identity");
+
 /// What [`Downloader::fetch_part`] reports while it works.
 #[derive(Debug, Clone, PartialEq)]
 pub enum PartEvent {
@@ -92,7 +100,7 @@ impl Downloader {
     pub fn content_length(&self, url: &str) -> Result<u64> {
         let mut attempt = 0;
         let resp = loop {
-            match self.agent.head(url).call() {
+            match self.agent.head(url).header(IDENTITY.0, IDENTITY.1).call() {
                 Ok(resp) => break resp,
                 Err(_) if attempt + 1 < CHECK_ATTEMPTS => {
                     attempt += 1;
@@ -219,7 +227,7 @@ impl Downloader {
             return Err(Attempt::Fatal(Error::Cancelled));
         }
 
-        let mut req = self.agent.get(url);
+        let mut req = self.agent.get(url).header(IDENTITY.0, IDENTITY.1);
         if have > 0 {
             req = req.header("Range", format!("bytes={have}-"));
         }
@@ -233,6 +241,13 @@ impl Downloader {
                 let _ = std::fs::remove_file(partial);
                 return Err(transient(&format!("unexpected Content-Range {range:?}")));
             }
+            // A server compressing despite `identity`: its range is of the
+            // compressed stream, not of the file on disk, so the part starts over.
+            let encoding = resp.headers().get("content-encoding").and_then(|v| v.to_str().ok());
+            if encoding.is_some_and(|e| !e.trim().eq_ignore_ascii_case("identity")) {
+                let _ = std::fs::remove_file(partial);
+                return Err(transient(&format!("compressed range (Content-Encoding {encoding:?})")));
+            }
         }
         let file = match status {
             _ if resumed => OpenOptions::new().append(true).open(partial),
@@ -241,6 +256,12 @@ impl Downloader {
                 have = 0;
                 on(PartEvent::Bytes(0));
                 File::create(partial)
+            }
+            // The partial is longer than the file the server has now: it is not
+            // a start of that file.
+            416 if have > 0 => {
+                let _ = std::fs::remove_file(partial);
+                return Err(transient(&format!("HTTP {status} at {have} bytes")));
             }
             408 | 429 | 500..=599 => return Err(transient(&format!("HTTP {status}"))),
             _ => return Err(Attempt::Fatal(Error::Download(format!("{url}: HTTP {status}")))),
@@ -413,6 +434,107 @@ mod tests {
         assert_eq!(std::fs::read(&dest).unwrap(), data);
         assert_eq!(*served.lock().unwrap(), [0, 100_000, 200_000, 200_000]);
         assert_eq!(retries, 1, "only the attempt without data waits");
+    }
+
+    type Requests = std::sync::Arc<std::sync::Mutex<Vec<(String, usize)>>>;
+
+    /// A CDN that gzips for clients accepting it and serves ranges of the
+    /// gzip stream. `always`: it compresses ranges even when asked for `identity`.
+    /// The first answer breaks after `cut` bytes. Returns the URL and the
+    /// requests' (Accept-Encoding, Range start).
+    fn serve_gzip(data: Vec<u8>, always: bool, cut: usize) -> (String, Requests) {
+        use flate2::{write::GzEncoder, Compression};
+        let mut enc = GzEncoder::new(Vec::new(), Compression::fast());
+        enc.write_all(&data).unwrap();
+        let gz = enc.finish().unwrap();
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        let seen = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let log = seen.clone();
+        std::thread::spawn(move || {
+            for (i, stream) in listener.incoming().enumerate() {
+                let mut stream = stream.unwrap();
+                let mut reader = BufReader::new(stream.try_clone().unwrap());
+                let (mut start, mut accept) = (0usize, String::new());
+                loop {
+                    let mut line = String::new();
+                    reader.read_line(&mut line).unwrap();
+                    if line == "\r\n" || line.is_empty() {
+                        break;
+                    }
+                    let lower = line.to_ascii_lowercase();
+                    if let Some(v) = lower.strip_prefix("range: bytes=") {
+                        start = v.trim().trim_end_matches('-').parse().unwrap();
+                    }
+                    if let Some(v) = lower.strip_prefix("accept-encoding:") {
+                        accept = v.trim().to_owned();
+                    }
+                }
+                log.lock().unwrap().push((accept.clone(), start));
+                let compress = accept.contains("gzip") || (always && start > 0);
+                let entity = if compress { &gz } else { &data };
+                let Some(rest) = entity.get(start..) else {
+                    write!(stream, "HTTP/1.1 416 Range Not Satisfiable\r\nContent-Length: 0\r\n\r\n").unwrap();
+                    continue;
+                };
+                let (status, range) = match start {
+                    0 => ("200 OK", String::new()),
+                    _ => ("206 Partial Content", format!("Content-Range: bytes {start}-{}/{}\r\n", entity.len() - 1, entity.len())),
+                };
+                let encoding = if compress { "Content-Encoding: gzip\r\n" } else { "" };
+                let _ = write!(stream, "HTTP/1.1 {status}\r\n{range}{encoding}Content-Length: {}\r\nConnection: close\r\n\r\n", rest.len());
+                let n = if i == 0 { cut.min(rest.len()) } else { rest.len() };
+                // The client drops a range it can't use.
+                let _ = stream.write_all(&rest[..n]);
+            }
+        });
+        (format!("http://{addr}/mod.zip"), seen)
+    }
+
+    /// Text compresses well: the gzip stream is far shorter than the file.
+    fn text_data() -> Vec<u8> {
+        (0..400_000u32).flat_map(|i| format!("line {} ", i % 977).into_bytes()).take(400_000).collect()
+    }
+
+    /// A resume must not point into a compressed stream.
+    #[test]
+    fn resumes_without_compression() {
+        let data = text_data();
+        let (url, seen) = serve_gzip(data.clone(), false, data.len() / 2);
+        let dir = tempfile::tempdir().unwrap();
+        let dest = dir.path().join("mod.zip");
+        let mut retries = 0;
+        Downloader::new()
+            .fetch_file(&url, data.len() as u64, &dest, &|| false, &mut |e| {
+                if matches!(e, PartEvent::Retry { .. }) {
+                    retries += 1;
+                }
+            })
+            .unwrap();
+        assert_eq!(std::fs::read(&dest).unwrap(), data);
+        assert_eq!(retries, 0);
+        let seen = seen.lock().unwrap();
+        assert!(seen.iter().all(|(accept, _)| accept == "identity"), "{seen:?}");
+        assert_eq!(seen.iter().map(|s| s.1).collect::<Vec<_>>(), [0, data.len() / 2]);
+    }
+
+    /// A server that compresses a range anyway: it can't be appended, the
+    /// download starts over instead of retrying the same offset to the end.
+    /// Cut early, the range is a slice of the gzip stream; cut late, it starts
+    /// past the end of the shorter gzip stream (416).
+    #[test]
+    fn restarts_on_compressed_range() {
+        let data = text_data();
+        for cut in [2_000, data.len() - 1_000] {
+            let (url, seen) = serve_gzip(data.clone(), true, cut);
+            let dir = tempfile::tempdir().unwrap();
+            let dest = dir.path().join("mod.zip");
+            Downloader::new().fetch_file(&url, data.len() as u64, &dest, &|| false, &mut |_| {}).unwrap();
+            assert_eq!(std::fs::read(&dest).unwrap(), data);
+            let starts: Vec<usize> = seen.lock().unwrap().iter().map(|s| s.1).collect();
+            assert_eq!(starts.len(), 3, "{starts:?}");
+            assert!(starts[1] > 0 && starts[2] == 0, "{starts:?}");
+        }
     }
 
     #[test]

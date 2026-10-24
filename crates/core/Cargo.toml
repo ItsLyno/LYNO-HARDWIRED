@@ -35,3 +35,4 @@ winreg = "0.55"
 [dev-dependencies]
 tempfile.workspace = true
 sevenz-rust2 = { version = "0.23", default-features = false, features = ["compress", "util"] }
+flate2 = "1"

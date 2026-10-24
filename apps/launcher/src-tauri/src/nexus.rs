@@ -713,6 +713,7 @@ fn run_job(app: &AppHandle, job: &Job) -> lyno_core::Result<Result<Next, BuildMo
                     }
                 }
                 Progress::Retry { attempt, delay_secs, error } => {
+                    log::warn!("job {id}: {error}; attempt {attempt} in {delay_secs} s");
                     update_job(app, id, |j| j.state = JobState::Retry { attempt, delay_secs, error })
                 }
             });

@@ -19,4 +19,6 @@ tempfile = "3"
 walkdir = "2"
 tar = "0.4"
 zstd = { version = "0.13", features = ["zstdmt"] }
-ureq = { version = "3", features = ["json"] }
+# No gzip: downloads resume by byte offset, which only holds for the bytes on
+# the wire (`download::IDENTITY`).
+ureq = { version = "3", default-features = false, features = ["rustls", "json"] }
