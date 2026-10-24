@@ -1,5 +1,6 @@
 //! HTTP downloads of package parts with resume, retries and hash verification.
 
+use std::borrow::Cow;
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
@@ -72,7 +73,7 @@ impl Downloader {
 
     /// Small text resources (the manifest).
     pub fn get_text(&self, url: &str) -> Result<String> {
-        let mut resp = self.agent.get(url).call().map_err(|e| Error::Download(format!("{url}: {e}")))?;
+        let mut resp = self.agent.get(&*escape_uri(url)).call().map_err(|e| Error::Download(format!("{url}: {e}")))?;
         if !resp.status().is_success() {
             return Err(Error::Download(format!("{url}: HTTP {}", resp.status())));
         }
@@ -100,7 +101,7 @@ impl Downloader {
     pub fn content_length(&self, url: &str) -> Result<u64> {
         let mut attempt = 0;
         let resp = loop {
-            match self.agent.head(url).header(IDENTITY.0, IDENTITY.1).call() {
+            match self.agent.head(&*escape_uri(url)).header(IDENTITY.0, IDENTITY.1).call() {
                 Ok(resp) => break resp,
                 Err(_) if attempt + 1 < CHECK_ATTEMPTS => {
                     attempt += 1;
@@ -227,11 +228,15 @@ impl Downloader {
             return Err(Attempt::Fatal(Error::Cancelled));
         }
 
-        let mut req = self.agent.get(url).header(IDENTITY.0, IDENTITY.1);
+        let mut req = self.agent.get(&*escape_uri(url)).header(IDENTITY.0, IDENTITY.1);
         if have > 0 {
             req = req.header("Range", format!("bytes={have}-"));
         }
-        let resp = req.config().timeout_recv_body(Some(REQUEST_WINDOW)).build().call().map_err(|e| transient(&e))?;
+        let resp = req.config().timeout_recv_body(Some(REQUEST_WINDOW)).build().call().map_err(|e| match e {
+            // Not the network: the same URL fails the same way on every attempt.
+            ureq::Error::Http(_) | ureq::Error::BadUri(_) => Attempt::Fatal(Error::Download(format!("{url}: {e}"))),
+            e => transient(&e),
+        })?;
         let status = resp.status().as_u16();
         let resumed = status == 206 && have > 0;
         if resumed {
@@ -294,6 +299,26 @@ impl Downloader {
         }
         Ok(())
     }
+}
+
+/// `url` with what a URI can't hold percent-encoded. Nexus links to older
+/// files carry the file name as is (`.../8694/Increased Level of Details
+/// Distance-8694-5-1.zip?...`); browsers and MO2 encode the spaces, ureq
+/// refuses the URL. `%` stays: what is already encoded is not encoded twice.
+pub(crate) fn escape_uri(url: &str) -> Cow<'_, str> {
+    let bad = |b: u8| b <= b' ' || b >= 0x7f || b"\"<>\\^`{|}".contains(&b);
+    if !url.bytes().any(bad) {
+        return Cow::Borrowed(url);
+    }
+    let mut out = String::with_capacity(url.len() + 16);
+    for b in url.bytes() {
+        if bad(b) {
+            out.push_str(&format!("%{b:02X}"));
+        } else {
+            out.push(b as char);
+        }
+    }
+    Cow::Owned(out)
 }
 
 /// `<dest>.partial`: where [`Downloader::fetch_part`] collects `dest`.
@@ -561,6 +586,35 @@ mod tests {
         // A wrong size is an answer: reported at once, not retried into success.
         let err = Downloader::new().check_part(&part).unwrap_err();
         assert!(err.to_string().contains("999 bytes, expected 1000"), "{err}");
+    }
+
+    #[test]
+    fn escapes_what_a_uri_cannot_hold() {
+        let url = "https://supporter-files.nexus-cdn.com/3333/8694/Increased Level of Details-8694-5-1.zip?expires=1&md5=a_B";
+        assert_eq!(
+            escape_uri(url),
+            "https://supporter-files.nexus-cdn.com/3333/8694/Increased%20Level%20of%20Details-8694-5-1.zip?expires=1&md5=a_B"
+        );
+        assert_eq!(escape_uri("http://h/a%20b{ü}"), "http://h/a%20b%7B%C3%BC%7D");
+        assert!(matches!(escape_uri("http://h/a?b=c&d=%2F"), Cow::Borrowed(_)));
+    }
+
+    /// A file name with spaces in a Nexus link: downloaded, not retried as a lost connection.
+    #[test]
+    fn downloads_url_with_spaces() {
+        let data = vec![5u8; 10_000];
+        let dir = tempfile::tempdir().unwrap();
+        let url = serve(data.clone(), 1).replace("/part", "/Iconic Vendors-9457-2-3.zip");
+        let mut retries = 0;
+        Downloader::new()
+            .fetch_file(&format!("{url}?expires=1"), data.len() as u64, &dir.path().join("v.zip"), &|| false, &mut |e| {
+                if matches!(e, PartEvent::Retry { .. }) {
+                    retries += 1;
+                }
+            })
+            .unwrap();
+        assert_eq!(std::fs::read(dir.path().join("v.zip")).unwrap(), data);
+        assert_eq!(retries, 0);
     }
 
     #[test]
