@@ -130,10 +130,12 @@ pub fn set_enabled(manifest: &Manifest, state: &State, list: &mut ModList, id: &
 }
 
 /// A player's entry of the list: neither a build mod (installed or coming
-/// with this manifest) nor a build separator, nor one MO2 doesn't manage.
+/// with this manifest) nor a build separator (of this manifest or the
+/// installed build), nor one MO2 doesn't manage.
 pub fn is_players(manifest: &Manifest, state: &State, e: &Entry) -> bool {
     e.state != EntryState::Unmanaged
         && !state.is_managed_folder(&e.name)
+        && !state.separators.contains(&e.name)
         && !manifest.mods.iter().any(|m| match m {
             ModEntry::Separator { title, .. } => Entry::separator(title).name == e.name,
             ModEntry::Mod(m) => m.name == e.name && !is_removed(m, state),
@@ -192,6 +194,7 @@ mod tests {
             base_damaged: false,
             last_update: None,
             removed: Default::default(),
+            separators: Default::default(),
             mods: mods
                 .iter()
                 .map(|(id, folder, hash)| (id.to_string(), InstalledMod { folder: folder.to_string(), hash: hash.to_string(), damaged: false, reset_settings: false }))

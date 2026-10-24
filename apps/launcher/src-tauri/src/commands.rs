@@ -33,9 +33,8 @@ pub(crate) fn err(e: impl std::fmt::Display) -> String {
     e.to_string()
 }
 
-/// Manifest of the installed build, saved after every successful update.
 pub(crate) fn installed_manifest_path(inst: &Instance) -> PathBuf {
-    inst.root().join(".lyno").join("manifest.json")
+    install::installed_manifest_path(inst)
 }
 
 pub(crate) fn installed_manifest(inst: &Instance) -> Option<Manifest> {

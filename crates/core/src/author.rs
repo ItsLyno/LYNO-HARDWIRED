@@ -158,6 +158,7 @@ pub fn adopt(inst: &Instance, manifest: &Manifest, out_dir: Option<&Path>) -> Re
         base_damaged: false,
         mods,
         removed: Default::default(),
+        separators: manifest.separator_folders(),
         last_update: Some(record),
     };
     state.save(&path)?;

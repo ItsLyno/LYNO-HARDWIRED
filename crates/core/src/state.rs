@@ -26,6 +26,12 @@ pub struct State {
     /// bring them back until the player asks (see [`crate::plan::is_removed`]).
     #[serde(default, skip_serializing_if = "BTreeSet::is_empty")]
     pub removed: BTreeSet<String>,
+    /// Separator folders of the installed build. MO2 keeps a separator by its
+    /// title, so one the author renamed or dropped is just gone from the next
+    /// manifest; without this record it would look like the player's and move
+    /// into their section (see [`crate::plan::is_players`]).
+    #[serde(default, skip_serializing_if = "BTreeSet::is_empty")]
+    pub separators: BTreeSet<String>,
     /// What the latest update changed, for "added / updated in 1.4.0" marks.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last_update: Option<LastUpdate>,

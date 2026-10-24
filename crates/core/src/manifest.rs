@@ -5,7 +5,7 @@
 //! content-addressed by their tree hash, so an unchanged mod keeps pointing
 //! at the asset uploaded with an older release.
 
-use std::collections::HashSet;
+use std::collections::{BTreeSet, HashSet};
 use std::path::{Component, Path};
 
 use serde::{Deserialize, Serialize};
@@ -137,6 +137,17 @@ impl Manifest {
             ModEntry::Mod(m) => Some(m),
             ModEntry::Separator { .. } => None,
         })
+    }
+
+    /// Folders of the build's separators in `mods/` (`<title>_separator`).
+    pub fn separator_folders(&self) -> BTreeSet<String> {
+        self.mods
+            .iter()
+            .filter_map(|e| match e {
+                ModEntry::Separator { title, .. } => Some(crate::modlist::Entry::separator(title).name),
+                ModEntry::Mod(_) => None,
+            })
+            .collect()
     }
 
     pub fn validate(&self) -> Result<()> {

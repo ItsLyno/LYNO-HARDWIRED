@@ -43,6 +43,11 @@ pub fn state_path(inst: &Instance) -> PathBuf {
     inst.root().join(".lyno").join("state.json")
 }
 
+/// Manifest of the installed build, saved by the launcher after every successful update.
+pub fn installed_manifest_path(inst: &Instance) -> PathBuf {
+    inst.root().join(".lyno").join("manifest.json")
+}
+
 /// The build is installed into the instance. Without it the whole mod list is
 /// the player's: there is no `LYNO USER MODS` section to keep apart.
 pub fn has_build(inst: &Instance) -> bool {
@@ -57,6 +62,14 @@ pub fn has_build(inst: &Instance) -> bool {
 pub fn load_state(inst: &Instance, manifest: &Manifest, list: &ModList) -> Result<State> {
     let path = state_path(inst);
     let mut state = State::load(&path)?;
+    // Installed by a launcher that didn't record the build's separators: its saved manifest has them.
+    if state.build_version.is_some() && state.separators.is_empty() {
+        let saved = std::fs::read_to_string(installed_manifest_path(inst)).ok().and_then(|t| Manifest::from_json(&t).ok());
+        if let Some(saved) = saved.filter(|m| state.build_version.as_ref() == Some(&m.build_version)) {
+            state.separators = saved.separator_folders();
+            state.save(&path)?;
+        }
+    }
     let finished = state.build_version.is_some()
         && state.last_update.as_ref().is_none_or(|u| state.build_version.as_deref() == Some(u.to.as_str()));
     if !finished {
@@ -347,6 +360,12 @@ impl Installer<'_> {
             std::fs::create_dir_all(dir).map_err(|e| Error::io(dir, e))?;
         }
         plan.modlist.save(&modlist_path)?;
+        // Out of the list now (`plan::is_players`): the folders of separators the build no longer has go too.
+        let separators = self.manifest.separator_folders();
+        for folder in state.separators.difference(&separators) {
+            remove_separator(&mods_dir.join(folder))?;
+        }
+        state.separators = separators;
 
         state.build_version = Some(self.manifest.build_version.clone());
         state.save(&state_file)?;
@@ -518,6 +537,23 @@ fn move_shadowing_files(overwrite: &Path, mod_dir: &Path, backup: &Path) -> Resu
         std::fs::rename(&shadow, &to).map_err(|e| Error::io(&shadow, e))?;
     }
     Ok(())
+}
+
+/// A separator is an empty folder with MO2's `meta.ini`; one holding anything
+/// else (the player's files) stays, MO2 then shows it as a mod.
+fn remove_separator(dir: &Path) -> Result<()> {
+    let entries = match std::fs::read_dir(dir) {
+        Ok(entries) => entries,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+        Err(e) => return Err(Error::io(dir, e)),
+    };
+    for entry in entries {
+        let entry = entry.map_err(|e| Error::io(dir, e))?;
+        if !entry.file_name().eq_ignore_ascii_case("meta.ini") {
+            return Ok(());
+        }
+    }
+    remove_dir(dir)
 }
 
 fn remove_dir(p: &Path) -> Result<()> {
