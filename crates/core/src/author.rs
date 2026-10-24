@@ -171,6 +171,7 @@ pub fn adopt(inst: &Instance, manifest: &Manifest, out_dir: Option<&Path>) -> Re
         added: mods.keys().filter(|id| !old.mods.contains_key(*id)).cloned().collect(),
         updated: mods.iter().filter(|(id, m)| old.mods.get(*id).is_some_and(|o| o.hash != m.hash)).map(|(id, _)| id.clone()).collect(),
         removed: old.mods.iter().filter(|(id, _)| !mods.contains_key(*id)).map(|(_, m)| m.folder.clone()).collect(),
+        own_copies: Vec::new(),
     };
     let state = State {
         build_version: Some(manifest.build_version.clone()),

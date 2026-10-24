@@ -12,7 +12,7 @@ const WARN = /\bwarn(ing)?\b/i;
 const levelOf = (line: string): Level | null => (ERROR.test(line) ? "error" : WARN.test(line) ? "warn" : null);
 
 /** Logs the game's frameworks wrote into overwrite/: where to look first when a mod doesn't work or the game crashes. */
-export function LogViewer({ onClose }: { onClose: () => void }) {
+export function LogViewer({ onClose, initialPath }: { onClose: () => void; initialPath?: string }) {
   const [logs, setLogs] = useState<LogFile[] | null>(null);
   const [path, setPath] = useState<string | null>(null);
   const [text, setText] = useState<string | null>(null);
@@ -22,7 +22,7 @@ export function LogViewer({ onClose }: { onClose: () => void }) {
   const [copied, setCopied] = useState(false);
   const scroller = useRef<HTMLDivElement>(null);
   // A slow read of a log clicked before must not replace the one clicked last.
-  const wanted = useRef<string | null>(null);
+  const wanted = useRef<string | null>(initialPath ?? null);
 
   const open = async (p: string | null) => {
     wanted.current = p;

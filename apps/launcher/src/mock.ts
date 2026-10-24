@@ -18,6 +18,8 @@ import type {
   NxmHandler,
   UpdatesView,
   Pending,
+  HistoryRow,
+  RunReport,
   Secret,
   Settings,
   Status,
@@ -151,6 +153,8 @@ let status: Status = {
   modsEnabled: 13,
   gameRunning: false,
   mo2Running: false,
+  gamePatch: "2.31",
+  gameMismatch: null,
   updating: false,
 };
 
@@ -179,7 +183,12 @@ let build: BuildInfo = {
   downloadSize: 28 * MB,
   downloaded: 9 * MB,
   online: true,
-  lastUpdate: { from: "1.3.0", to: "1.3.2", removed: ["Immersive Traffic"] },
+  lastUpdate: {
+    from: "1.3.0",
+    to: "1.3.2",
+    removed: ["Immersive Traffic"],
+    ownCopies: [{ id: "better-netrunning", title: "Better Netrunning", optional: true, folder: "Better Netrunning (ваш)", renamedFrom: "Better Netrunning" }],
+  },
 };
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -658,7 +667,48 @@ export const mock = {
   },
   openModFolder: async (_id: string) => {},
   openFolder: async (_folder: Folder) => {},
-  launchGame: async () => {},
+  launchGame: async () => {
+    status = { ...status, gameRunning: true };
+    setTimeout(() => (status = { ...status, gameRunning: false }), 8000);
+  },
+  modlistHistory: async (): Promise<HistoryRow[]> => [
+    { id: Date.now() - 4 * 60_000, label: "Перед выключением «Stealth Overhaul»", more: 3, build: "1.3.2", diff: { switched: 4, off: 0, gone: 0, moved: false }, blocked: null },
+    { id: Date.now() - 50 * 60_000, label: "Перед запуском игры", more: 0, build: "1.3.2", diff: { switched: 4, off: 1, gone: 0, moved: true }, blocked: null },
+    { id: Date.now() - 3 * 86_400_000, label: "Перед обновлением сборки до 1.3.2", more: 0, build: "1.3.1", diff: { switched: 2, off: 1, gone: 1, moved: true }, blocked: "Список сборки 1.3.1: после обновления сборки его не вернуть" },
+  ],
+  modlistRestore: async (_id: number) => {
+    if (status.gameRunning || status.mo2Running) throw new Error("Закройте игру и Mod Organizer 2, чтобы менять моды");
+    await delay(300);
+  },
+  lastRun: async (): Promise<RunReport | null> => ({
+    scriptsFailed: true,
+    problems: [
+      {
+        source: "redscript",
+        log: "r6/logs/redscript_rCURRENT.log",
+        modFolder: "Stealth Overhaul",
+        samples: ["[ERROR - Sat, 24 Oct 2026 18:20:01 +0300] At C:\\Games\\Cyberpunk 2077\\r6\\scripts\\StealthOverhaul\\main.reds:41:9:\n    let npc = this.GetOwner() as NPCPuppet;\n  unresolved method GetOwner"],
+        count: 2,
+        key: "redscript|Stealth Overhaul|r6/scripts/StealthOverhaul/main.reds:41:9:",
+      },
+      {
+        source: "redscript",
+        log: "r6/logs/redscript_rCURRENT.log",
+        modFolder: null,
+        samples: ["[ERROR - Sat, 24 Oct 2026 18:20:01 +0300] REDscript compilation has failed."],
+        count: 1,
+        key: "redscript||REDscript compilation has failed.",
+      },
+      {
+        source: "ArchiveXL",
+        log: "red4ext/plugins/ArchiveXL/ArchiveXL.log",
+        modFolder: "My Test Weapon",
+        samples: ["[2026-10-24 18:20:03.120] [ArchiveXL] [error] Can't resolve archive\\pc\\mod\\testweapon.archive"],
+        count: 1,
+        key: "ArchiveXL|My Test Weapon|archive/pc/mod/testweapon.archive",
+      },
+    ],
+  }),
   launchExecutable: async (_executable: string) => {},
   executables: async (): Promise<Executable[]> => [
     { title: "Cyberpunk 2077 (REDmod)", binary: "C:/Games/Cyberpunk 2077/bin/x64/Cyberpunk2077.exe" },

@@ -48,6 +48,23 @@ pub struct LastUpdate {
     pub updated: Vec<String>,
     /// Folder names: removed mods are no longer in the manifest.
     pub removed: Vec<String>,
+    /// The player's own copies of mods this update brought into the build, switched off so
+    /// the build's version is the one that loads (see [`crate::install`]).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub own_copies: Vec<OwnCopy>,
+}
+
+/// A mod of the player's that is also a mod of the build now.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OwnCopy {
+    /// The build mod (manifest id).
+    pub id: String,
+    /// The player's folder, as it is now.
+    pub folder: String,
+    /// It had the build mod's folder name and was renamed to make way.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub renamed_from: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -132,7 +149,8 @@ mod tests {
                 to: "1.2".into(),
                 added: vec!["a".into()],
                 updated: vec!["b".into()],
-                removed: vec![]
+                removed: vec![],
+                own_copies: vec![],
             })
         );
         // 1.2 finished; the next update starts a new record.

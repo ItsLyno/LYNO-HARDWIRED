@@ -15,6 +15,7 @@ export function Launch() {
     switch (action) {
       case "play":
         setLaunching(true);
+        useApp.setState({ launchedAt: Date.now(), runReport: null });
         await run(api.launchGame);
         // MO2 deploys REDmod before the game window appears; keep the button busy meanwhile.
         setTimeout(() => setLaunching(false), 5000);

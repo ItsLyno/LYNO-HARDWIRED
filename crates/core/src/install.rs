@@ -16,12 +16,12 @@ use crate::manifest::{Manifest, ModEntry, ModSpec, Package};
 use crate::meta;
 use crate::mo2::Instance;
 use crate::mod_install;
-use crate::modlist::{Entry, ModList};
+use crate::modlist::{Entry, EntryState, ModList};
 use crate::package;
 use crate::prefetch::{self, Job, Prefetch, Report};
 use crate::rules;
-use crate::plan::{Action, UpdatePlan};
-use crate::state::{InstalledMod, State};
+use crate::plan::{self, Action, UpdatePlan};
+use crate::state::{InstalledMod, OwnCopy, State};
 use crate::tree::{self, FileEntry};
 use crate::{Error, Result};
 
@@ -188,7 +188,7 @@ pub fn cached_bytes(inst: &Instance, manifest: &Manifest, plan: &UpdatePlan) -> 
 
 impl Installer<'_> {
     pub fn apply(&self, plan: &UpdatePlan, on: &mut (dyn FnMut(Event) + Send)) -> Result<()> {
-        self.check_folders(plan)?;
+        self.move_aside(plan)?;
         let cache = cache_dir(self.inst);
         let (jobs, job_of) = jobs(self.manifest, plan, &cache);
         let fetch = Prefetch::new(&jobs, plan.download_size, self.cancel);
@@ -218,21 +218,63 @@ impl Installer<'_> {
         result
     }
 
-    /// A build mod's new folder taken by a mod of the player's with that name:
-    /// swapping it in would delete theirs. Checked before anything downloads. A
-    /// folder with the record of this very package is ours, left by an update
-    /// cut short between the swap and saving the state.
-    fn check_folders(&self, plan: &UpdatePlan) -> Result<()> {
-        let state = State::load(&state_path(self.inst))?;
+    /// A build mod's new folder taken by a mod of the player's with that name: mostly the same
+    /// mod, which the player installed before the author added it. Swapping the build's in
+    /// would delete theirs, so theirs moves to `<name> (ваш)` first (in every profile, as MO2
+    /// renames) and is switched off at the end ([`Self::own_copies`]). Done before anything
+    /// downloads, and recorded at once: an update that fails after it still switches theirs
+    /// off when it is resumed. A folder with the record of this very package is ours, left by
+    /// an update cut short between the swap and saving the state.
+    fn move_aside(&self, plan: &UpdatePlan) -> Result<()> {
+        let path = state_path(self.inst);
+        let mut state = State::load(&path)?;
+        let mods = self.inst.mods_dir();
         for action in &plan.actions {
             let (Action::Install { id } | Action::Update { id, .. }) = action else { continue };
             let spec = self.spec(id)?;
             let ours = state.mods.get(id).is_some_and(|m| m.folder == spec.name) || files::load(self.inst, id, &spec.package.hash).is_some();
-            if !ours && self.inst.mods_dir().join(&spec.name).exists() {
-                return Err(Error::FolderTaken(spec.name.clone()));
+            if !ours && mods.join(&spec.name).exists() {
+                let to = mod_install::free_folder(&mods, &format!("{} (ваш)", spec.name));
+                mod_install::rename(self.inst, &spec.name, &to)?;
+                let copy = OwnCopy { id: id.clone(), folder: to, renamed_from: Some(spec.name.clone()) };
+                state.begin_update(&self.manifest.build_version).own_copies.push(copy);
+                state.save(&path)?;
             }
         }
         Ok(())
+    }
+
+    /// The player's mods that are mods of the build now, besides those [`Self::move_aside`]
+    /// renamed: the same Nexus mod with files of the new build mod. Both enabled would load
+    /// the mod twice (redscript fails on the second copy of a class), with the player's over
+    /// the build's; the build's is the one tested with the rest, so it wins and theirs is
+    /// switched off, not deleted. Another file of the same Nexus page (an addon) shares no
+    /// files and stays on. Only mods new in the build: once the player switches theirs back on,
+    /// that is their choice.
+    fn own_copies(&self, plan: &UpdatePlan, state: &State, list: &ModList, known: &[OwnCopy]) -> Result<Vec<OwnCopy>> {
+        let mods = self.inst.mods_dir();
+        let mut out: Vec<OwnCopy> = Vec::new();
+        for action in &plan.actions {
+            let Action::Install { id } = action else { continue };
+            let spec = self.spec(id)?;
+            let Some(nexus) = &spec.nexus else { continue };
+            let Some(record) = files::load(self.inst, id, &spec.package.hash) else { continue };
+            let theirs = list
+                .mods()
+                .filter(|e| e.state == EntryState::Enabled && plan::is_players(self.manifest, state, e))
+                .filter(|e| !known.iter().chain(&out).any(|c| c.folder == e.name));
+            let mut found = Vec::new();
+            for e in theirs {
+                let dir = mods.join(&e.name);
+                let meta = dir.join("meta.ini");
+                let same_page = meta.is_file() && meta::ModMeta::load(&meta).is_ok_and(|m| m.mod_id == Some(nexus.mod_id));
+                if same_page && tree::list_files(&dir)?.iter().any(|f| record.files.contains_key(&f.path)) {
+                    found.push(OwnCopy { id: id.clone(), folder: e.name.clone(), renamed_from: None });
+                }
+            }
+            out.extend(found);
+        }
+        Ok(out)
     }
 
     fn install(
@@ -245,6 +287,7 @@ impl Installer<'_> {
     ) -> Result<()> {
         let state_file = state_path(self.inst);
         let mut state = State::load(&state_file)?;
+        let before = state.clone();
         let staging = self.inst.root().join(".lyno").join("staging");
         let backup = self.inst.root().join(".lyno").join("overwrite-backup").join(&self.manifest.build_version);
         let mods_dir = self.inst.mods_dir();
@@ -359,7 +402,25 @@ impl Installer<'_> {
         if let Some(dir) = modlist_path.parent() {
             std::fs::create_dir_all(dir).map_err(|e| Error::io(dir, e))?;
         }
-        plan.modlist.save(&modlist_path)?;
+        // A renamed folder of the player's is no longer the one the plan's list knew: the list is
+        // worked out again from the one on disk, which the renames updated.
+        let record = state.begin_update(&self.manifest.build_version).own_copies.clone();
+        let renamed = record.iter().any(|c| c.renamed_from.is_some());
+        let mut modlist = match renamed {
+            true => plan::target_modlist(self.manifest, &before, &ModList::load(&modlist_path).unwrap_or_default()),
+            false => plan.modlist.clone(),
+        };
+        let found = self.own_copies(plan, &state, &modlist, &record)?;
+        state.begin_update(&self.manifest.build_version).own_copies.extend(found);
+        // Only copies of mods this run brings: a repair keeps the record of the last update, and a
+        // copy the player has switched on again since stays on.
+        let brought = |id: &str| plan.actions.iter().any(|a| matches!(a, Action::Install { id: i } | Action::Update { id: i, .. } if i == id));
+        for copy in state.begin_update(&self.manifest.build_version).own_copies.iter().filter(|c| brought(&c.id)) {
+            if let Some(e) = modlist.entries.iter_mut().find(|e| e.name == copy.folder) {
+                e.state = EntryState::Disabled;
+            }
+        }
+        modlist.save(&modlist_path)?;
         // Out of the list now (`plan::is_players`): the folders of separators the build no longer has go too.
         let separators = self.manifest.separator_folders();
         for folder in state.separators.difference(&separators) {

@@ -23,6 +23,11 @@ pub struct Manifest {
     pub build_version: String,
     /// Required `Cyberpunk2077.exe` version, e.g. "2.31".
     pub game_version: String,
+    /// The patch read from the author's `Cyberpunk2077.exe` at build time
+    /// ([`crate::game::ExeVersion::patch`]): the launcher compares the player's exe
+    /// with it, so the check doesn't depend on how `game_version` was typed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub game_exe: Option<String>,
     pub mo2_version: String,
     /// MO2 profile the build lives in.
     pub profile: String,
@@ -225,6 +230,7 @@ pub(crate) mod tests {
             name: "LYNO".into(),
             build_version: "1.0.0".into(),
             game_version: "2.31".into(),
+            game_exe: None,
             mo2_version: "2.5.2".into(),
             profile: "LYNO".into(),
             redmod: false,

@@ -149,7 +149,7 @@ pub fn is_players(manifest: &Manifest, state: &State, e: &Entry) -> bool {
 /// go to the top of that section. The one exception is the player's own
 /// version of an optional build mod (`mod_install::Target::Own`): it keeps the
 /// build mod's place, which is the point of replacing it.
-fn target_modlist(manifest: &Manifest, state: &State, current: &ModList) -> ModList {
+pub fn target_modlist(manifest: &Manifest, state: &State, current: &ModList) -> ModList {
     let user_sep = Entry::separator(USER_SEPARATOR);
     let tail_at = current.entries.iter().position(|e| e.name == user_sep.name).unwrap_or(current.entries.len());
     let (head, tail) = current.entries.split_at(tail_at);

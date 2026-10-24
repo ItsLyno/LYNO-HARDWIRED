@@ -110,7 +110,11 @@ Valid top-level folders in a mod: `archive`, `bin`, `engine`, `r6`, `red4ext`, `
 - The plugin clears `overwrite/r6/cache/*` if game cache files changed.
 - CET, RED4ext, redscript, TweakXL, ArchiveXL, Codeware usually need updates for a
   new game version; until then the build breaks. `Manifest.game_version` records the
-  version the build was made for; the launcher does not check it yet.
+  version the build was made for, `Manifest.game_exe` the patch read from the author's
+  `Cyberpunk2077.exe` at build time (product version `2.3.1` → "2.31"). The launcher reads the
+  player's exe the same way and warns when they differ; it never blocks the launch.
+  Without `game_exe` (older manifests) it compares with `game_version` only when the exe reads
+  as a patch of the same major: a false warning on every launch is worse than none.
 
 ## Troubleshooting order (from the plugin's crash message and the wiki)
 

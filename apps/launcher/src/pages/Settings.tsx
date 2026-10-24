@@ -311,7 +311,7 @@ function Updates() {
           }
         />
         {isBuild && (
-          <VersionRow icon={<Layers size={17} />} title="Сборка модов" hint={build ? `Для патча игры ${build.gameVersion}` : "LYNO//HARDWIRED"} {...buildRow} />
+          <VersionRow icon={<Layers size={17} />} title="Сборка модов" hint={build ? `Для патча игры ${build.gameVersion}${status?.gamePatch ? ` · у вас ${status.gamePatch}` : ""}` : "LYNO//HARDWIRED"} {...buildRow} />
         )}
       </ul>
       <div className="px-5 py-5">

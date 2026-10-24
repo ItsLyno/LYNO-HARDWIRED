@@ -4,6 +4,7 @@ import { api, type ModRow, type Need, type UserRow } from "../api";
 import { Button } from "../components/Button";
 import { Chip } from "../components/Chip";
 import { LogViewer } from "../components/LogViewer";
+import { ModlistHistory } from "../components/ModlistHistory";
 import { pressToDrag } from "../components/DragGhost";
 import { Notices } from "../components/Notices";
 import { PageTitle } from "../components/PageTitle";
@@ -103,6 +104,7 @@ export function Mods() {
   const listRef = useRef<HTMLDivElement>(null);
   const [current, setCurrent] = useState<string | null>(null);
   const [dialog, setDialog] = useState<Dialog | null>(null);
+  const [history, setHistory] = useState(false);
   // Typing anywhere on the page searches, as in Explorer: a letter outside a text field goes to the search box.
   // Space stays the list's switch, the rest of the keys their own.
   const searchRef = useRef<HTMLInputElement>(null);
@@ -381,6 +383,9 @@ export function Mods() {
           <Button variant="ghost" size="icon" disabled={reloading} title="Перечитать список модов с диска (F5)" onClick={() => void reload()}>
             <RotateCw size={15} className={reloading ? "animate-spin" : ""} />
           </Button>
+          <Button variant="ghost" size="icon" title="История списка: вернуть порядок и включённость модов, как было раньше" onClick={() => setHistory(true)}>
+            <History size={15} />
+          </Button>
           <Button
             variant="ghost"
             size={nexusChecking ? "md" : "icon"}
@@ -626,6 +631,7 @@ export function Mods() {
           onClose={() => setMenu(null)}
         />
       )}
+      {history && <ModlistHistory locked={locked} lockReason={lockReason} onClose={() => setHistory(false)} onRestored={reload} />}
       {dialog?.kind === "logs" ? <LogViewer onClose={() => setDialog(null)} /> : dialog && <ModDialog dialog={dialog} onClose={() => setDialog(null)} />}
     </div>
   );

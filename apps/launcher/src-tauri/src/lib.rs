@@ -26,6 +26,8 @@ pub struct AppState {
     /// Launcher release found by the last update check.
     launcher_update: Mutex<Option<tauri_plugin_updater::Update>>,
     nexus: nexus::NexusState,
+    /// When the game last started (launched here, or first seen running): its logs are the last run's.
+    last_launch: Mutex<Option<std::time::SystemTime>>,
 }
 
 /// One rotated file is kept so a report still covers the session before
@@ -79,6 +81,7 @@ pub fn run() {
                 verify: Mutex::new(None),
                 author_job: Mutex::new(None),
                 built: Mutex::new(None),
+                last_launch: Mutex::new(None),
                 launcher_update: Mutex::new(None),
                 nexus: nexus::NexusState::default(),
             });
@@ -102,6 +105,9 @@ pub fn run() {
             commands::set_mod_enabled,
             commands::remove_build_mod,
             commands::restore_build_mod,
+            commands::last_run,
+            commands::modlist_history,
+            commands::modlist_restore,
             author::author_changes,
             author::author_adopt,
             author::author_rollback,

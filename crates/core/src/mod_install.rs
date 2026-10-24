@@ -269,7 +269,7 @@ pub fn folder_name(name: &str) -> String {
 }
 
 /// `name`, or `name (2)`, … if a folder by that name exists.
-fn free_folder(mods: &Path, name: &str) -> String {
+pub(crate) fn free_folder(mods: &Path, name: &str) -> String {
     let mut candidate = name.to_owned();
     let mut n = 2;
     while mods.join(&candidate).exists() {
