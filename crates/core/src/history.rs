@@ -53,7 +53,7 @@ pub struct Diff {
     pub off: usize,
     /// Mods of the snapshot deleted since: they don't come back.
     pub gone: usize,
-    /// The order of the mods in both differs.
+    /// The order of the mods or separators in both differs.
     pub moved: bool,
 }
 
@@ -107,13 +107,15 @@ pub fn diff(inst: &Instance, snapshot: &Snapshot, current: &ModList) -> Diff {
     let Ok(old) = ModList::parse(&snapshot.text, &inst.modlist_path("")) else { return Diff::default() };
     let mods = inst.mods_dir();
     let names = |l: &ModList| l.mods().map(|e| e.name.clone()).collect::<HashSet<_>>();
-    let (in_old, in_now) = (names(&old), names(current));
-    let order = |l: &ModList, other: &HashSet<String>| l.mods().filter(|e| other.contains(&e.name)).map(|e| e.name.clone()).collect::<Vec<_>>();
+    let in_old = names(&old);
+    // Separators define category membership even when the mods themselves keep the same order.
+    let entry_names = |l: &ModList| l.entries.iter().map(|e| e.name.clone()).collect::<HashSet<_>>();
+    let order = |l: &ModList, other: &HashSet<String>| l.entries.iter().filter(|e| other.contains(&e.name)).map(|e| e.name.clone()).collect::<Vec<_>>();
     Diff {
         switched: old.mods().filter(|e| current.get(&e.name).is_some_and(|c| c.state != e.state)).count(),
         off: current.mods().filter(|e| e.state == EntryState::Enabled && !in_old.contains(&e.name)).count(),
         gone: old.mods().filter(|e| !mods.join(&e.name).is_dir()).count(),
-        moved: order(&old, &in_now) != order(current, &in_old),
+        moved: order(&old, &entry_names(current)) != order(current, &entry_names(&old)),
     }
 }
 
@@ -203,6 +205,19 @@ mod tests {
         let all = list(&inst, "P");
         assert_eq!(all.len(), KEEP);
         assert_eq!(all[0].label, format!("change {}", KEEP + 4));
+    }
+
+    #[test]
+    fn separator_only_moves_can_be_restored() {
+        let (_tmp, inst) = setup(&["A", "B", "Sep_separator"]);
+        let before = vec![Entry::separator("Sep"), Entry::enabled("A"), Entry::enabled("B")];
+        set(&inst, before.clone());
+        record(&inst, "P", "before moving separator", false).unwrap();
+        let snap = list(&inst, "P").remove(0);
+        set(&inst, vec![Entry::enabled("A"), Entry::separator("Sep"), Entry::enabled("B")]);
+        let current = ModList::load(&inst.modlist_path("P")).unwrap();
+        assert!(diff(&inst, &snap, &current).moved, "category changes enable the restore button");
+        assert_eq!(restored(&inst, "P", snap.id, None).unwrap().entries, before);
     }
 
     #[test]

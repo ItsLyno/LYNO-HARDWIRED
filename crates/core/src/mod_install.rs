@@ -905,8 +905,9 @@ pub fn is_users(list: &ModList, has_build: bool, name: &str) -> bool {
     user_start(list, has_build).is_some_and(|s| list.entries[s..].iter().any(|e| e.name == name && e.state != EntryState::Unmanaged))
 }
 
-/// Moves an entry of the player right below `after` (`None`: the end of the
-/// list), within their section: their mods load over the build's
+/// Moves a mod of the player right below `after` (`None`: the end of the
+/// list), or a separator with its mods past the destination category,
+/// within their section: their mods load over the build's
 /// ([`crate::plan`]), and their separator there would take build mods under it
 /// in MO2. An `after` outside the section means its top, as does one not in
 /// the list. A mod of theirs still among the build's (from MO2) comes into the
@@ -918,6 +919,14 @@ pub fn move_entry(list: &mut ModList, has_build: bool, managed: impl Fn(&str) ->
     let separator = list.entries[from].is_separator();
     if managed(name) || separator && !user_start(list, has_build).is_some_and(|s| from >= s) {
         return false;
+    }
+    if separator {
+        let start = user_start(list, has_build).expect("player separator has a section");
+        let to = match after {
+            None => list.entries.len(),
+            Some(a) => pos(list, a).filter(|i| i + 1 >= start).map_or(start, |i| i + 1),
+        };
+        return move_separator(list, from, to);
     }
     let entry = list.entries.remove(from);
     let start = user_start(list, has_build);
@@ -941,9 +950,33 @@ pub fn move_any(list: &mut ModList, name: &str, after: Option<&str>) -> bool {
     if list.entries[from].separator_title() == Some(USER_SEPARATOR) {
         return false;
     }
+    if list.entries[from].is_separator() {
+        let to = after.and_then(|a| pos(list, a)).map_or(list.entries.len(), |i| i + 1);
+        return move_separator(list, from, to);
+    }
     let entry = list.entries.remove(from);
     let to = after.and_then(|a| pos(list, a)).map_or(list.entries.len(), |i| i + 1);
     list.entries.insert(to, entry);
+    true
+}
+
+/// Categories travel with their mods and land between categories, never splitting another one.
+fn move_separator(list: &mut ModList, from: usize, mut to: usize) -> bool {
+    let end = (from + 1..list.entries.len()).find(|&i| list.entries[i].is_separator()).unwrap_or(list.entries.len());
+    if (from..=end).contains(&to) {
+        return true;
+    }
+    while to < list.entries.len() && !list.entries[to].is_separator() {
+        to += 1;
+    }
+    if to == from {
+        return true;
+    }
+    let entries: Vec<_> = list.entries.drain(from..end).collect();
+    if to > from {
+        to -= entries.len();
+    }
+    list.entries.splice(to..to, entries);
     true
 }
 
@@ -961,8 +994,14 @@ pub fn add_separator(inst: &Instance, profile: &str, title: &str, after: Option<
     if user_start(&list, has_build).is_none() {
         list.entries.push(Entry::separator(USER_SEPARATOR));
     }
-    list.entries.push(entry);
-    move_entry(&mut list, has_build, |_| false, &name, after);
+    // Creating a separator may split a category; moving one preserves its existing contents.
+    let start = user_start(&list, has_build).expect("player section exists");
+    let to = match after {
+        None => list.entries.len(),
+        Some(a) => list.entries.iter().position(|e| e.name == a && e.state != EntryState::Unmanaged)
+            .filter(|i| i + 1 >= start).map_or(start, |i| i + 1),
+    };
+    list.entries.insert(to, entry);
     list.save(&path)?;
     Ok(name)
 }
@@ -1367,9 +1406,9 @@ mod tests {
         assert_eq!(order(&m), ["Build", "LYNO USER MODS_separator", "A", "Stray"]);
         assert!(move_entry(&mut l, true, managed, "B", None));
         assert_eq!(order(&l)[7], "B");
-        // A separator of the player stays in their section: dropped on the build's, it goes to its top.
+        // A category stays in the player's section, after any ungrouped mods at its top.
         assert!(move_entry(&mut l, true, managed, "Mine_separator", Some("Build")));
-        assert_eq!(order(&l)[4], "Mine_separator");
+        assert_eq!(order(&l), ["Build", "Guns_separator", "Build 2", "LYNO USER MODS_separator", "A", "C", "Mine_separator", "B"]);
         assert!(!move_entry(&mut l, true, managed, "Build", None), "a build mod stays");
         assert!(!move_entry(&mut l, true, managed, "Guns_separator", None), "so does a build separator");
         assert!(is_users(&l, true, "Mine_separator") && !is_users(&l, true, "Build"));
@@ -1379,7 +1418,7 @@ mod tests {
         assert!(move_any(&mut l, "Guns_separator", Some("Build 2")));
         assert!(move_any(&mut l, "Build", Some("A")));
         assert!(move_any(&mut l, "C", Some("Guns_separator")));
-        assert_eq!(order(&l), ["Build 2", "Guns_separator", "C", "LYNO USER MODS_separator", "Mine_separator", "A", "Build", "B"]);
+        assert_eq!(order(&l), ["Guns_separator", "C", "Build 2", "LYNO USER MODS_separator", "A", "Build", "Mine_separator", "B"]);
         assert!(!move_any(&mut l, "LYNO USER MODS_separator", None));
 
         // Without the build every mod is the player's, DLC entries stay lowest.
@@ -1387,6 +1426,51 @@ mod tests {
         assert!(move_entry(&mut l, false, |_| false, "B", Some("nothing")));
         assert_eq!(order(&l), ["DLC: EP1", "B", "A"]);
         assert!(!move_entry(&mut l, false, |_| false, "DLC: EP1", None));
+    }
+
+    #[test]
+    fn moves_whole_categories_without_regrouping_mods() {
+        let original = ModList { entries: vec![
+            Entry::enabled("Ungrouped"), Entry::separator("A"), Entry::enabled("A1"), Entry::disabled("A2"),
+            Entry::separator("B"), Entry::enabled("B1"), Entry::enabled("B2"),
+            Entry::separator("Empty"), Entry::separator("C"), Entry::enabled("C1"),
+        ] };
+        let names = |l: &ModList| l.entries.iter().map(|e| e.name.as_str()).collect::<Vec<_>>().join(",");
+        for author in [false, true] {
+            let move_row = |l: &mut ModList, name: &str, after: Option<&str>| {
+                if author { move_any(l, name, after) } else { move_entry(l, false, |_| false, name, after) }
+            };
+            let mut l = original.clone();
+            // Dropping on a heading or inside its category must not take its mods.
+            assert!(move_row(&mut l, "A_separator", Some("B_separator")));
+            assert_eq!(names(&l), "Ungrouped,B_separator,B1,B2,A_separator,A1,A2,Empty_separator,C_separator,C1");
+            assert_eq!(l.get("A2").unwrap().state, EntryState::Disabled);
+            assert!(move_row(&mut l, "A_separator", None));
+            assert_eq!(names(&l), "Ungrouped,B_separator,B1,B2,Empty_separator,C_separator,C1,A_separator,A1,A2");
+            assert!(move_row(&mut l, "A_separator", Some("Ungrouped")));
+            assert_eq!(l, original);
+            for after in ["A_separator", "A1", "A2", "Ungrouped"] {
+                assert!(move_row(&mut l, "A_separator", Some(after)));
+                assert_eq!(l, original, "drop on itself or immediately before itself");
+            }
+            assert!(move_row(&mut l, "C_separator", Some("A1")));
+            assert_eq!(names(&l), "Ungrouped,A_separator,A1,A2,C_separator,C1,B_separator,B1,B2,Empty_separator");
+            assert!(move_row(&mut l, "Empty_separator", Some("A_separator")));
+            assert_eq!(names(&l), "Ungrouped,A_separator,A1,A2,Empty_separator,C_separator,C1,B_separator,B1,B2");
+        }
+    }
+
+    #[test]
+    fn moving_player_category_keeps_the_build_and_ungrouped_mods_outside() {
+        let mut l = ModList { entries: vec![
+            Entry::separator("Build"), Entry::enabled("Managed"), Entry::separator(USER_SEPARATOR),
+            Entry::enabled("Ungrouped"), Entry::separator("Mine"), Entry::disabled("Own"),
+        ] };
+        let original = l.clone();
+        assert!(move_entry(&mut l, true, |n| n == "Managed", "Mine_separator", Some("Build_separator")));
+        assert_eq!(l, original);
+        assert!(!move_entry(&mut l, true, |n| n == "Managed", "Build_separator", None));
+        assert_eq!(l, original);
     }
 
     #[test]
@@ -1405,6 +1489,9 @@ mod tests {
         assert!(overwrite_files(&inst).unwrap().is_empty() && inst.overwrite_dir().is_dir());
         assert_eq!(names(&inst)[3], "From Overwrite");
         assert_eq!(ModList::load(&inst.modlist_path("LYNO")).unwrap().get("From Overwrite").unwrap().state, EntryState::Enabled);
+
+        add_separator(&inst, "LYNO", "Split", Some(&sep)).unwrap();
+        assert_eq!(names(&inst), ["Build", USER_SEPARATOR_FOLDER, "Mine_separator", "Split_separator", "From Overwrite"]);
 
         std::fs::write(inst.overwrite_dir().join("b.ini"), b"x").unwrap();
         clear_overwrite(&inst).unwrap();

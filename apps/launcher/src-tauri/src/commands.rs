@@ -1043,7 +1043,7 @@ pub fn move_user_mod(state: TauriState<'_, AppState>, folder: String, after: Opt
     if !moved {
         return Err("Перетаскивать можно только ваши моды: порядок сборки задаёт её автор".into());
     }
-    snapshot(&inst, &profile(&inst), &format!("Перед перемещением «{}»", shown(&folder)), true);
+    snapshot(&inst, &profile(&inst), &format!("Перед перемещением «{}»", shown(&folder)), !folder.ends_with("_separator"));
     list.save(&path).map_err(err)?;
     log::info!("moved {folder:?} below {after:?}");
     Ok(())
