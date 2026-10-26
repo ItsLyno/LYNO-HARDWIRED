@@ -83,5 +83,5 @@ input {
 
 @utility panel {
   border-radius: var(--radius-2xl);
-  background: rgb(15 17 23 / 0.8);
+  background: var(--color-surface);
 }

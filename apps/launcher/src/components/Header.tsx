@@ -26,7 +26,7 @@ export function Header() {
         {/* pointer-events-none: the drag region only reacts to the element it is set on, not its children. */}
         <img src={logo} alt="LYNO//HARDWIRED" draggable={false} className="pointer-events-none h-5 w-auto" />
       </div>
-      <nav className="flex items-center gap-0.5 rounded-full bg-surface/80 p-1">
+      <nav className="flex items-center gap-0.5 rounded-full bg-surface p-1">
         {tabs.filter((t) => (!t.author || authorMode) && (!t.build || isBuild)).map((t) => (
           <button
             key={t.id}

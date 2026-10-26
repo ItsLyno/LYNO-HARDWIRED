@@ -832,6 +832,8 @@ export const mock = {
     void simulateInstall(job.id, file, after);
     return job.id;
   },
+  allowBackground: async (_path: string) => {},
+  pickBackground: async (): Promise<string | null> => null,
   pickArchives: async (): Promise<string[]> => ["C:\\Downloads\\Some Mod-123-1-0.zip"],
   archiveTarget: async (file: string): Promise<ArchiveTarget> => {
     const d = downloads.find((x) => x.fileName === file);

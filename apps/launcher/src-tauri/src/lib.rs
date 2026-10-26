@@ -93,6 +93,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::get_settings,
+            commands::allow_background,
             commands::save_settings,
             commands::detect_games,
             commands::get_status,

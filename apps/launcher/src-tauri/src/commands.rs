@@ -1175,6 +1175,17 @@ pub enum Folder {
     Overwrite,
 }
 
+/// Opens one picture to the webview's asset protocol (its scope is empty otherwise): the player's background.
+#[tauri::command]
+pub fn allow_background(app: AppHandle, path: String) -> CmdResult<()> {
+    let path = PathBuf::from(path);
+    let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("").to_ascii_lowercase();
+    if !["gif", "png", "jpg", "jpeg", "webp"].contains(&ext.as_str()) {
+        return Err("Это не изображение".into());
+    }
+    app.asset_protocol_scope().allow_file(&path).map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 pub fn open_folder(app: AppHandle, folder: Folder) -> CmdResult<()> {
     let settings = app.state::<AppState>().settings.lock().unwrap().clone();

@@ -616,6 +616,9 @@ export const api = isTauri()
       /** MO2's "Install a new mod from an archive": the archives picked in a file dialog, none when cancelled. */
       pickArchives: async () =>
         (await tauriOpen({ multiple: true, filters: [{ name: "Архивы модов", extensions: ["zip", "7z", "rar"] }] })) ?? [],
+      allowBackground: (path: string) => invoke<void>("allow_background", { path }),
+      pickBackground: async () =>
+        (await tauriOpen({ filters: [{ name: "Изображения и GIF", extensions: ["gif", "png", "jpg", "jpeg", "webp"] }] })) ?? null,
       archiveTarget: (file: string) => invoke<ArchiveTarget>("archive_target", { file }),
       installRoots: (id: number) => invoke<ArchiveRoot[]>("install_roots", { id }),
       installSetRoot: (id: number, root: string) => invoke<void>("install_set_root", { id, root }),

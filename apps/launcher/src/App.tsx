@@ -1,6 +1,7 @@
 import { X } from "lucide-react";
 import { useEffect } from "react";
 import { api } from "./api";
+import { BackgroundLayer } from "./background";
 import { DragGhost } from "./components/DragGhost";
 import { InstanceSetup } from "./components/InstanceSetup";
 import { PageTitle } from "./components/PageTitle";
@@ -100,6 +101,7 @@ export default function App() {
 
   return (
     <div className="flex h-full flex-col">
+      <BackgroundLayer />
       <Header />
       <main className="relative min-h-0 flex-1 overflow-y-auto px-8 pt-6 pb-8">
         <PageView />

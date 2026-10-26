@@ -6,6 +6,7 @@ import { InstanceSetup } from "../components/InstanceSetup";
 import { Integrity } from "../components/Integrity";
 import { NexusAccount } from "../components/NexusAccount";
 import { PageTitle } from "../components/PageTitle";
+import { useBackground, type Background } from "../background";
 import { downloadLabel, plural } from "../format";
 import { activeInstance, isRepairOnly, useApp } from "../store";
 
@@ -114,6 +115,8 @@ export function Settings() {
           </span>
         )}
       </div>
+      <h2 className="pt-4 text-base font-semibold">Фон</h2>
+      <BackgroundSettings />
       <h2 className="pt-4 text-base font-semibold">Обновления</h2>
       <Updates />
       <h2 className="pt-4 text-base font-semibold">Nexus Mods</h2>
@@ -177,6 +180,69 @@ export function Settings() {
 }
 
 /** One card per MO2 instance: the active one is marked, the others switch with a click. */
+// Applied at once and kept on this machine: a look has nothing to review before saving.
+function BackgroundSettings() {
+  const bg = useBackground();
+  const set = (patch: Partial<Background>) => useBackground.setState(patch);
+  const pick = async () => {
+    const path = await api.pickBackground();
+    if (path) set({ source: "custom", path });
+  };
+  const choices: [Background["source"], string][] = [
+    ["default", "Стандартный"],
+    ["custom", "Свой файл"],
+    ["none", "Без фона"],
+  ];
+  const range = (label: string, key: "dim" | "blur", max: number, unit: string) => (
+    <label className="flex items-center gap-3 text-[13px]">
+      <span className="w-28 text-muted">{label}</span>
+      <input
+        type="range"
+        min={0}
+        max={max}
+        value={bg[key]}
+        onChange={(e) => set({ [key]: Number(e.target.value) })}
+        className="w-56 accent-neon"
+      />
+      <span className="w-12 font-mono text-muted">
+        {bg[key]}
+        {unit}
+      </span>
+    </label>
+  );
+  return (
+    <div className="panel divide-y divide-line/60">
+      <Field label="Картинка" hint="Анимированный GIF, PNG, JPG или WebP. Файл не копируется: если его удалить или переместить, фона не будет.">
+        <div className="flex flex-wrap items-center gap-2">
+          {choices.map(([id, label]) => (
+            <Button
+              key={id}
+              variant={bg.source === id ? "primary" : undefined}
+              onClick={() => (id === "custom" && !bg.path ? pick() : set({ source: id }))}
+            >
+              {label}
+            </Button>
+          ))}
+          {bg.source === "custom" && <Button onClick={pick}>Выбрать файл…</Button>}
+        </div>
+        {bg.source === "custom" && bg.path && <div className="mt-2 truncate font-mono text-[13px] text-muted">{bg.path}</div>}
+      </Field>
+      {bg.source !== "none" && (
+        <Field label="Вид" hint="Затемнение и размытие делают текст читаемее поверх яркой картинки.">
+          <div className="space-y-3">
+            {range("Затемнение", "dim", 90, "%")}
+            {range("Размытие", "blur", 20, " px")}
+            <label className="flex items-center gap-2 text-[13px]">
+              <input type="checkbox" checked={bg.pixelated} onChange={(e) => set({ pixelated: e.target.checked })} className="accent-neon" />
+              Чёткие пиксели (для пиксель-арта)
+            </label>
+          </div>
+        </Field>
+      )}
+    </div>
+  );
+}
+
 function Profiles() {
   const { settings, switchInstance, progress } = useApp();
   const instances = settings?.instances ?? [];

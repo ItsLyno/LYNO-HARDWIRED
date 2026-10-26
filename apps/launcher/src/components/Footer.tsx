@@ -6,7 +6,7 @@ import { pressToDrag } from "./DragGhost";
 import { isJobActive, useApp } from "../store";
 
 // A floating rounded badge: the footer itself has no bar, the pills hover over the page.
-const PILL = "flex h-8 items-center rounded-full border border-line/60 bg-surface/90 shadow-lg shadow-black/30 backdrop-blur";
+const PILL = "flex h-8 items-center rounded-full border border-line/60 bg-surface shadow-lg shadow-black/30 backdrop-blur";
 
 // The bottom bar, like MO2's status line: downloads on the left, the Nexus allowance on the right.
 export function Footer() {
