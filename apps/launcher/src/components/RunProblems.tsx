@@ -48,7 +48,8 @@ export function RunProblems({ report, onClose }: { report: RunReport; onClose: (
                 <div className="min-w-0 flex-1">
                   <div className="truncate font-medium text-fg">{p.modFolder ?? "Мод не определён"}</div>
                   <div className="truncate text-[12px] text-muted">
-                    {p.source} · {p.count} {plural(p.count, "ошибка", "ошибки", "ошибок")}
+                    {p.source} · {p.count}{" "}
+                    {p.severity === "warning" ? plural(p.count, "предупреждение", "предупреждения", "предупреждений") : plural(p.count, "ошибка", "ошибки", "ошибок")}
                   </div>
                 </div>
                 <Button variant="ghost" className="h-8 text-[13px]" onClick={() => setLog(p.log)} title={p.log}>
@@ -56,9 +57,16 @@ export function RunProblems({ report, onClose }: { report: RunReport; onClose: (
                   Лог
                 </Button>
               </div>
-              <pre className="overflow-x-auto border-t border-line/60 px-4 py-2.5 font-mono text-[11.5px] leading-relaxed whitespace-pre-wrap text-fg/80">
-                {p.samples.join("\n\n")}
-              </pre>
+              <div className="space-y-1.5 border-t border-line/60 px-4 py-2.5">
+                {p.hint && <p className="text-fg">{p.hint}</p>}
+                <pre className="overflow-x-auto font-mono text-[11.5px] leading-relaxed whitespace-pre-wrap text-fg/70">{p.title}</pre>
+                {p.samples.length > 1 && (
+                  <details className="text-muted">
+                    <summary className="cursor-pointer text-[12px]">Ещё записи из лога ({p.samples.length - 1})</summary>
+                    <pre className="mt-1 overflow-x-auto font-mono text-[11.5px] leading-relaxed whitespace-pre-wrap text-fg/70">{p.samples.slice(1).join("\n\n")}</pre>
+                  </details>
+                )}
+              </div>
             </div>
           ))}
           {saved && <p className="text-muted">Отчёт сохранён: {saved}</p>}

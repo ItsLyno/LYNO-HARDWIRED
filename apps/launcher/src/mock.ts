@@ -3,6 +3,8 @@
 // The data is illustrative, not the real build.
 import type {
   ArchiveTarget,
+  AuthorMetadata,
+  MetadataRow,
   AuthorEvent,
   BuildInfo,
   BuiltRelease,
@@ -54,6 +56,8 @@ function mod(name: string, author: string, version: string, size: number, nexusI
     nexusUrl: `https://www.nexusmods.com/cyberpunk2077/mods/${nexusId}`,
     enabled: true,
     optional: true,
+    description: null,
+    requires: [],
     size,
     outdated: false,
     installed: true,
@@ -139,6 +143,7 @@ const pending: Pending = {
   removed: ["Never Lose Your Car"],
   renamed: [["Nova LUT", "Nova LUT 2"]],
   toggled: ["HD Reworked Project"],
+  metadata: [],
   reordered: true,
   separators: ["04 - Visuals - Lighting & Weather"],
   personal: ["My Test Weapon"],
@@ -293,7 +298,7 @@ async function simulateVerify(): Promise<VerifyReport | null> {
     ],
     customized: [
       { id: "cyber-engine-tweaks", folder: "Cyber Engine Tweaks", files: files("bin/x64/plugins/cyber_engine_tweaks/bindings.json") },
-      { id: "mod-settings", folder: "Mod Settings", files: files("red4ext/plugins/mod_settings/user.ini") },
+      { id: "mod-settings", folder: "Mod Settings", files: files("overwrite/red4ext/plugins/mod_settings/user.ini") },
     ],
   };
 }
@@ -609,6 +614,14 @@ export const mock = {
     if (status.gameRunning || status.mo2Running) throw new Error("Закройте игру и Mod Organizer 2, чтобы включать и выключать моды");
     build = { ...build, mods: build.mods.map((m) => (m.kind === "mod" && m.id === id ? { ...m, enabled } : m)) };
   },
+  authorMetadata: async (): Promise<MetadataRow[]> => build.mods.flatMap((m) => m.kind === "mod" ? [{ folder: m.name, metadata: {
+    id: m.id, title: m.title ?? "", author: m.author ?? "", description: m.description ?? "", core: !m.optional, requires: m.requires,
+  } }] : []),
+  authorSaveMetadata: async (folder: string, metadata: AuthorMetadata) => {
+    build = { ...build, mods: build.mods.map((m) => m.kind === "mod" && m.name === folder ? {
+      ...m, title: metadata.title || null, author: metadata.author || null, description: metadata.description || null, optional: !metadata.core, requires: metadata.requires,
+    } : m) };
+  },
   authorChanges: async (): Promise<Pending> => {
     await delay(150);
     return pending;
@@ -684,6 +697,9 @@ export const mock = {
     scriptsFailed: true,
     problems: [
       {
+        severity: "error",
+        title: "At r6/scripts/StealthOverhaul/main.reds:41:9:\n    let npc = this.GetOwner() as NPCPuppet;\n  unresolved method GetOwner",
+        hint: "Скрипт обращается к тому, чего нет. Чаще всего не хватает мода-зависимости или мод устарел после обновления игры.",
         source: "redscript",
         log: "r6/logs/redscript_rCURRENT.log",
         modFolder: "Stealth Overhaul",
@@ -692,6 +708,9 @@ export const mock = {
         key: "redscript|Stealth Overhaul|r6/scripts/StealthOverhaul/main.reds:41:9:",
       },
       {
+        severity: "error",
+        title: "REDscript compilation has failed.",
+        hint: "Итог сборки скриптов, причина — в ошибках выше.",
         source: "redscript",
         log: "r6/logs/redscript_rCURRENT.log",
         modFolder: null,
@@ -700,6 +719,9 @@ export const mock = {
         key: "redscript||REDscript compilation has failed.",
       },
       {
+        severity: "warning",
+        title: "ArchiveXL (version: 1.2.0) is incompatible with the current patch. The requested runtime of the plugin is 2.1",
+        hint: "Плагин не поддерживает эту версию игры. Нужна новая версия мода, пока его можно выключить.",
         source: "ArchiveXL",
         log: "red4ext/plugins/ArchiveXL/ArchiveXL.log",
         modFolder: "My Test Weapon",

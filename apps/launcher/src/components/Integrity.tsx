@@ -11,11 +11,13 @@ export function Integrity() {
   const { build, status, progress, verifyProgress, verifyReport, verify, startRepair } = useApp();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [resetSettings, setResetSettings] = useState(false);
+  const [resetAsk, setResetAsk] = useState<string | null>(null);
 
   // Everything is selected by default: a repair keeps the player's settings, so it only costs the download.
   useEffect(() => {
     setSelected(new Set(verifyReport?.damaged.map(key) ?? []));
     setResetSettings(false);
+    setResetAsk(null);
   }, [verifyReport]);
 
   const busy = !!progress || !!status?.updating;
@@ -104,7 +106,7 @@ export function Integrity() {
               />
               <span>
                 Сбросить и настройки этих модов к настройкам сборки. Отметьте, если мод перестал работать после того, как вы
-                его настраивали.
+                его настраивали. Перекрывающие настройки в Overwrite тоже будут убраны в резервную копию.
               </span>
             </label>
             <div className="flex items-center gap-3">
@@ -125,11 +127,27 @@ export function Integrity() {
             Изменены настройки: {tunedOnly.length} {plural(tunedOnly.length, "мод", "мода", "модов")}
             <span className="text-muted">· это не повреждение</span>
           </div>
+          <p className="px-4 py-2 text-[13px] text-muted">
+            При обновлении ваши значения сохраняются, новые параметры автора добавляются в JSON и INI.
+            Другие форматы сохраняются целиком. Overwrite имеет приоритет над файлами модов.
+          </p>
           <ul className="divide-y divide-line/60">
             {tunedOnly.map((c) => (
-              <li key={c.id} className="px-4 py-2" title={c.files.sample.join("\n")}>
+              <li key={c.id} className="space-y-2 px-4 py-2">
                 <span className="block truncate text-sm">{titleOf(c.id, c.folder)}</span>
-                <span className="block truncate text-[13px] text-muted">{list(c.files)}</span>
+                <span className="block break-all font-mono text-xs text-muted whitespace-pre-line">{c.files.sample.join("\n")}</span>
+                {c.files.count > c.files.sample.length && <span className="text-xs text-muted">И ещё {c.files.count - c.files.sample.length}</span>}
+                {resetAsk === c.id ? (
+                  <div className="space-y-2 text-[13px] text-muted">
+                    <p>Вернуть настройки этого мода к версии автора? Личные файлы будут сохранены в .lyno/overwrite-backup внутри папки сборки. Общий файл настроек может содержать параметры нескольких модов.</p>
+                    <div className="flex gap-2">
+                      <Button variant="primary" disabled={busy || !build?.online} onClick={() => { setResetAsk(null); void startRepair([c.id], false, true); }}>Вернуть настройки автора</Button>
+                      <Button variant="ghost" onClick={() => setResetAsk(null)}>Отмена</Button>
+                    </div>
+                  </div>
+                ) : (
+                  <Button disabled={busy || !build?.online} onClick={() => setResetAsk(c.id)}>Вернуть настройки автора</Button>
+                )}
               </li>
             ))}
           </ul>

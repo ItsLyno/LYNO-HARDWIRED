@@ -108,6 +108,8 @@ pub fn run() {
             commands::last_run,
             commands::modlist_history,
             commands::modlist_restore,
+            author::author_metadata,
+            author::author_save_metadata,
             author::author_changes,
             author::author_adopt,
             author::author_rollback,

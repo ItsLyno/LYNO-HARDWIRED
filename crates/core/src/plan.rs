@@ -57,7 +57,8 @@ pub fn plan(manifest: &Manifest, state: &State, current: &ModList) -> UpdatePlan
         download_size += manifest.base.download_size();
     }
 
-    for spec in manifest.mod_specs().filter(|m| !is_removed(m, state)) {
+    let enabled = enabled_ids(manifest, state, current);
+    for spec in manifest.mod_specs().filter(|m| !is_removed(m, state) || enabled.contains(m.id.as_str())) {
         if let Some(a) = action_for(spec, state) {
             if matches!(a, Action::Install { .. } | Action::Update { .. } | Action::Repair { .. }) {
                 download_size += spec.package.download_size();
@@ -109,6 +110,33 @@ pub fn is_enabled(spec: &ModSpec, state: &State, current: &ModList) -> bool {
     spec.optional.then(chosen).flatten().unwrap_or(spec.enabled)
 }
 
+/// Effective enabled set after an update, including transitive hard dependencies.
+pub fn enabled_ids<'a>(manifest: &'a Manifest, state: &State, current: &ModList) -> HashSet<&'a str> {
+    let mut enabled: HashSet<&str> = manifest.mod_specs().filter(|m| !is_removed(m, state) && is_enabled(m, state, current)).map(|m| m.id.as_str()).collect();
+    loop {
+        let before = enabled.len();
+        for m in manifest.mod_specs() {
+            if enabled.contains(m.id.as_str()) { enabled.extend(m.requires.iter().map(String::as_str)); }
+        }
+        if before == enabled.len() { return enabled; }
+    }
+}
+
+/// Enabled installed mods that directly require this mod. Transitive chains are
+/// protected at each edge; disabled mods do not make a dependency mandatory.
+pub fn required_by<'a>(manifest: &'a Manifest, state: &State, list: &ModList, id: &str) -> Vec<&'a ModSpec> {
+    manifest.mod_specs().filter(|m| m.id != id && m.requires.iter().any(|d| d == id)
+        && !is_removed(m, state) && state.mods.get(&m.id).is_some_and(|h| list.get(&h.folder).is_some_and(|e| e.state == EntryState::Enabled))).collect()
+}
+
+pub fn ensure_not_required(manifest: &Manifest, state: &State, list: &ModList, id: &str) -> Result<()> {
+    let needed = required_by(manifest, state, list, id);
+    if !needed.is_empty() {
+        return Err(Error::Manifest(format!("Сначала выключите моды, которым он нужен: {}", needed.iter().map(|m| m.title.as_deref().unwrap_or(&m.name)).collect::<Vec<_>>().join(", "))));
+    }
+    Ok(())
+}
+
 /// The player's switch for an optional build mod. Only edits `list`: the
 /// mod stays installed, and [`plan`] keeps the choice across updates.
 pub fn set_enabled(manifest: &Manifest, state: &State, list: &mut ModList, id: &str, enabled: bool) -> Result<()> {
@@ -118,6 +146,15 @@ pub fn set_enabled(manifest: &Manifest, state: &State, list: &mut ModList, id: &
         .ok_or_else(|| Error::Manifest(format!("mod {id:?} is not in the manifest")))?;
     if !spec.optional {
         return Err(Error::Manifest(format!("mod {id:?} is not optional")));
+    }
+    if !enabled { ensure_not_required(manifest, state, list, id)?; }
+    if enabled {
+        for dep in &spec.requires {
+            let dependency = manifest.mod_specs().find(|m| m.id == *dep).ok_or_else(|| Error::Manifest(format!("Нет обязательного мода {dep}")))?;
+            if is_removed(dependency, state) || !state.mods.get(dep).is_some_and(|h| list.get(&h.folder).is_some_and(|e| e.state == EntryState::Enabled)) {
+                return Err(Error::Manifest(format!("Сначала установите и включите обязательный мод: {}", dependency.title.as_deref().unwrap_or(&dependency.name))));
+            }
+        }
     }
     let folder = &state.mods.get(id).ok_or_else(|| Error::Manifest(format!("mod {id:?} is not installed")))?.folder;
     let entry = list
@@ -150,18 +187,19 @@ pub fn is_players(manifest: &Manifest, state: &State, e: &Entry) -> bool {
 /// version of an optional build mod (`mod_install::Target::Own`): it keeps the
 /// build mod's place, which is the point of replacing it.
 pub fn target_modlist(manifest: &Manifest, state: &State, current: &ModList) -> ModList {
+    let enabled = enabled_ids(manifest, state, current);
     let user_sep = Entry::separator(USER_SEPARATOR);
     let tail_at = current.entries.iter().position(|e| e.name == user_sep.name).unwrap_or(current.entries.len());
     let (head, tail) = current.entries.split_at(tail_at);
-    let own_version = |m: &ModSpec| is_removed(m, state).then(|| head.iter().find(|e| e.name == m.name)).flatten();
+    let own_version = |m: &ModSpec| (is_removed(m, state) && !enabled.contains(m.id.as_str())).then(|| head.iter().find(|e| e.name == m.name)).flatten();
     let in_place: HashSet<&str> = manifest.mod_specs().filter_map(own_version).map(|e| e.name.as_str()).collect();
 
     let mut entries: Vec<Entry> = current.entries.iter().filter(|e| e.state == EntryState::Unmanaged).cloned().collect();
     for e in &manifest.mods {
         entries.extend(match e {
             ModEntry::Separator { title, .. } => Some(Entry::separator(title)),
-            ModEntry::Mod(m) if is_removed(m, state) => own_version(m).cloned(),
-            ModEntry::Mod(m) if is_enabled(m, state, current) => Some(Entry::enabled(&m.name)),
+            ModEntry::Mod(m) if is_removed(m, state) && !enabled.contains(m.id.as_str()) => own_version(m).cloned(),
+            ModEntry::Mod(m) if enabled.contains(m.id.as_str()) => Some(Entry::enabled(&m.name)),
             ModEntry::Mod(m) => Some(Entry::disabled(&m.name)),
         });
     }
@@ -200,6 +238,45 @@ mod tests {
                 .map(|(id, folder, hash)| (id.to_string(), InstalledMod { folder: folder.to_string(), hash: hash.to_string(), damaged: false, reset_settings: false }))
                 .collect(),
         }
+    }
+
+    #[test]
+    fn only_enabled_dependents_protect_their_actual_dependencies() {
+        let mut gameplay = optional("gameplay", "h", true);
+        gameplay.requires = vec!["library".into()];
+        let m = manifest(vec![ModEntry::Mod(optional("library", "h", true)), ModEntry::Mod(gameplay), ModEntry::Mod(optional("other", "h", true))]);
+        let st = state(Some("base"), &[("library", "library folder", "h"), ("gameplay", "gameplay folder", "h"), ("other", "other folder", "h")]);
+        let mut list = ModList { entries: vec![Entry::enabled("library folder"), Entry::enabled("gameplay folder"), Entry::enabled("other folder")] };
+        let original = list.clone();
+        assert!(set_enabled(&m, &st, &mut list, "library", false).unwrap_err().to_string().contains("gameplay folder"));
+        assert_eq!(list, original, "failed operation is atomic");
+        set_enabled(&m, &st, &mut list, "other", false).unwrap();
+        set_enabled(&m, &st, &mut list, "gameplay", false).unwrap();
+        set_enabled(&m, &st, &mut list, "library", false).unwrap();
+        assert!(set_enabled(&m, &st, &mut list, "gameplay", true).is_err());
+        set_enabled(&m, &st, &mut list, "library", true).unwrap();
+        set_enabled(&m, &st, &mut list, "gameplay", true).unwrap();
+    }
+
+    #[test]
+    fn updates_restore_only_dependencies_of_enabled_mods_transitively() {
+        let mut gameplay = optional("gameplay", "h", true);
+        gameplay.requires = vec!["library".into()];
+        let mut library = optional("library", "h", true);
+        library.requires = vec!["runtime".into()];
+        let m = manifest(vec![ModEntry::Mod(optional("runtime", "h", true)), ModEntry::Mod(library), ModEntry::Mod(gameplay), ModEntry::Mod(optional("other", "h", true))]);
+        let mut st = state(Some("base"), &[("gameplay", "gameplay folder", "h")]);
+        st.removed.extend(["library".into(), "runtime".into(), "other".into()]);
+        let current = ModList { entries: vec![Entry::enabled("gameplay folder")] };
+        let p = plan(&m, &st, &current);
+        assert_eq!(p.actions, [Action::Install { id: "runtime".into() }, Action::Install { id: "library".into() }]);
+        assert_eq!(p.modlist.get("library folder").unwrap().state, EntryState::Enabled);
+        assert_eq!(p.modlist.get("runtime folder").unwrap().state, EntryState::Enabled);
+        assert!(p.modlist.get("other folder").is_none());
+        let off = ModList { entries: vec![Entry::disabled("gameplay folder")] };
+        let p = plan(&m, &st, &off);
+        assert!(p.actions.is_empty());
+        assert!(p.modlist.get("library folder").is_none());
     }
 
     #[test]

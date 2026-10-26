@@ -15,6 +15,9 @@
 //! - Advanced Crash Reporter (`bin/x64/plugins/AdvancedCrashReporter/`):
 //!   crash reports and the `reports/watch/` snapshots, the inventory of
 //!   installed mods and caches of engine symbols, rewritten on every launch.
+//! - `r6/storages/RedIMGRetriever/`: icon cache the mod rebuilds on its own (tens of MB).
+//! - `r6/storages/RedscriptConfigFramework/*.cached.json`: the framework's copy of each mod's config.
+//! - `r6/storages/LynoEconomy/*.tsv`: output of the author's price scanner, not read by the game.
 //!
 //! Mod settings (CET `config.json`/`bindings.json`, per-mod `db.sqlite3` and
 //! json files, Mod Settings `red4ext/plugins/mod_settings/user.ini`) are
@@ -24,12 +27,20 @@
 /// `path` is relative to a mod folder (= the game folder), with `/`.
 pub fn is_generated(path: &str) -> bool {
     let p = path.to_ascii_lowercase();
-    const PREFIXES: &[&str] = &["r6/cache/", "r6/logs/", "red4ext/logs/", "bin/x64/plugins/advancedcrashreporter/reports/"];
+    const PREFIXES: &[&str] = &[
+        "r6/cache/",
+        "r6/logs/",
+        "red4ext/logs/",
+        "bin/x64/plugins/advancedcrashreporter/reports/",
+        "r6/storages/redimgretriever/",
+    ];
     const CRASH_REPORTER: &str = "bin/x64/plugins/advancedcrashreporter/";
     PREFIXES.iter().any(|x| p.starts_with(x))
         || p == "archive/pc/mod/modlist.txt"
         || p == "tools/redmod/bin/redmodlog.txt"
         || p.ends_with(".log")
+        || (p.starts_with("r6/storages/redscriptconfigframework/") && p.ends_with(".cached.json"))
+        || (p.starts_with("r6/storages/lynoeconomy/") && p.ends_with(".tsv"))
         || p.strip_prefix(CRASH_REPORTER).is_some_and(|f| !f.contains('/') && (f.ends_with(".cache") || f == "mod-inventory.txt"))
 }
 
@@ -98,6 +109,9 @@ mod tests {
             "bin/x64/plugins/AdvancedCrashReporter/mod-inventory.txt",
             "bin/x64/plugins/AdvancedCrashReporter/reports/20261004-155731-crash-tid9188-01.txt",
             "bin/x64/plugins/AdvancedCrashReporter/reports/watch/watch-00.txt",
+            "r6/storages/RedIMGRetriever/5a11629badbcc0b9.bin",
+            "r6/storages/RedscriptConfigFramework/TraumaTeam.cached.json",
+            "r6/storages/LynoEconomy/items.tsv",
         ] {
             assert!(is_generated(p), "{p}");
         }
@@ -108,6 +122,7 @@ mod tests {
             "red4ext/plugins/mod_settings/user.ini",
             "bin/x64/plugins/cyber_engine_tweaks/bindings.json",
             "bin/x64/plugins/cyber_engine_tweaks/mods/AppearanceMenuMod/db.sqlite3",
+            "r6/storages/RedscriptConfigFramework/TraumaTeam.json",
             "meta.ini",
             "bin/x64/plugins/AdvancedCrashReporter.asi",
             "bin/x64/plugins/AdvancedCrashReporter/config.ini",

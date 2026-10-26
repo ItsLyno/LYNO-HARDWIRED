@@ -225,6 +225,8 @@ pub enum ModRow {
         enabled: bool,
         /// The player may switch it on or off (see `set_mod_enabled`); false for core mods.
         optional: bool,
+        description: Option<String>,
+        requires: Vec<String>,
         size: u64,
         /// Installed but a different version than the latest build.
         outdated: bool,
@@ -256,6 +258,7 @@ fn build_rows(
     let metas = inst.scan_mods().unwrap_or_default();
     let specs: std::collections::HashMap<&str, &lyno_core::manifest::ModSpec> =
         manifest.mod_specs().map(|m| (m.id.as_str(), m)).collect();
+    let mut core_section = false;
     let mut rows: Vec<ModRow> = lyno_core::publish::split_user_section(current)
         .0
         .iter()
@@ -263,6 +266,7 @@ fn build_rows(
         .map(|e| {
             let meta = metas.get(&e.name).cloned().unwrap_or_default();
             if let Some(title) = e.separator_title() {
+                core_section = meta.lyno_core;
                 return ModRow::Separator { title: title.to_owned(), color: meta.color };
             }
             let id = lyno_core::publish::mod_id(&e.name, &meta);
@@ -280,6 +284,8 @@ fn build_rows(
                         nexus_url: meta.mod_id.map(|n| format!("https://www.nexusmods.com/{game}/mods/{n}")),
                         enabled: false,
                         optional: true,
+                        description: None,
+                        requires: vec![],
                         size: 0,
                         outdated: false,
                         installed: true,
@@ -290,6 +296,15 @@ fn build_rows(
                     }
                 }
             };
+            if author {
+                if let ModRow::Mod { optional, title, author, description, requires, .. } = &mut row {
+                    *optional = meta.lyno_optional || !(meta.lyno_core || core_section);
+                    if meta.lyno_title.is_some() { title.clone_from(&meta.lyno_title); }
+                    if meta.lyno_author.is_some() { author.clone_from(&meta.lyno_author); }
+                    description.clone_from(&meta.lyno_description);
+                    requires.clone_from(&meta.lyno_requires);
+                }
+            }
             if let ModRow::Mod { name, version, enabled, .. } = &mut row {
                 *name = e.name.clone();
                 *enabled = e.state == EntryState::Enabled;
@@ -402,6 +417,8 @@ pub async fn fetch_build(app: AppHandle) -> CmdResult<Option<BuildInfo>> {
             nexus_url: m.nexus.as_ref().map(|n| n.url()),
             enabled: plan::is_enabled(m, &installed, &current),
             optional: m.optional,
+            description: m.description.clone(),
+            requires: m.requires.clone(),
             size: m.package.size,
             outdated: have.is_some_and(|h| h.hash != m.package.hash),
             installed: have.is_some(),
@@ -431,7 +448,8 @@ pub async fn fetch_build(app: AppHandle) -> CmdResult<Option<BuildInfo>> {
         game_version: manifest.game_version.clone(),
         changelog: manifest.changelog.clone(),
         mods,
-        up_to_date: plan.is_up_to_date(),
+        // A metadata-only release still needs to be adopted and stamped locally.
+        up_to_date: plan.is_up_to_date() && installed.build_version.as_deref() == Some(manifest.build_version.as_str()),
         changes: plan.actions.len(),
         repairs: plan
             .actions
@@ -717,7 +735,7 @@ pub fn set_mod_enabled(state: TauriState<'_, AppState>, id: String, enabled: boo
     let mut list = ModList::load(&path).map_err(err)?;
     plan::set_enabled(&manifest, &installed, &mut list, &id, enabled).map_err(|e| {
         log::warn!("set_mod_enabled {id}: {e}");
-        "Этот мод нельзя переключить: обновите сборку".to_owned()
+        e.to_string()
     })?;
     let folder = installed.mods.get(&id).map_or(id.as_str(), |m| m.folder.as_str());
     snapshot(&inst, &profile(&inst), &switch_label(folder, enabled), true);
@@ -735,7 +753,7 @@ pub fn remove_build_mod(state: TauriState<'_, AppState>, id: String) -> CmdResul
     install::remove_mod(&inst, &manifest, &id).map_err(|e| {
         log::error!("remove build mod {id}: {e}");
         match e {
-            lyno_core::Error::Manifest(_) => "Этот мод нужен сборке: его можно только оставить".to_owned(),
+            lyno_core::Error::Manifest(message) => message,
             e => format!("Не удалось удалить мод: {e}"),
         }
     })?;

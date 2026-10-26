@@ -28,6 +28,10 @@ pub struct ModMeta {
     /// `[LYNO] core=true`: players can't switch the mod off. On a separator,
     /// covers every mod below it up to the next separator.
     pub lyno_core: bool,
+    pub lyno_title: Option<String>,
+    pub lyno_author: Option<String>,
+    pub lyno_description: Option<String>,
+    pub lyno_requires: Vec<String>,
     /// `[LYNO] fomod`: the options picked in the mod's FOMOD installer
     /// ([`crate::fomod::encode_saved`]).
     pub lyno_fomod: Option<String>,
@@ -72,6 +76,11 @@ impl ModMeta {
             lyno_id: lyno("id"),
             lyno_optional: flag("optional"),
             lyno_core: flag("core"),
+            lyno_title: lyno("title"),
+            lyno_author: lyno("author"),
+            lyno_description: lyno("description"),
+            lyno_requires: lyno("requires").map(|s| serde_json::from_str(&s)).transpose()
+                .map_err(|e| Error::Parse { path: path.to_owned(), message: format!("LYNO requires: {e}") })?.unwrap_or_default(),
             lyno_fomod: lyno("fomod"),
             color: general("color").and_then(|v| qt_color(&v)),
         })
@@ -115,6 +124,37 @@ impl ModMeta {
         let opt = WriteOption { escape_policy: EscapePolicy::Nothing, ..Default::default() };
         ini.write_to_file_opt(path, opt).map_err(|e| Error::io(path, e))
     }
+}
+
+/// Author-owned fields, kept separate from Nexus/MO2 metadata.
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AuthorMetadata {
+    pub id: String,
+    pub title: String,
+    pub author: String,
+    pub description: String,
+    pub core: bool,
+    pub requires: Vec<String>,
+}
+
+pub fn save_author(path: &Path, value: &AuthorMetadata) -> Result<()> {
+    if [&value.id, &value.title, &value.author, &value.description].iter().any(|s| s.contains(['\n', '\r', '\0'])) {
+        return Err(Error::Manifest("Метаданные должны быть однострочными".into()));
+    }
+    let text = if path.exists() { std::fs::read_to_string(path).map_err(|e| Error::io(path, e))? } else { String::new() };
+    let mut ini = Ini::load_from_str_opt(&text, parse_opt()).map_err(|e| Error::Parse { path: path.to_owned(), message: e.to_string() })?;
+    let mut section = ini.with_section(Some(LYNO));
+    section.set("id", &value.id)
+        .set("title", value.title.trim())
+        .set("author", value.author.trim())
+        .set("description", value.description.trim())
+        .set("core", value.core.to_string())
+        // Explicitly override an inherited core section for an optional mod.
+        .set("optional", (!value.core).to_string())
+        .set("requires", serde_json::to_string(&value.requires).map_err(|e| Error::Manifest(e.to_string()))?);
+    let opt = WriteOption { escape_policy: EscapePolicy::Nothing, ..Default::default() };
+    ini.write_to_file_opt(path, opt).map_err(|e| Error::io(path, e))
 }
 
 /// Sets (`Some`) or removes `[LYNO] fomod`, keeping every other key.

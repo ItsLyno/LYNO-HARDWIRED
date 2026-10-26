@@ -100,6 +100,22 @@ fn ready(state: &AppState) -> CmdResult<Settings> {
     Ok(settings)
 }
 
+#[tauri::command]
+pub fn author_metadata(state: TauriState<'_, AppState>) -> CmdResult<Vec<author::MetadataRow>> {
+    let settings = state.settings.lock().unwrap().clone();
+    if !settings.author_mode { return Err("Доступно только в режиме автора".into()); }
+    let inst = Instance::new(&settings.instance_dir);
+    author::metadata(&inst, &crate::commands::profile(&inst), installed_manifest(&inst).as_ref()).map_err(err)
+}
+
+#[tauri::command]
+pub fn author_save_metadata(state: TauriState<'_, AppState>, folder: String, metadata: lyno_core::meta::AuthorMetadata) -> CmdResult<()> {
+    let settings = ready(&state)?;
+    if running_processes() != (false, false) { return Err("Закройте игру и Mod Organizer 2 перед изменением метаданных".into()); }
+    let inst = Instance::new(&settings.instance_dir);
+    author::save_metadata(&inst, &crate::commands::profile(&inst), &folder, &metadata).map_err(err)
+}
+
 /// The mod list against the installed build: what the next release changes
 /// besides edited files (those come from `verify_build`).
 #[tauri::command]

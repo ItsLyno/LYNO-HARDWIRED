@@ -62,6 +62,11 @@ export interface RunReport {
 }
 
 export interface RunProblem {
+  severity: "error" | "warning";
+  /** The first message without timestamps and the game folder. */
+  title: string;
+  /** What it usually means and what to do, for known messages. */
+  hint: string | null;
   /** redscript, RED4ext, CET, a RED4ext plugin or "CET: <mod>". */
   source: string;
   /** Relative to overwrite/, as readOverwriteLog takes it. */
@@ -108,6 +113,8 @@ export type ModRow =
       enabled: boolean;
       /** The player may switch it on or off; false for core mods (frameworks, libraries). */
       optional: boolean;
+      description: string | null;
+      requires: string[];
       size: number;
       outdated: boolean;
       installed: boolean;
@@ -120,6 +127,16 @@ export type ModRow =
       /** In the installed build: the author can take back their edits (`authorRollback`). False for a mod of the next release. */
       published: boolean;
     };
+
+export interface AuthorMetadata {
+  id: string;
+  title: string;
+  author: string;
+  description: string;
+  core: boolean;
+  requires: string[];
+}
+export interface MetadataRow { folder: string; metadata: AuthorMetadata }
 
 export interface LastUpdate {
   from: string;
@@ -219,6 +236,7 @@ export interface Pending {
   renamed: [string, string][];
   /** Switched on or off: the build ships the author's state as the default. */
   toggled: string[];
+  metadata: string[];
   reordered: boolean;
   /** Separators new to the build, renamed or recolored: titles. */
   separators: string[];
@@ -534,6 +552,8 @@ export const api = isTauri()
       removeBuildMod: (id: string) => invoke<void>("remove_build_mod", { id }),
       /** The next update installs it again. */
       restoreBuildMod: (id: string) => invoke<void>("restore_build_mod", { id }),
+      authorMetadata: () => invoke<MetadataRow[]>("author_metadata"),
+      authorSaveMetadata: (folder: string, metadata: AuthorMetadata) => invoke<void>("author_save_metadata", { folder, metadata }),
       authorChanges: () => invoke<Pending>("author_changes"),
       /** Records the published build as installed: the author has just released it from this instance. */
       authorAdopt: () => invoke<void>("author_adopt"),

@@ -4,6 +4,7 @@ import { api, type ModRow, type Need, type UserRow } from "../api";
 import { Button } from "../components/Button";
 import { Chip } from "../components/Chip";
 import { LogViewer } from "../components/LogViewer";
+import { ModMetadataEditor } from "../components/ModMetadataEditor";
 import { ModlistHistory } from "../components/ModlistHistory";
 import { pressToDrag } from "../components/DragGhost";
 import { Notices } from "../components/Notices";
@@ -41,7 +42,7 @@ type Target = {
 type Menu = { target: Target; x: number; y: number };
 /** `after`: where a new separator goes. */
 /** `many`: every selected row a delete goes to. */
-type Dialog = { kind: "delete" | "reinstall" | "rollback" | "rename" | "color" | "separator" | "toMod" | "clear" | "logs"; target: Target; after?: string | null; many?: Target[] };
+type Dialog = { kind: "metadata" | "delete" | "reinstall" | "rollback" | "rename" | "color" | "separator" | "toMod" | "clear" | "logs"; target: Target; after?: string | null; many?: Target[] };
 
 /** MO2's folder of the separator above the player's own mods (`plan::USER_SEPARATOR`). */
 const USER_SEPARATOR = "LYNO USER MODS_separator";
@@ -213,9 +214,11 @@ export function Mods() {
   ]);
   const picked = [...targets.values()].filter((t) => selected.has(t.folder));
   const author = !!settings?.authorMode;
-  const switchable = (t: Target) => t.installed && !t.removed && (!t.id || t.optional);
+  const requiredBy = (id: string) => all.filter((m) => m.id !== id && m.installed && m.enabled && !m.removed && m.requires.includes(id));
+  const dependencyReason = (id: string) => `Нужен включённым модам: ${requiredBy(id).map((m) => m.title ?? m.name).join(", ")}`;
+  const switchable = (t: Target) => t.installed && !t.removed && (author || !t.id || (t.optional && requiredBy(t.id).length === 0));
   // The player's own, any in author mode; a player's optional build mod leaves the build (`remove_build_mod`).
-  const deletable = (t: Target) => !t.id || author || (t.optional && t.installed && !t.removed);
+  const deletable = (t: Target) => !t.id || author || (t.optional && t.installed && !t.removed && requiredBy(t.id).length === 0);
   const switchMany = (ts: Target[], enabled: boolean) =>
     void run(async () => {
       for (const t of ts.filter((t) => switchable(t) && t.enabled !== enabled)) {
@@ -412,8 +415,8 @@ export function Mods() {
       {filter === "off" && (
         <p className="mt-3 text-[13px] text-muted">
           Выбор сохраняется при обновлениях сборки. Выключенный мод остаётся установленным, удалённый обновления не
-          вернут, пока вы сами не вернёте его через меню мода. Если от мода зависят другие, выключите и их: лаунчер
-          зависимостей не проверяет.
+          вернут, пока вы сами не вернёте его через меню мода. Подтверждённые автором зависимости защищены:
+          сначала выключите моды, которым они нужны.
         </p>
       )}
       {filter === "changes" && last && last.removed.length > 0 && (
@@ -498,7 +501,7 @@ export function Mods() {
                     <PriorityCell n={priority.get(m.name)} />
                     <td>
                      <div className="flex min-w-0 items-center gap-2">
-                      <span className={`truncate ${m.enabled && !m.removed ? "" : "text-faint"}`}>{m.title ?? m.name}</span>
+                      <span title={m.description ?? undefined} className={`truncate ${m.enabled && !m.removed ? "" : "text-faint"}`}>{m.title ?? m.name}</span>
                       <span className="flex shrink-0 items-center gap-1">
                       {m.removed && <Badge tone="state" title="Вы удалили этот мод: обновления сборки его не вернут">удалён</Badge>}
                       {!m.enabled && !m.removed && <Badge tone="state">выключен</Badge>}
@@ -514,6 +517,9 @@ export function Mods() {
                         </Badge>
                       )}
                       {!m.installed && !m.removed && build?.installedVersion && <Badge tone="pending" icon={Plus}>новый</Badge>}
+                      {m.requires.length > 0 && <Badge tone="info" title={`Обязательные моды: ${m.requires.map((id) => all.find((r) => r.id === id)?.title ?? all.find((r) => r.id === id)?.name ?? id).join(", ")}`}>{`зависимости: ${m.requires.length}`}</Badge>}
+                      {requiredBy(m.id).length > 0 && <Badge tone="state" title={dependencyReason(m.id)}>нужен другим</Badge>}
+                      {m.enabled && m.requires.some((id) => !all.some((r) => r.id === id && r.installed && r.enabled && !r.removed)) && <Badge tone="problem" icon={TriangleAlert}>зависимость выключена или отсутствует</Badge>}
                       <NeedsBadge needs={needs.get(m.name)} />
                       </span>
                      </div>
@@ -521,7 +527,7 @@ export function Mods() {
                     <VersionCell version={m.version} update={nexusUpdate.get(m.name)} />
                     <td className="pr-5">
                       <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
-                        {m.optional && m.installed && (
+                        {(author || (m.optional && requiredBy(m.id).length === 0)) && m.installed && (
                           <Switch
                             checked={m.enabled}
                             disabled={locked}
@@ -529,10 +535,10 @@ export function Mods() {
                             onChange={(v) => setModEnabled(m.id, v)}
                           />
                         )}
-                        {m.installed && !m.optional && (
+                        {m.installed && !author && (!m.optional || requiredBy(m.id).length > 0) && (
                           <span
                             className="mr-1 inline-flex h-[18px] w-8 items-center justify-center text-faint"
-                            title="Основа сборки: от этого мода зависят другие, выключить его нельзя"
+                            title={!m.optional ? "Обязательный мод: отмечен автором как основа сборки" : dependencyReason(m.id)}
                           >
                             <Lock size={13} />
                           </span>
@@ -632,7 +638,7 @@ export function Mods() {
         />
       )}
       {history && <ModlistHistory locked={locked} lockReason={lockReason} onClose={() => setHistory(false)} onRestored={reload} />}
-      {dialog?.kind === "logs" ? <LogViewer onClose={() => setDialog(null)} /> : dialog && <ModDialog dialog={dialog} onClose={() => setDialog(null)} />}
+      {dialog?.kind === "metadata" ? <ModMetadataEditor folder={dialog.target.folder} locked={locked} onClose={() => setDialog(null)} onSaved={reload} /> : dialog?.kind === "logs" ? <LogViewer onClose={() => setDialog(null)} /> : dialog && <ModDialog dialog={dialog} onClose={() => setDialog(null)} />}
     </div>
   );
 }
@@ -728,14 +734,17 @@ function ModMenu(props: {
   onDialog: (d: Dialog) => void;
   onClose: () => void;
 }) {
-  const { run, settings, userMods, refreshBuild, refreshUserMods } = useApp();
+  const { run, settings, userMods, build, refreshBuild, refreshUserMods, setPage, verify } = useApp();
   const ref = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState({ left: props.menu.x, top: props.menu.y });
   const t = props.menu.target;
   const author = !!settings?.authorMode;
   const own = !t.id || author;
   // A player's optional build mod goes for good: updates leave it out (`remove_build_mod`).
-  const removable = own || (t.optional && t.installed);
+  const buildMods = (build?.mods ?? []).filter((m): m is Mod => m.kind === "mod");
+  const requiredBy = buildMods.filter((m) => m.installed && m.enabled && !m.removed && m.requires.includes(t.id ?? ""));
+  const spec = buildMods.find((m) => m.id === t.id);
+  const removable = own || (t.optional && t.installed && requiredBy.length === 0);
   const dialog = (kind: Dialog["kind"], after?: string | null) => () => props.onDialog({ kind, target: t, after });
   // A player's build mod comes again with the build (repair), which needs MO2 closed; an archive install waits for it.
   const repair = !!t.id && !author;
@@ -766,6 +775,7 @@ function ModMenu(props: {
     { label: "Цвет", icon: Palette, disabled: props.locked, title: lock, onClick: dialog("color") },
     { label: "Удалить", icon: Trash2, danger: true, disabled: props.locked, title: lock, onClick: dialog("delete") },
   ] : t.kind === "overwrite" ? [
+    ...(!author && activeInstance(settings)?.build ? [{ label: "Настройки и переопределения", icon: Wrench, disabled: props.locked, title: lock, onClick: () => { setPage("settings"); void verify(); } }] : []),
     { label: "Логи игры", icon: ScrollText, onClick: dialog("logs") },
     { label: "Открыть в проводнике", icon: FolderOpen, onClick: () => run(() => api.openFolder("overwrite")) },
     null,
@@ -801,6 +811,9 @@ function ModMenu(props: {
       title: !own ? "Мод сборки можно только выключить" : props.locked ? props.lockReason : undefined,
       onClick: dialog("rename"),
     },
+    ...(author && t.id && t.installed ? [{ label: "Метаданные и зависимости", icon: Pencil, disabled: props.locked, title: lock, onClick: dialog("metadata") }] : []),
+    ...(spec?.requires ?? []).map((id) => ({ label: `Обязательный мод: ${buildMods.find((m) => m.id === id)?.title ?? buildMods.find((m) => m.id === id)?.name ?? id}`, icon: Lock, disabled: true, onClick: () => {} })),
+    ...requiredBy.map((m) => ({ label: `Нужен: ${m.title ?? m.name}`, icon: Lock, disabled: true, onClick: () => {} })),
     // The author's undo for a build mod: the published package over their edits or a Nexus update.
     ...(author && t.id && t.published
       ? [
@@ -854,7 +867,7 @@ function ModMenu(props: {
     // What its Nexus page asks for and the list lacks: a way to the page, the install stays the player's drag.
     ...(t.needs.length > 0 ? [null] : []),
     ...t.needs.map((n) => ({
-      label: n.disabled ? `${n.name} — выключен` : n.modId === null ? `Требует: ${n.name}` : `Нет мода: ${n.name}`,
+      label: `Nexus: ${n.name}${n.disabled ? " — выключен" : ""}`,
       icon: ExternalLink,
       disabled: !n.url,
       title: [n.disabled && `Включите «${n.disabled}»`, n.notes, n.url].filter(Boolean).join("\n") || undefined,
@@ -978,7 +991,7 @@ function ModDialog({ dialog, onClose }: { dialog: Dialog; onClose: () => void })
     />
   );
 
-  const view: Record<Exclude<Dialog["kind"], "logs">, { title: string; body: ReactNode; confirm: string; danger?: boolean; ok: () => void }> = {
+  const view: Record<Exclude<Dialog["kind"], "logs" | "metadata">, { title: string; body: ReactNode; confirm: string; danger?: boolean; ok: () => void }> = {
     delete: t.kind === "separator" ? {
       title: "Удалить разделитель?",
       body: <p>Моды под ним останутся на своих местах.</p>,
@@ -1111,7 +1124,7 @@ function ModDialog({ dialog, onClose }: { dialog: Dialog; onClose: () => void })
       },
     };
   }
-  const v = view[dialog.kind as Exclude<Dialog["kind"], "logs">];
+  const v = view[dialog.kind as Exclude<Dialog["kind"], "logs" | "metadata">];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-8" role="dialog" aria-modal="true" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
@@ -1180,8 +1193,8 @@ function NeedsBadge({ needs }: { needs?: Need[] }) {
   if (missing.length === 0) return null;
   const lines = missing.map((n) => (n.disabled ? `${n.name} — выключен` : `${n.name} — не установлен`));
   return (
-    <Badge tone="problem" icon={TriangleAlert} title={`Требуется на странице Nexus:\n${lines.join("\n")}\n\nСсылки — в меню мода`}>
-      {`не хватает ${missing.length} ${plural(missing.length, "мода", "модов", "модов")}`}
+    <Badge tone="info" icon={TriangleAlert} title={`Указано на странице Nexus (может относиться к другим вариантам установки):\n${lines.join("\n")}\n\nЭто подсказки, а не подтверждённые зависимости сборки. Ссылки — в меню мода`}>
+      {`Nexus: ${missing.length} ${plural(missing.length, "подсказка", "подсказки", "подсказок")}`}
     </Badge>
   );
 }

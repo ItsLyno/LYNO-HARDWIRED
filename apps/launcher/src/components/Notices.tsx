@@ -233,7 +233,8 @@ function runSummary(r: RunReport): string {
   const mods = [...new Set(r.problems.flatMap((p) => (p.modFolder ? [p.modFolder] : [])))];
   const named = mods.length === 0 ? "" : mods.length === 1 ? `: «${mods[0]}»` : `: «${mods[0]}» и ещё ${mods.length - 1}`;
   if (r.scriptsFailed) return `Скрипты модов не собрались, моды на redscript не работали${named}`;
-  const n = r.problems.reduce((sum, p) => sum + p.count, 0);
+  const n = r.problems.filter((p) => p.severity === "error").reduce((sum, p) => sum + p.count, 0);
+  if (n === 0) return `Плагины не загрузились или не подходят к версии игры${named}`;
   return `В последнем запуске моды записали ${n} ${plural(n, "ошибку", "ошибки", "ошибок")}${named}`;
 }
 

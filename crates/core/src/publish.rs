@@ -22,6 +22,26 @@ use crate::{Error, Result};
 /// Top-level instance folders that never go into the base package.
 const BASE_EXCLUDED: &[&str] = &["mods", "downloads", "overwrite", "logs", "crashDumps", "webcache", ".lyno"];
 
+/// Folders and root files MO2 itself brings. Anything else in the instance root (a work folder,
+/// notes, a game copy) is the author's and stays out of the base: it would reach every player.
+const MO2_FOLDERS: &[&str] = &[
+    "profiles", "dlls", "plugins", "stylesheets", "translations", "resources", "qml", "licenses", "tutorials",
+    "platforms", "styles", "imageformats", "iconengines", "tls", "generic", "networkinformation", "sqldrivers",
+    "platformthemes", "loot", "explorer++", "buttons", "mode",
+];
+const MO2_ROOT_EXTENSIONS: &[&str] = &["exe", "dll", "ini", "qss", "png", "chm", "qm", "json"];
+
+fn is_mo2_path(first: &str, rest: &str) -> bool {
+    if rest.is_empty() {
+        if first.eq_ignore_ascii_case("portable.txt") {
+            return true;
+        }
+        let ext = first.rsplit_once('.').map_or("", |(_, e)| e);
+        return MO2_ROOT_EXTENSIONS.iter().any(|x| x.eq_ignore_ascii_case(ext));
+    }
+    MO2_FOLDERS.iter().any(|x| x.eq_ignore_ascii_case(first))
+}
+
 pub struct BuildOptions {
     pub name: String,
     pub profile: String,
@@ -104,6 +124,7 @@ pub fn build(
     warnings.extend(profile_warnings(&inst.profile_dir(&opts.profile)));
     let mut files = base_files(root, &opts.profile, Some(&opts.out_dir))?;
     warnings.extend(base_warnings(&files));
+    warnings.extend(skipped_root_warning(root, &opts.out_dir));
     let staged_ini = stage_mo2_ini(root, &mut files)?;
     let base_source = |p: &str| match &staged_ini {
         Some(staged) if p == MO2_INI => staged.clone(),
@@ -180,8 +201,10 @@ pub fn build(
             enabled: entry.state == EntryState::Enabled,
             optional: is_optional(&meta, core_section),
             version: meta.version.clone(),
-            author: extra.author,
-            title: extra.title.filter(|t| *t != entry.name),
+            description: meta.lyno_description.clone(),
+            requires: meta.lyno_requires.clone(),
+            author: meta.lyno_author.clone().or(extra.author),
+            title: meta.lyno_title.clone().or(extra.title).filter(|t| *t != entry.name),
             nexus,
             package,
         }));
@@ -220,6 +243,13 @@ pub fn build(
         mods,
     };
     manifest.validate()?;
+    for m in manifest.mod_specs().filter(|m| m.enabled) {
+        for dep in &m.requires {
+            if manifest.mod_specs().any(|d| d.id == *dep && !d.enabled) {
+                return Err(Error::Manifest(format!("{}: обязательный мод {dep} выключен", m.name)));
+            }
+        }
+    }
     Ok(BuildOutput { manifest, assets, repacked, warnings })
 }
 
@@ -237,8 +267,8 @@ pub fn mod_id(folder: &str, meta: &ModMeta) -> String {
     meta.lyno_id.clone().unwrap_or_else(|| slug(folder))
 }
 
-/// Files of the base package: MO2 and the build's profile, without what the
-/// game and MO2 generate, the author's other profiles and private files, and
+/// Files of the base package: MO2 and the build's profile (only what MO2 itself ships:
+/// [`MO2_FOLDERS`]), without what the game and MO2 generate, the author's other profiles and private files, and
 /// `out_dir` when it sits inside the instance.
 pub fn base_files(root: &Path, profile: &str, out_dir: Option<&Path>) -> Result<Vec<FileEntry>> {
     let out_rel = out_dir
@@ -265,7 +295,10 @@ pub fn base_files(root: &Path, profile: &str, out_dir: Option<&Path>) -> Result<
         if p.split('/').any(|c| c.eq_ignore_ascii_case("__pycache__")) {
             return false;
         }
-        if first != "profiles" {
+        if !is_mo2_path(first, rest) {
+            return false;
+        }
+        if !first.eq_ignore_ascii_case("profiles") {
             return true;
         }
         rest.split_once('/').is_some_and(|(name, file)| name == profile && !rules::is_private_profile_file(file))
@@ -303,6 +336,26 @@ fn stage_mo2_ini(root: &Path, files: &mut [FileEntry]) -> Result<Option<PathBuf>
 /// hundred MB): a game copy, a dev toolchain, backups. Every player would
 /// download them.
 const BASE_FOLDER_WARN_SIZE: u64 = 500_000_000;
+
+/// Root entries that stay out of the base. If MO2 itself needs one (a new Qt folder), the
+/// build would ship an MO2 that doesn't start: this is the only place the author sees it.
+fn skipped_root_warning(root: &Path, out_dir: &Path) -> Option<String> {
+    let out = std::path::absolute(out_dir).ok();
+    let mut names: Vec<String> = std::fs::read_dir(root)
+        .ok()?
+        .flatten()
+        .filter(|e| out.as_deref() != std::path::absolute(e.path()).ok().as_deref())
+        .map(|e| e.file_name().to_string_lossy().into_owned())
+        .filter(|n| {
+            let rest = if root.join(n).is_dir() { "x" } else { "" };
+            !n.starts_with('.')
+                && !BASE_EXCLUDED.iter().any(|x| x.eq_ignore_ascii_case(n))
+                && !is_mo2_path(n, rest)
+        })
+        .collect();
+    names.sort();
+    (!names.is_empty()).then(|| format!("not MO2's, left out of the base: {} (add to MO2_FOLDERS if MO2 needs it)", names.join(", ")))
+}
 
 fn base_warnings(files: &[FileEntry]) -> Vec<String> {
     let mut sizes: std::collections::BTreeMap<&str, u64> = std::collections::BTreeMap::new();

@@ -32,6 +32,7 @@ pub mod publish;
 pub mod release;
 pub mod report;
 pub mod rules;
+mod settings_merge;
 pub mod state;
 pub mod tracking;
 pub mod tree;

@@ -151,6 +151,10 @@ pub fn verify(inst: &Instance, state: &State, cancel: &AtomicBool, on: &mut dyn 
         }
 
         let Some(record) = files::load(inst, id, &m.hash) else {
+            let shadows = settings_shadows(inst, current.iter().map(|(f, _)| f.path.as_str()));
+            if !shadows.is_empty() {
+                customized.push(Customized { id: id.clone(), folder: m.folder.clone(), files: Files::of(shadows) });
+            }
             if tree::combine_pairs(&current).hash == m.hash {
                 files::save(inst, &FileList::new(id, &m.hash, &current))?;
             } else {
@@ -158,7 +162,8 @@ pub fn verify(inst: &Instance, state: &State, cancel: &AtomicBool, on: &mut dyn 
             }
             continue;
         };
-        let diff = compare(&record, &current);
+        let mut diff = compare(&record, &current);
+        diff.settings.extend(settings_shadows(inst, record.files.keys().map(String::as_str)));
         if !diff.settings.is_empty() {
             customized.push(Customized { id: id.clone(), folder: m.folder.clone(), files: Files::of(diff.settings) });
         }
@@ -171,6 +176,12 @@ pub fn verify(inst: &Instance, state: &State, cancel: &AtomicBool, on: &mut dyn 
 
     on(Event::Done);
     Ok(Report { checked: state.mods.len(), damaged, customized })
+}
+
+fn settings_shadows<'a>(inst: &Instance, paths: impl Iterator<Item = &'a str>) -> Vec<String> {
+    paths.filter(|p| rules::is_settings(p) && !rules::is_generated(p) && tree::from_slash(&inst.overwrite_dir(), p).is_file())
+        .map(|p| format!("overwrite/{p}"))
+        .collect()
 }
 
 #[derive(Default)]

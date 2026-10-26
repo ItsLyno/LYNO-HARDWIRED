@@ -33,10 +33,22 @@ pub struct RunReport {
     pub problems: Vec<Problem>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum Severity {
+    Warning,
+    Error,
+}
+
 /// Errors of one log about one mod.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Problem {
+    pub severity: Severity,
+    /// The first entry without timestamps and the game folder: what a player can read at a glance.
+    pub title: String,
+    /// What it usually means and what to do, when the message is a known one (Russian, shown as is).
+    pub hint: Option<String>,
     /// Who wrote the log: "redscript", "RED4ext", "CET", a RED4ext plugin (TweakXL, ArchiveXL…) or a CET mod.
     pub source: String,
     /// Relative to `overwrite/`, as [`report::read_overwrite_log`] takes it.
@@ -71,13 +83,21 @@ pub fn last_run(inst: &Instance, profile: &str, since: SystemTime) -> RunReport 
         let source = source_of(&log.path);
         let redscript = source == "redscript";
         let log_owner = owner.of(&log.path);
-        for entry in error_entries(&text) {
+        for (severity, entry) in entries(&text) {
             let lower = entry.to_ascii_lowercase();
+            // Warnings only where they are known to mean a mod didn't work (see `is_notable_warning`).
+            if severity == Severity::Warning && !is_notable_warning(&source, &lower) {
+                continue;
+            }
             if redscript && (lower.contains("compilation has failed") || lower.contains("compilation failed")) {
                 scripts_failed = true;
             }
-            let mod_folder = game_paths(&entry).iter().find_map(|p| owner.of(p)).or_else(|| log_owner.clone());
-            match problems.iter_mut().find(|p| p.log == log.path && p.mod_folder == mod_folder) {
+            let mod_folder = game_paths(&entry)
+                .iter()
+                .find_map(|p| owner.of(p))
+                .or_else(|| red4ext_plugin(&source, &entry).and_then(|n| owner.of(&format!("red4ext/plugins/{n}"))))
+                .or_else(|| log_owner.clone());
+            match problems.iter_mut().find(|p| p.log == log.path && p.mod_folder == mod_folder && p.severity == severity) {
                 Some(p) => {
                     p.count += 1;
                     if p.samples.len() < SAMPLES {
@@ -85,6 +105,9 @@ pub fn last_run(inst: &Instance, profile: &str, since: SystemTime) -> RunReport 
                     }
                 }
                 None => problems.push(Problem {
+                    severity,
+                    title: title_of(&entry),
+                    hint: hint(&lower),
                     key: format!("{source}|{}|{}", mod_folder.as_deref().unwrap_or(""), strip_stamps(&entry)),
                     source: source.clone(),
                     log: log.path.clone(),
@@ -97,7 +120,7 @@ pub fn last_run(inst: &Instance, profile: &str, since: SystemTime) -> RunReport 
     }
     // The failed compile first: it explains the rest; then the noisiest.
     problems.sort_by(|a, b| {
-        let key = |p: &Problem| (!(scripts_failed && p.source == "redscript"), std::cmp::Reverse(p.count));
+        let key = |p: &Problem| (!(scripts_failed && p.source == "redscript"), p.severity == Severity::Warning, std::cmp::Reverse(p.count));
         key(a).cmp(&key(b)).then_with(|| a.log.cmp(&b.log))
     });
     problems.truncate(MAX_PROBLEMS);
@@ -123,28 +146,84 @@ fn source_of(log: &str) -> String {
     }
 }
 
-/// Error entries of a log: a line with an error level (spdlog's `[error]` / `[critical]`, redscript's
-/// `[ERROR - …]`) and the lines after it up to the next `[`-line.
-fn error_entries(text: &str) -> Vec<String> {
+/// Entries of a log with an error level (spdlog's `[error]` / `[critical]`, redscript's `[ERROR - …]`) or a
+/// warning level, and the lines after one up to the next `[`-line. RED4ext pads the level (`[error   ]`) and
+/// puts a thread id after it, so the level is looked for in every leading bracket, not at a fixed place.
+fn entries(text: &str) -> Vec<(Severity, String)> {
     let mut out = Vec::new();
-    let mut current: Option<Vec<&str>> = None;
+    let mut current: Option<(Severity, Vec<&str>)> = None;
     for line in text.lines() {
         if line.starts_with('[') {
-            out.extend(current.take().map(|l| l.join("\n")));
-            if is_error(line) {
-                current = Some(vec![line]);
-            }
-        } else if let Some(lines) = current.as_mut().filter(|l| l.len() < ENTRY_LINES && !line.trim().is_empty()) {
+            out.extend(current.take().map(|(s, l)| (s, l.join("\n"))));
+            current = level(line).map(|s| (s, vec![line]));
+        } else if let Some((_, lines)) = current.as_mut().filter(|(_, l)| l.len() < ENTRY_LINES && !line.trim().is_empty()) {
             lines.push(line);
         }
     }
-    out.extend(current.map(|l| l.join("\n")));
+    out.extend(current.map(|(s, l)| (s, l.join("\n"))));
     out
 }
 
-fn is_error(line: &str) -> bool {
-    let lower = line.to_ascii_lowercase();
-    lower.contains("[error]") || lower.contains("[critical]") || lower.starts_with("[error") || lower.starts_with("[fatal")
+fn level(line: &str) -> Option<Severity> {
+    let mut rest = line;
+    while let Some((group, after)) = rest.strip_prefix('[').and_then(|r| r.split_once(']')) {
+        let word = group.trim().split([' ', '-']).next().unwrap_or("").to_ascii_lowercase();
+        match word.as_str() {
+            "error" | "critical" | "fatal" => return Some(Severity::Error),
+            "warn" | "warning" => return Some(Severity::Warning),
+            _ => {}
+        }
+        rest = after.trim_start();
+    }
+    None
+}
+
+/// Warnings that mean a mod didn't work, not noise: RED4ext failing to load or start a plugin, redscript
+/// finding the same definition twice (a mod installed twice). Texts are from RED4ext's `PluginSystem.cpp`.
+fn is_notable_warning(source: &str, lower: &str) -> bool {
+    match source {
+        "RED4ext" => [
+            "could not load plugin",
+            "incompatible with the current patch",
+            "is not supported by red4ext",
+            "did not initialize properly",
+            "unsupported api version",
+            "exception",
+        ]
+        .iter()
+        .any(|m| lower.contains(m)),
+        "redscript" => lower.contains("already defined"),
+        _ => false,
+    }
+}
+
+/// The plugin a RED4ext message talks about, when it has no path: `Name (version: …) is incompatible…`,
+/// `Could not load plugin 'Name'…`.
+fn red4ext_plugin(source: &str, entry: &str) -> Option<String> {
+    if source != "RED4ext" {
+        return None;
+    }
+    let msg = entry.lines().next()?.rsplit_once("] ").map_or(entry, |(_, m)| m);
+    let name = match msg.split_once("plugin '") {
+        Some((_, rest)) => rest.split('\'').next()?,
+        None => msg.split(" (version").next().filter(|_| msg.contains(" (version"))?,
+    };
+    Some(name.trim().to_owned()).filter(|n| !n.is_empty() && !n.contains('/'))
+}
+
+/// What a known message means for the player.
+fn hint(lower: &str) -> Option<String> {
+    let rules: &[(&[&str], &str)] = &[
+        (&["could not load plugin"], "Плагин RED4ext не загрузился. Обычно не хватает Microsoft Visual C++ Redistributable или файл мода повреждён."),
+        (&["incompatible with the current patch"], "Плагин не поддерживает эту версию игры. Нужна новая версия мода, пока его можно выключить."),
+        (&["is not supported by red4ext", "unsupported api version"], "Плагин собран для другой версии RED4ext. Обновите мод или RED4ext."),
+        (&["did not initialize properly"], "Плагин не запустился и выгружен: его функции в игре не работают."),
+        (&["already defined"], "Одно и то же определено дважды: мод установлен два раза или два мода правят одно и то же."),
+        (&["compilation has failed", "compilation failed"], "Итог сборки скриптов, причина — в ошибках выше."),
+        (&["unresolved", "cannot find", "can't find"], "Скрипт обращается к тому, чего нет. Чаще всего не хватает мода-зависимости или мод устарел после обновления игры."),
+        (&["attempt to"], "Ошибка в Lua-скрипте мода CET. Игру не ломает, но мод может не работать."),
+    ];
+    rules.iter().find(|(m, _)| m.iter().any(|m| lower.contains(m))).map(|(_, h)| (*h).to_owned())
 }
 
 /// Game-relative paths under [`ROOTS`] in an entry, with `/`. A path ends where a line number
@@ -181,6 +260,12 @@ fn strip_stamps(entry: &str) -> String {
         Some(at) => norm[at..].to_owned(),
         None => norm,
     }
+}
+
+/// The entry as a player reads it: no timestamps, the lines after the first kept (redscript's source line and message).
+fn title_of(entry: &str) -> String {
+    let rest: Vec<&str> = entry.lines().skip(1).map(str::trim_end).collect();
+    std::iter::once(strip_stamps(entry)).chain(rest.into_iter().map(str::to_owned)).collect::<Vec<_>>().join("\n")
 }
 
 /// Which enabled mod a game path comes from: the path itself, or its folders up to the one
@@ -290,6 +375,29 @@ mod tests {
         // Logs from before the launch are another run's.
         let later = SystemTime::now() + std::time::Duration::from_secs(60);
         assert!(last_run(&inst, "LYNO", later).is_empty());
+    }
+
+    #[test]
+    fn reads_red4ext_padded_levels_and_plugin_warnings() {
+        let tmp = tempfile::tempdir().unwrap();
+        let root = tmp.path();
+        let inst = Instance::new(root);
+        write(root, "mods/Cool Plugin/red4ext/plugins/CoolPlugin/CoolPlugin.dll", "");
+        let list = ModList { entries: vec![Entry::enabled("Cool Plugin")] };
+        std::fs::create_dir_all(inst.profile_dir("LYNO")).unwrap();
+        list.save(&inst.modlist_path("LYNO")).unwrap();
+        write(
+            root,
+            "overwrite/red4ext/logs/red4ext.log",
+            "[2026-01-01 10:00:00.000] [info    ] [  1234] [RED4ext] fine\n\
+             [2026-01-01 10:00:00.100] [warning ] [  1234] [RED4ext] CoolPlugin (version: 1.0.0) is incompatible with the current patch. The requested runtime of the plugin is 2.1\n\
+             [2026-01-01 10:00:00.200] [warning ] [  1234] [RED4ext] Other note\n\
+             [2026-01-01 10:00:00.300] [error   ] [  1234] [RED4ext] boom\n",
+        );
+        let report = last_run(&inst, "LYNO", SystemTime::UNIX_EPOCH);
+        let got: Vec<_> = report.problems.iter().map(|p| (p.severity, p.mod_folder.as_deref(), p.hint.is_some())).collect();
+        assert_eq!(got, [(Severity::Error, None, false), (Severity::Warning, Some("Cool Plugin"), true)]);
+        assert!(report.problems[1].title.starts_with("CoolPlugin (version"), "{}", report.problems[1].title);
     }
 
     #[test]

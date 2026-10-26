@@ -29,6 +29,55 @@ use crate::publish::{base_files, mod_id, split_user_section};
 use crate::state::{InstalledMod, LastUpdate, State};
 use crate::{Error, Result};
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MetadataRow {
+    pub folder: String,
+    pub metadata: crate::meta::AuthorMetadata,
+}
+
+/// Only actual mods in the build section are dependency candidates.
+pub fn metadata(inst: &Instance, profile: &str, published: Option<&Manifest>) -> Result<Vec<MetadataRow>> {
+    let list = ModList::load(&inst.modlist_path(profile))?;
+    let metas = inst.scan_mods()?;
+    let mut core_section = false;
+    let mut out = Vec::new();
+    for e in split_user_section(&list).0 {
+        let meta = metas.get(&e.name).cloned().unwrap_or_default();
+        if e.is_separator() { core_section = meta.lyno_core; continue; }
+        if e.state == EntryState::Unmanaged { continue; }
+        let id = mod_id(&e.name, &meta);
+        let previous = published.and_then(|m| m.mod_specs().find(|m| m.id == id));
+        out.push(MetadataRow {
+            folder: e.name.clone(),
+            metadata: crate::meta::AuthorMetadata {
+                id,
+                title: meta.lyno_title.clone().or_else(|| previous.and_then(|m| m.title.clone())).unwrap_or_default(),
+                author: meta.lyno_author.clone().or_else(|| previous.and_then(|m| m.author.clone())).unwrap_or_default(),
+                description: meta.lyno_description.clone().unwrap_or_default(),
+                core: !meta.lyno_optional && (meta.lyno_core || core_section),
+                requires: meta.lyno_requires.clone(),
+            },
+        });
+    }
+    Ok(out)
+}
+
+pub fn save_metadata(inst: &Instance, profile: &str, folder: &str, value: &crate::meta::AuthorMetadata) -> Result<()> {
+    // Resolve through the existing list rather than joining an arbitrary UI path.
+    if folder.contains(['/', '\\', ':']) || folder == "." || folder == ".." {
+        return Err(Error::Manifest("Недопустимая папка мода".into()));
+    }
+    let mut rows = metadata(inst, profile, None)?;
+    let row = rows.iter_mut().find(|r| r.folder == folder).ok_or_else(|| Error::Manifest("Мод не входит в сборку".into()))?;
+    if value.id != row.metadata.id {
+        return Err(Error::Manifest("Постоянный ID нельзя менять: на него ссылаются другие моды и установленные сборки".into()));
+    }
+    row.metadata = value.clone();
+    crate::manifest::validate_dependencies(rows.iter().map(|r| (r.metadata.id.as_str(), r.metadata.requires.as_slice())))?;
+    crate::meta::save_author(&inst.mods_dir().join(folder).join("meta.ini"), value)
+}
+
 /// The mod list of the instance against the installed build. Folder names.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -41,6 +90,7 @@ pub struct Pending {
     pub renamed: Vec<(String, String)>,
     /// Switched on or off: the build ships the author's state as the default.
     pub toggled: Vec<String>,
+    pub metadata: Vec<String>,
     /// Mods or separators of both lists are in another order, or separators
     /// were added or removed.
     pub reordered: bool,
@@ -58,6 +108,7 @@ impl Pending {
             && self.removed.is_empty()
             && self.renamed.is_empty()
             && self.toggled.is_empty()
+            && self.metadata.is_empty()
             && !self.reordered
             && self.separators.is_empty()
     }
@@ -74,12 +125,22 @@ pub fn pending(inst: &Instance, installed: &Manifest) -> Result<Pending> {
 
     let was: BTreeMap<&str, &crate::manifest::ModSpec> = installed.mod_specs().map(|m| (m.id.as_str(), m)).collect();
     let mut now = BTreeMap::new();
+    let metadata_rows = metadata(inst, &installed.profile, Some(installed))?;
     let mut pending = Pending { personal: personal.iter().filter(is_mod).map(|e| e.name.clone()).collect(), ..Default::default() };
     for entry in build.iter().filter(is_mod) {
         let id = mod_id(&entry.name, &metas.get(&entry.name).cloned().unwrap_or_default());
         match was.get(id.as_str()) {
             None => pending.added.push(entry.name.clone()),
             Some(spec) => {
+                if let Some(row) = metadata_rows.iter().find(|r| r.folder == entry.name) {
+                    let value = &row.metadata;
+                    if value.core == spec.optional || value.requires != spec.requires
+                        || value.description != spec.description.clone().unwrap_or_default()
+                        || value.title != spec.title.clone().unwrap_or_default()
+                        || value.author != spec.author.clone().unwrap_or_default() {
+                        pending.metadata.push(entry.name.clone());
+                    }
+                }
                 if spec.name != entry.name {
                     pending.renamed.push((spec.name.clone(), entry.name.clone()));
                 }
@@ -185,4 +246,81 @@ pub fn adopt(inst: &Instance, manifest: &Manifest, out_dir: Option<&Path>) -> Re
     };
     state.save(&path)?;
     Ok(state)
+}
+
+#[cfg(test)]
+mod metadata_tests {
+    use super::*;
+    use crate::meta::ModMeta;
+
+    fn fixture() -> (tempfile::TempDir, Instance) {
+        let dir = tempfile::tempdir().unwrap();
+        let inst = Instance::new(dir.path());
+        std::fs::create_dir_all(inst.profile_dir("LYNO")).unwrap();
+        for name in ["Core_separator", "Library", "Gameplay", "Other", "LYNO USER MODS_separator", "Private"] {
+            std::fs::create_dir_all(inst.mods_dir().join(name)).unwrap();
+        }
+        std::fs::write(inst.mods_dir().join("Core_separator/meta.ini"), "[LYNO]\ncore=true\n").unwrap();
+        std::fs::write(inst.mods_dir().join("Gameplay/meta.ini"), "[General]\nmodid=42\ncustom=keep\n[LYNO]\nfomod=saved\n").unwrap();
+        ModList { entries: vec![
+            crate::modlist::Entry::separator("Core"), crate::modlist::Entry::enabled("Library"),
+            crate::modlist::Entry::enabled("Gameplay"), crate::modlist::Entry::enabled("Other"),
+            crate::modlist::Entry::separator("LYNO USER MODS"), crate::modlist::Entry::enabled("Private"),
+        ] }.save(&inst.modlist_path("LYNO")).unwrap();
+        (dir, inst)
+    }
+
+    #[test]
+    fn editor_preserves_mo2_and_overrides_inherited_core() {
+        let (_dir, inst) = fixture();
+        let rows = metadata(&inst, "LYNO", None).unwrap();
+        assert_eq!(rows.len(), 3, "no separators or personal mods offered as dependencies");
+        let mut value = rows.iter().find(|r| r.folder == "Gameplay").unwrap().metadata.clone();
+        assert!(value.core);
+        value.core = false;
+        value.title = "Геймплей".into();
+        value.description = "Только нужные зависимости".into();
+        value.requires = vec!["library".into()];
+        save_metadata(&inst, "LYNO", "Gameplay", &value).unwrap();
+        let meta = ModMeta::load(&inst.mods_dir().join("Gameplay/meta.ini")).unwrap();
+        assert!(meta.lyno_optional);
+        assert!(!meta.lyno_core);
+        assert_eq!(meta.lyno_title.as_deref(), Some("Геймплей"));
+        assert_eq!(meta.lyno_requires, ["library"]);
+        assert_eq!(meta.mod_id, Some(42));
+        assert_eq!(meta.lyno_fomod.as_deref(), Some("saved"));
+        assert!(std::fs::read_to_string(inst.mods_dir().join("Gameplay/meta.ini")).unwrap().contains("custom=keep"));
+        assert!(!metadata(&inst, "LYNO", None).unwrap().iter().find(|r| r.folder == "Gameplay").unwrap().metadata.core);
+    }
+
+    #[test]
+    fn editor_rejects_invalid_graph_and_ini_injection_without_writing() {
+        let (_dir, inst) = fixture();
+        let original = std::fs::read(inst.mods_dir().join("Gameplay/meta.ini")).unwrap();
+        let mut value = metadata(&inst, "LYNO", None).unwrap().into_iter().find(|r| r.folder == "Gameplay").unwrap().metadata;
+        for deps in [vec!["missing".into()], vec!["private".into()], vec!["gameplay".into()], vec!["library".into(), "library".into()]] {
+            value.requires = deps;
+            assert!(save_metadata(&inst, "LYNO", "Gameplay", &value).is_err());
+        }
+        value.requires.clear();
+        value.title = "title\n[LYNO]\ncore=true".into();
+        assert!(save_metadata(&inst, "LYNO", "Gameplay", &value).is_err());
+        assert_eq!(std::fs::read(inst.mods_dir().join("Gameplay/meta.ini")).unwrap(), original);
+        value.title.clear();
+        value.id = "changed".into();
+        assert!(save_metadata(&inst, "LYNO", "Gameplay", &value).is_err());
+        assert!(save_metadata(&inst, "LYNO", "../outside", &value).is_err());
+    }
+
+    #[test]
+    fn editor_rejects_transitive_cycles() {
+        let (_dir, inst) = fixture();
+        let mut rows = metadata(&inst, "LYNO", None).unwrap();
+        let value = &mut rows.iter_mut().find(|r| r.folder == "Gameplay").unwrap().metadata;
+        value.requires = vec!["library".into()];
+        save_metadata(&inst, "LYNO", "Gameplay", value).unwrap();
+        let value = &mut rows.iter_mut().find(|r| r.folder == "Library").unwrap().metadata;
+        value.requires = vec!["gameplay".into()];
+        assert!(save_metadata(&inst, "LYNO", "Library", value).is_err());
+    }
 }

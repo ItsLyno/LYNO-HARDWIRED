@@ -220,6 +220,9 @@ export const useApp = create<AppStore>((set, get) => ({
     } catch (e) {
       set({ buildError: String(e) });
     }
+    // `user_mods` tells the player's mods among the build's by the manifest `fetch_build` has just loaded: a list
+    // read in parallel with it (at startup) comes up without them.
+    await get().refreshUserMods();
   },
   saveSettings: async (settings) => {
     try {

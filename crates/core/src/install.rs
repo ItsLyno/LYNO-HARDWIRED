@@ -104,6 +104,8 @@ pub fn remove_mod(inst: &Instance, manifest: &Manifest, id: &str) -> Result<()> 
     }
     let path = state_path(inst);
     let mut state = State::load(&path)?;
+    let list = crate::modlist::ModList::load(&inst.modlist_path(&manifest.profile))?;
+    crate::plan::ensure_not_required(manifest, &state, &list, id)?;
     if let Some(m) = state.mods.get(id) {
         mod_install::remove(inst, &m.folder)?;
         files::remove(inst, id)?;
@@ -329,16 +331,19 @@ impl Installer<'_> {
                     let spec = self.spec(id)?;
                     let dest = staging.join(&spec.id);
                     let hashes = unpack(i, &spec.package, &dest)?;
+                    let reset_settings = state.mods.get(id).is_some_and(|m| m.reset_settings);
                     if let Action::Update { from_folder, .. } | Action::Repair { from_folder, .. } = action {
                         let old = state.mods.get(id);
                         if !old.is_some_and(|m| m.reset_settings) {
                             let record = old.and_then(|m| files::load(self.inst, id, &m.hash));
                             keep_settings(&mods_dir.join(from_folder), &dest, &hashes, record.as_ref())?;
+                        } else {
+                            backup_settings(&mods_dir.join(from_folder), &backup.join("mods").join(from_folder))?;
                         }
                     }
                     package::swap_folder(&dest, &mods_dir.join(&spec.name))?;
                     files::save(self.inst, &FileList::new(&spec.id, &spec.package.hash, &hashes))?;
-                    move_shadowing_files(&self.inst.overwrite_dir(), &mods_dir.join(&spec.name), &backup)?;
+                    move_shadowing_files(&self.inst.overwrite_dir(), &mods_dir.join(&spec.name), &backup, reset_settings)?;
                     if let Action::Update { from_folder, .. } | Action::Repair { from_folder, .. } = action {
                         if *from_folder != spec.name {
                             remove_dir(&mods_dir.join(from_folder))?;
@@ -387,6 +392,18 @@ impl Installer<'_> {
             state.save(&state_file)?;
         }
 
+        // Metadata can change while a content-addressed package stays identical.
+        // Stamp the manifest's author fields even when no mod was downloaded.
+        for spec in self.manifest.mod_specs().filter(|m| state.mods.contains_key(&m.id)) {
+            meta::save_author(&mods_dir.join(&spec.name).join("meta.ini"), &meta::AuthorMetadata {
+                id: spec.id.clone(),
+                title: spec.title.clone().unwrap_or_default(),
+                author: spec.author.clone().unwrap_or_default(),
+                description: spec.description.clone().unwrap_or_default(),
+                core: !spec.optional,
+                requires: spec.requires.clone(),
+            })?;
+        }
         on(Event::Step { index: total, total, label: "Порядок загрузки".into() });
         for e in &self.manifest.mods {
             if let ModEntry::Separator { title, color } = e {
@@ -553,7 +570,8 @@ pub(crate) fn is_player_file(rel: &str) -> bool {
 
 /// An update or a repair replaces the whole mod folder, but the player's
 /// settings inside it (see [`rules::is_settings`]) are what makes it theirs:
-/// copies them from the old folder over the fresh package. A file still as
+/// merges JSON/INI with the fresh package, preserving existing values and
+/// adding newly shipped keys. Other formats are copied intact. A file still as
 /// the build installed it (`record`, the old package's file list) is not the
 /// player's, so the new package's version of it comes in. Without a record
 /// every existing file counts as the player's. Only paths the package ships,
@@ -570,34 +588,76 @@ fn keep_settings(old: &Path, staging: &Path, files: &[(FileEntry, String)], reco
             }
         }
         let to = tree::from_slash(staging, &f.path);
-        std::fs::copy(&from, &to).map_err(|e| Error::io(&from, e))?;
+        crate::settings_merge::merge(&from, &to)?;
     }
     Ok(())
 }
 
 /// MO2 gives `overwrite/` the highest priority. A file the player's game
 /// created there before the build shipped it would hide the build's version
-/// forever, so it is moved to `backup`. Settings stay: there they are the
-/// player's own, created in game before the build shipped defaults.
-fn move_shadowing_files(overwrite: &Path, mod_dir: &Path, backup: &Path) -> Result<()> {
+/// forever, so it is moved to `backup`. Settings receive new JSON/INI keys,
+/// or move to the backup too when the player explicitly resets them.
+fn move_shadowing_files(overwrite: &Path, mod_dir: &Path, backup: &Path, reset_settings: bool) -> Result<()> {
     if !overwrite.is_dir() {
         return Ok(());
     }
-    for f in tree::list_files_with(mod_dir, &|p| rules::is_hashed(p) && !rules::is_settings(p))? {
+    for f in tree::list_files_with(mod_dir, &|p| rules::is_hashed(p) && !rules::is_generated(p))? {
         let shadow = tree::from_slash(overwrite, &f.path);
         if !shadow.is_file() {
             continue;
         }
-        let to = tree::from_slash(backup, &f.path);
+        if rules::is_settings(&f.path) && !reset_settings {
+            // Merge into a temporary file: the mod folder remains the author's
+            // source of truth, while overwrite keeps the player's priority.
+            let temp = shadow.with_file_name(format!(".lyno-merge-{}.tmp", uuid::Uuid::new_v4()));
+            let result = (|| {
+                let author = tree::from_slash(mod_dir, &f.path);
+                let mine = std::fs::read(&shadow).map_err(|e| Error::io(&shadow, e))?;
+                let theirs = std::fs::read(&author).map_err(|e| Error::io(&author, e))?;
+                let merged = crate::settings_merge::merge_bytes(author.extension().and_then(|e| e.to_str()).unwrap_or(""), &mine, &theirs);
+                if merged == mine {
+                    return Ok(());
+                }
+                std::fs::write(&temp, merged).map_err(|e| Error::io(&temp, e))?;
+                std::fs::rename(&temp, &shadow).map_err(|e| Error::io(&shadow, e))
+            })();
+            let _ = std::fs::remove_file(&temp);
+            result?;
+            continue;
+        }
+        let to = unused_backup_path(tree::from_slash(backup, &f.path));
         if let Some(dir) = to.parent() {
             std::fs::create_dir_all(dir).map_err(|e| Error::io(dir, e))?;
-        }
-        if to.exists() {
-            std::fs::remove_file(&to).map_err(|e| Error::io(&to, e))?;
         }
         std::fs::rename(&shadow, &to).map_err(|e| Error::io(&shadow, e))?;
     }
     Ok(())
+}
+
+fn backup_settings(from: &Path, backup: &Path) -> Result<()> {
+    if !from.is_dir() {
+        return Ok(());
+    }
+    for f in tree::list_files_with(from, &|p| rules::is_settings(p) && !rules::is_generated(p))? {
+        let dest = unused_backup_path(tree::from_slash(backup, &f.path));
+        if let Some(parent) = dest.parent() {
+            std::fs::create_dir_all(parent).map_err(|e| Error::io(parent, e))?;
+        }
+        let source = tree::from_slash(from, &f.path);
+        std::fs::copy(&source, &dest).map_err(|e| Error::io(&source, e))?;
+    }
+    Ok(())
+}
+
+fn unused_backup_path(path: std::path::PathBuf) -> std::path::PathBuf {
+    let mut candidate = path.clone();
+    let name = path.file_name().unwrap().to_string_lossy();
+    let mut index = 1;
+    while candidate.exists() {
+        candidate = path.with_file_name(format!("{name}.{index}"));
+        index += 1;
+    }
+    candidate
 }
 
 /// A separator is an empty folder with MO2's `meta.ini`; one holding anything
@@ -622,5 +682,61 @@ fn remove_dir(p: &Path) -> Result<()> {
         Ok(()) => Ok(()),
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
         Err(e) => Err(Error::io(p, e)),
+    }
+}
+
+#[cfg(test)]
+mod settings_tests {
+    use super::*;
+
+    fn write(root: &Path, rel: &str, bytes: &[u8]) {
+        let path = tree::from_slash(root, rel);
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(path, bytes).unwrap();
+    }
+
+    #[test]
+    fn customized_mod_receives_new_author_settings() {
+        let dir = tempfile::tempdir().unwrap();
+        let old = dir.path().join("old");
+        let staging = dir.path().join("staging");
+        write(&old, "config.json", br#"{"volume":1}"#);
+        write(&old, "unchanged.json", br#"{"value":1}"#);
+        let record = FileList::new("test", "old", &tree::hash_files_with(&old, &rules::is_hashed).unwrap());
+        write(&old, "config.json", br#"{"volume":2}"#);
+        write(&staging, "config.json", br#"{"volume":3,"newMod":{"enabled":true}}"#);
+        write(&staging, "unchanged.json", br#"{"value":3}"#);
+        let hashes = tree::hash_files_with(&staging, &rules::is_hashed).unwrap();
+        keep_settings(&old, &staging, &hashes, Some(&record)).unwrap();
+        let result: serde_json::Value = serde_json::from_slice(&std::fs::read(staging.join("config.json")).unwrap()).unwrap();
+        assert_eq!(result, serde_json::json!({"volume":2,"newMod":{"enabled":true}}));
+        assert_eq!(std::fs::read(staging.join("unchanged.json")).unwrap(), br#"{"value":3}"#);
+    }
+
+    #[test]
+    fn overwrite_receives_new_sections_and_reset_restores_author_with_backup() {
+        let dir = tempfile::tempdir().unwrap();
+        let overwrite = dir.path().join("overwrite");
+        let author = dir.path().join("mod");
+        let backup = dir.path().join("backup");
+        let rel = "red4ext/plugins/mod_settings/user.ini";
+        write(&overwrite, rel, b"[OldMod]\nvalue=player\n");
+        write(&overwrite, "unrelated.json", b"{}");
+        write(&overwrite, "r6/cache/final.redscripts", b"cache");
+        write(&author, rel, b"[OldMod]\nvalue=author\n[NewMod]\nenabled=true\n");
+        move_shadowing_files(&overwrite, &author, &backup, false).unwrap();
+        let merged = std::fs::read_to_string(tree::from_slash(&overwrite, rel)).unwrap();
+        assert!(merged.contains("value=player") && merged.contains("[NewMod]"));
+        assert!(std::fs::read_to_string(tree::from_slash(&author, rel)).unwrap().contains("value=author"));
+        move_shadowing_files(&overwrite, &author, &backup, true).unwrap();
+        assert!(!tree::from_slash(&overwrite, rel).exists());
+        assert_eq!(std::fs::read_to_string(tree::from_slash(&backup, rel)).unwrap(), merged);
+        assert!(overwrite.join("unrelated.json").exists());
+        assert!(overwrite.join("r6/cache/final.redscripts").exists());
+        // Another reset in the same build must retain the previous backup.
+        write(&overwrite, rel, b"[OldMod]\nvalue=second\n");
+        move_shadowing_files(&overwrite, &author, &backup, true).unwrap();
+        assert_eq!(std::fs::read_to_string(tree::from_slash(&backup, rel)).unwrap(), merged);
+        assert!(backup.join(format!("{rel}.1")).is_file());
     }
 }

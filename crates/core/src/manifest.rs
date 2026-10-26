@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{Error, Result};
 
-pub const SCHEMA_VERSION: u32 = 3;
+pub const SCHEMA_VERSION: u32 = 4;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -79,6 +79,11 @@ pub struct ModSpec {
     /// core=true` on the mod or on its separator in the author's MO2.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub optional: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    /// Confirmed hard dependencies, by stable build mod id. Nexus suggestions are separate.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub requires: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub version: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -156,7 +161,7 @@ impl Manifest {
     }
 
     pub fn validate(&self) -> Result<()> {
-        if self.schema != SCHEMA_VERSION {
+        if self.schema != SCHEMA_VERSION && self.schema != 3 {
             return Err(Error::Manifest(format!(
                 "unsupported schema {} (launcher supports {SCHEMA_VERSION})",
                 self.schema
@@ -175,6 +180,7 @@ impl Manifest {
                 return Err(Error::Manifest(format!("bad mod folder name {:?}", m.name)));
             }
         }
+        validate_dependencies(self.mod_specs().map(|m| (m.id.as_str(), m.requires.as_slice())))?;
         for e in &self.mods {
             if let ModEntry::Separator { title, color } = e {
                 if !is_safe_folder_name(title) {
@@ -188,6 +194,38 @@ impl Manifest {
         }
         Ok(())
     }
+}
+
+/// Reject broken references and cycles before author metadata or a release is saved.
+pub fn validate_dependencies<'a>(mods: impl Iterator<Item = (&'a str, &'a [String])>) -> Result<()> {
+    let mut graph = std::collections::HashMap::new();
+    for (id, requires) in mods {
+        if id.trim().is_empty() || graph.insert(id, requires).is_some() {
+            return Err(Error::Manifest(format!("Повторяющийся или пустой ID мода: {id}")));
+        }
+    }
+    for (&id, requires) in &graph {
+        let mut unique = HashSet::new();
+        for dep in *requires {
+            if !graph.contains_key(dep.as_str()) {
+                return Err(Error::Manifest(format!("{id}: отсутствует обязательный мод {dep}")));
+            }
+            if !unique.insert(dep) {
+                return Err(Error::Manifest(format!("{id}: повторяющаяся зависимость {dep}")));
+            }
+        }
+        let mut pending: Vec<&str> = requires.iter().map(String::as_str).collect();
+        let mut visited = HashSet::new();
+        while let Some(dep) = pending.pop() {
+            if dep == id {
+                return Err(Error::Manifest(format!("Циклическая зависимость: {id}")));
+            }
+            if visited.insert(dep) {
+                if let Some(next) = graph.get(dep) { pending.extend(next.iter().map(String::as_str)); }
+            }
+        }
+    }
+    Ok(())
 }
 
 /// A single path component: no separators, no `..`, no drive letters.
@@ -216,6 +254,8 @@ pub(crate) mod tests {
             name: format!("{id} folder"),
             enabled: true,
             optional: false,
+            description: None,
+            requires: vec![],
             version: Some("1.0".into()),
             author: Some("someone".into()),
             title: None,
