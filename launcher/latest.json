@@ -1,11 +1,11 @@
 {
-  "version": "0.9.0",
-  "notes": "Понятнее лог после выхода из игры: ошибки и предупреждения плагинов RED4ext с подсказками, редактор метаданных модов",
-  "pub_date": "2026-10-26T11:09:02Z",
+  "version": "0.10.0",
+  "notes": "Фон лаунчера: картинка или GIF (по умолчанию пиксель-арт), затемнение, размытие, свой файл — в Настройках.",
+  "pub_date": "2026-10-26T11:29:26Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUejR0VmZ4WmllZkoyQk9aRjUxZmJnUjYzNTdwNW5tREpMWmVycHZTbis4RzJ1cWlHKzc1U3JYSXN5K0ovR09remRqQ1NOZnJ3WEpqamxFNHZvZ0h1alZoTjFyK2pvc0FvPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkzMDEyOTQxCWZpbGU6TFlOTyBIQVJEV0lSRURfMC45LjBfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjAuOS4wCjh1UlorUVlzUWo2ckRGVjYyckM5bVNhVmlrZGJJb0xZRFBoaXZJOTQwNzFMUXNlSWpiWEtWUXoyd2FPM01GVktvSWtOZFdtK0gxRzJYTzEyNFNNc0JRPT0K",
-      "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/launcher-v0.9.0/LYNO-HARDWIRED_0.9.0_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUejR0VmZ4WmllZkhKZnpQbEpHWjBON1hZRTVqRVUxMVdxNDVxV21IY2Y4bXpyZnFEbVNuU0FQTFk1NHcvZ0lyTzNabEFKdDNMVlZWYVM3MnRPekVSbXRzcU5LSzhmZGdRPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkzMDE0MTY2CWZpbGU6TFlOTyBIQVJEV0lSRURfMC4xMC4wX3g2NC1zZXR1cC5leGUJdmVyc2lvbjowLjEwLjAKdjA1YnN0ZHZhK2JvUWJPMkZ3YStVVDFqZ25PQWZScys2NDhvTzhvWmh6U3lSRlBGNVRtS3dYV0NPSnY5blhBR2tpRjBDamZ0dHRjMHZKREVwTXlnQXc9PQo=",
+      "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/launcher-v0.10.0/LYNO-HARDWIRED_0.10.0_x64-setup.exe"
     }
   }
 }
