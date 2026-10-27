@@ -132,6 +132,7 @@ pub fn run() {
             author::author_cancel,
             commands::open_mod_folder,
             commands::open_folder,
+            commands::set_coop,
             commands::launch_game,
             commands::stop_game,
             commands::executables,

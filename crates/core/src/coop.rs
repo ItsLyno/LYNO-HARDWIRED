@@ -10,6 +10,31 @@ use crate::plan::coop_modlist;
 use crate::state::State;
 use crate::{rules, Error, Result};
 
+/// Which profile the launcher works with is the player's choice: Coop is on while this marker is in
+/// the instance's launcher folder.
+fn marker(inst: &Instance) -> std::path::PathBuf {
+    inst.root().join(".lyno").join("coop")
+}
+
+pub fn is_active(inst: &Instance) -> bool {
+    marker(inst).is_file()
+}
+
+pub fn set_active(inst: &Instance, active: bool) -> Result<()> {
+    let path = marker(inst);
+    if active {
+        if let Some(dir) = path.parent() {
+            std::fs::create_dir_all(dir).map_err(|e| Error::io(dir, e))?;
+        }
+        std::fs::write(&path, b"").map_err(|e| Error::io(&path, e))
+    } else {
+        match std::fs::remove_file(&path) {
+            Err(e) if e.kind() != std::io::ErrorKind::NotFound => Err(Error::io(&path, e)),
+            _ => Ok(()),
+        }
+    }
+}
+
 /// Makes the Coop profile if it isn't there and writes its mod list. The other profile files
 /// (`settings.ini`, `plugins.txt`, …) are copied from the build's profile once: MO2 keeps
 /// writing them, and the player's saves and graphics settings are not copied (`is_private_profile_file`).
@@ -51,6 +76,18 @@ mod tests {
         let p = root.join(rel);
         std::fs::create_dir_all(p.parent().unwrap()).unwrap();
         std::fs::write(p, data).unwrap();
+    }
+
+    #[test]
+    fn coop_is_a_marker_in_the_instance() {
+        let tmp = tempfile::tempdir().unwrap();
+        let inst = Instance::new(tmp.path());
+        assert!(!is_active(&inst));
+        set_active(&inst, false).unwrap();
+        set_active(&inst, true).unwrap();
+        assert!(is_active(&inst));
+        set_active(&inst, false).unwrap();
+        assert!(!is_active(&inst));
     }
 
     #[test]

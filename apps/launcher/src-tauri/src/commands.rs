@@ -4,13 +4,14 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 use lyno_core::conflicts;
+use lyno_core::coop;
 use lyno_core::diagnose;
 use lyno_core::download::{Downloader, PartEvent};
 use lyno_core::game::{self, GameInstall};
 use lyno_core::github::{GitHub, PublishedBuild};
 use lyno_core::history;
 use lyno_core::install::{self, Installer};
-use lyno_core::manifest::{ChangelogEntry, Manifest, ModEntry};
+use lyno_core::manifest::{ChangelogEntry, Manifest, ModEntry, COOP_PROFILE};
 use lyno_core::mo2::{self, Instance};
 use lyno_core::mod_install;
 use lyno_core::modlist::{Entry, EntryState, ModList};
@@ -55,10 +56,23 @@ pub(crate) fn installed_manifest(inst: &Instance) -> Option<Manifest> {
     Manifest::from_json(&text).ok()
 }
 
-/// The build's profile; for the player's own MO2 the one it opened last.
+/// Coop is on for the build's instance: its profile is the one the list, the launch and the
+/// history work with, and the list isn't the player's to change.
+pub(crate) fn in_coop(inst: &Instance) -> bool {
+    installed_manifest(inst).is_some_and(|m| m.has_coop()) && coop::is_active(inst)
+}
+
+const COOP_LOCKED: &str = "В режиме Coop набор модов такой же, как у автора сборки, его не меняют. \
+                           Переключитесь на профиль сборки в настройках, чтобы менять моды.";
+
+pub(crate) fn not_in_coop(inst: &Instance) -> CmdResult<()> {
+    if in_coop(inst) { Err(COOP_LOCKED.into()) } else { Ok(()) }
+}
+
+/// The build's profile (Coop's while Coop is on); for the player's own MO2 the one it opened last.
 pub(crate) fn profile(inst: &Instance) -> String {
     installed_manifest(inst)
-        .map(|m| m.profile)
+        .map(|m| if m.has_coop() && coop::is_active(inst) { COOP_PROFILE.to_owned() } else { m.profile })
         .or_else(|| inst.selected_profile())
         .unwrap_or_else(|| DEFAULT_PROFILE.to_owned())
 }
@@ -118,6 +132,9 @@ pub struct Status {
     game_patch: Option<String>,
     /// The installed build was made for another patch.
     game_mismatch: Option<game::GameMismatch>,
+    /// The installed build has a Coop mod set.
+    coop_available: bool,
+    coop_active: bool,
 }
 
 /// `get_status` runs every few seconds; the exe is read again only when it changes (a game update).
@@ -150,8 +167,11 @@ pub fn get_status(state: TauriState<'_, AppState>) -> Status {
     }
     let exe = settings.game_dir.as_deref().filter(|d| game::is_game_dir(d)).and_then(exe_version);
     let built_for = install::has_build(&inst).then(|| installed_manifest(&inst)).flatten();
-    let game_mismatch = exe.as_ref().zip(built_for).and_then(|(exe, m)| game::check(&m.game_version, m.game_exe.as_deref(), exe));
+    let game_mismatch = exe.as_ref().zip(built_for.as_ref()).and_then(|(exe, m)| game::check(&m.game_version, m.game_exe.as_deref(), exe));
+    let coop_available = built_for.as_ref().is_some_and(|m| m.has_coop());
     Status {
+        coop_available,
+        coop_active: coop_available && coop::is_active(&inst),
         game_patch: exe.map(|v| v.patch()),
         game_mismatch,
         mo2_installed: inst.is_installed(),
@@ -803,6 +823,7 @@ pub fn set_mod_enabled(state: TauriState<'_, AppState>, id: String, enabled: boo
     }
     let settings = state.settings.lock().unwrap().clone();
     let inst = Instance::new(&settings.instance_dir);
+    not_in_coop(&inst)?;
     // The manifest the player sees: the next update applies it and keeps the choice.
     let manifest = state
         .manifest
@@ -954,6 +975,7 @@ pub fn set_user_mod_enabled(state: TauriState<'_, AppState>, folder: String, ena
     }
     let settings = state.settings.lock().unwrap().clone();
     let inst = Instance::new(&settings.instance_dir);
+    not_in_coop(&inst)?;
     let path = inst.modlist_path(&profile(&inst));
     let mut list = ModList::load(&path).map_err(err)?;
     let installed = State::load(&install::state_path(&inst)).map_err(err)?;
@@ -1012,7 +1034,9 @@ fn editable(state: &AppState) -> CmdResult<Instance> {
     if running_processes() != (false, false) {
         return Err("Закройте игру и Mod Organizer 2, чтобы менять моды".into());
     }
-    Ok(Instance::new(&state.settings.lock().unwrap().instance_dir))
+    let inst = Instance::new(&state.settings.lock().unwrap().instance_dir);
+    not_in_coop(&inst)?;
+    Ok(inst)
 }
 
 #[derive(Serialize)]
@@ -1305,6 +1329,27 @@ pub fn executables(state: TauriState<'_, AppState>) -> Vec<mo2::Executable> {
     inst.executables().into_iter().filter(|e| e.title != game).collect()
 }
 
+/// Switches the build between its own profile and Coop (the author's mod set, made here from the
+/// manifest). MO2 keeps the list it has open in memory, so it must be closed.
+#[tauri::command]
+pub fn set_coop(state: TauriState<'_, AppState>, active: bool) -> CmdResult<()> {
+    if state.update.lock().unwrap().is_some() {
+        return Err("Дождитесь окончания обновления сборки".into());
+    }
+    if running_processes() != (false, false) {
+        return Err("Закройте игру и Mod Organizer 2, чтобы переключить профиль".into());
+    }
+    let inst = Instance::new(&state.settings.lock().unwrap().instance_dir);
+    if active {
+        let manifest = installed_manifest(&inst).filter(|m| m.has_coop()).ok_or("В установленной сборке нет набора модов для Coop")?;
+        let installed = State::load(&install::state_path(&inst)).map_err(err)?;
+        coop::prepare(&inst, &manifest, &installed).map_err(err)?;
+    }
+    coop::set_active(&inst, active).map_err(err)?;
+    log::info!("Coop {}", if active { "on" } else { "off" });
+    Ok(())
+}
+
 /// Starts the game through MO2, or another of its executables (`executable`, a title).
 #[tauri::command]
 pub fn launch_game(state: TauriState<'_, AppState>, executable: Option<String>) -> CmdResult<()> {
@@ -1327,8 +1372,16 @@ pub fn launch_game(state: TauriState<'_, AppState>, executable: Option<String>) 
             .into());
     }
     inst.set_game_path(game_dir).map_err(err)?;
+    // Coop's list is the author's, written again before every start: there is nothing of the player's to remember.
+    let coop = in_coop(&inst);
+    if let Some(manifest) = manifest.as_ref().filter(|_| coop) {
+        let installed = State::load(&install::state_path(&inst)).map_err(err)?;
+        coop::prepare(&inst, manifest, &installed).map_err(|e| format!("Не удалось подготовить профиль Coop: {e}"))?;
+    }
     let profile = profile(&inst);
-    snapshot(&inst, &profile, "Перед запуском игры", false);
+    if !coop {
+        snapshot(&inst, &profile, "Перед запуском игры", false);
+    }
     let executable = executable.unwrap_or_else(|| mo2::game_executable(redmod).to_owned());
     log::info!("launching {executable:?} (profile {profile}, REDmod {redmod})");
     let is_game = executable == mo2::game_executable(redmod);

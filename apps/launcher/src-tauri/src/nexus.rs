@@ -942,6 +942,7 @@ pub async fn archive_target(app: AppHandle, file: String) -> CmdResult<ArchiveTa
 #[tauri::command]
 pub fn install_archive(app: AppHandle, file: String, after: Option<String>, name: Option<String>) -> CmdResult<u64> {
     let (inst, _) = instance(&app.state::<AppState>())?;
+    crate::commands::not_in_coop(&inst)?;
     let archive = archive_path(&inst, &file)?;
     log::info!("install {} (after {after:?}, name {name:?})", archive.display());
     let dest = match name.filter(|n| !n.trim().is_empty()) {
@@ -961,6 +962,7 @@ pub fn install_archive(app: AppHandle, file: String, after: Option<String>, name
 pub fn reinstall_mod(app: AppHandle, folder: String) -> CmdResult<u64> {
     let state = app.state::<AppState>();
     let (inst, _) = instance(&state)?;
+    crate::commands::not_in_coop(&inst)?;
     let author = state.settings.lock().unwrap().author_mode;
     if !author && lyno_core::state::State::load(&lyno_core::install::state_path(&inst)).map_err(err)?.is_managed_folder(&folder) {
         return Err("Мод сборки переустанавливается починкой".into());
