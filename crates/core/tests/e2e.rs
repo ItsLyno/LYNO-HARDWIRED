@@ -312,10 +312,10 @@ fn player_switches_between_builds() {
     let version = |i: &Instance| State::load(&state_path(i)).unwrap().build_version;
     assert_eq!(archive(&user), new_archive);
 
-    let update = Action::Update { id: "archive-mod".into(), from_folder: "Archive Mod".into() };
-    assert_eq!(install(&user, &m1), [update.clone()]);
+    let update = || Action::Update { id: "archive-mod".into(), from_folder: "Archive Mod".into() };
+    assert_eq!(install(&user, &m1), [update()]);
     assert_eq!((archive(&user), version(&user)), (old_archive, Some("1.0.0".into())));
-    assert_eq!(install(&user, &m2), [update]);
+    assert_eq!(install(&user, &m2), [update()]);
     assert_eq!((archive(&user), version(&user)), (new_archive, Some("1.1.0".into())));
     assert_eq!(std::fs::read(user.root().join("mods/Mine/x.archive")).unwrap(), b"mine");
 }
@@ -1051,8 +1051,8 @@ fn author_releases_from_launcher_instance() {
 struct FakeGitHub {
     /// Repository path (`build/manifest.json`, `build/manifest-beta.json`) → (blob sha, content)
     manifests: std::collections::HashMap<String, (String, Vec<u8>)>,
-    /// Commits of the release manifest, oldest first: (commit sha, message, content).
-    history: Vec<(String, String, Vec<u8>)>,
+    /// Commits of both manifests, oldest first: (commit sha, message, content, file).
+    history: Vec<(String, String, Vec<u8>, String)>,
     /// (id, tag)
     releases: Vec<(u64, String)>,
     /// asset id → (release id, name, bytes)
@@ -1118,14 +1118,22 @@ fn fake_github(token: &'static str) -> (String, std::sync::Arc<std::sync::Mutex<
                 match (method.as_str(), path) {
                     ("GET", "/repos/o/r") => (200, json(serde_json::json!({ "permissions": { "push": true } }))),
                     ("GET", "/repos/o/r/commits") => {
-                        assert!(query.contains("path=build%2Fmanifest.json") && query.contains("sha=main"), "{query}");
-                        let list: Vec<_> = st.history.iter().rev().map(|(sha, message, _)| serde_json::json!({ "sha": sha, "commit": { "message": message } })).collect();
+                        assert!(query.contains("sha=main"), "{query}");
+                        let file = if query.contains("path=build%2Fmanifest-beta.json") { "build/manifest-beta.json" } else { "build/manifest.json" };
+                        let list: Vec<_> = st
+                            .history
+                            .iter()
+                            .enumerate()
+                            .rev()
+                            .filter(|(_, c)| c.3 == file)
+                            .map(|(i, (sha, message, ..))| serde_json::json!({ "sha": sha, "commit": { "message": message, "committer": { "date": format!("2026-01-01T00:00:{i:02}Z") } } }))
+                            .collect();
                         (200, json(serde_json::json!(list)))
                     }
-                    ("GET", "/repos/o/r/contents/build/manifest.json") if !query.contains("ref=main") => {
+                    ("GET", p) if p.starts_with("/repos/o/r/contents/build/manifest") && query.starts_with("ref=") && !query.contains("ref=main") => {
                         let commit = query.strip_prefix("ref=").unwrap();
-                        match st.history.iter().find(|c| c.0 == commit) {
-                            Some((_, _, content)) if headers.get("accept").is_some_and(|a| a.contains("raw")) => (200, content.clone()),
+                        match st.history.iter().find(|c| c.0 == commit && p.ends_with(&c.3)) {
+                            Some((_, _, content, _)) if headers.get("accept").is_some_and(|a| a.contains("raw")) => (200, content.clone()),
                             Some(_) => (200, json(serde_json::json!({ "sha": "blob" }))),
                             None => (404, json(serde_json::json!({ "message": "No commit found for the ref" }))),
                         }
@@ -1143,10 +1151,8 @@ fn fake_github(token: &'static str) -> (String, std::sync::Arc<std::sync::Mutex<
                             (Some(_), None) => (422, json(serde_json::json!({ "message": "\"sha\" wasn't supplied." }))),
                             _ => {
                                 let content = base64::engine::general_purpose::STANDARD.decode(v["content"].as_str().unwrap()).unwrap();
-                                if file == "build/manifest.json" {
-                                    let commit = format!("c{}", st.history.len() + 1);
-                                    st.history.push((commit, v["message"].as_str().unwrap().to_owned(), content.clone()));
-                                }
+                                let commit = format!("c{}", st.history.len() + 1);
+                                st.history.push((commit, v["message"].as_str().unwrap().to_owned(), content.clone(), file.clone()));
                                 st.manifests.insert(file, (blake3::hash(&content).to_hex()[..12].to_owned(), content));
                                 (200, json(serde_json::json!({})))
                             }
@@ -1292,7 +1298,20 @@ fn publishes_through_github_api() {
     let builds = host.published_builds().unwrap();
     let versions: Vec<_> = builds.iter().map(|b| b.version.as_str()).collect();
     assert_eq!(versions, ["1.1.0", "1.0.0"]);
-    assert_eq!(Manifest::from_json(&host.manifest_at(&builds[1].commit).unwrap()).unwrap(), m1_published);
+    assert_eq!(Manifest::from_json(&host.manifest_at(&builds[1].commit, Channel::Release).unwrap()).unwrap(), m1_published);
+
+    // A build that only went to beta is there for the author, who follows that channel.
+    let mut beta = built.manifest.clone();
+    beta.build_version = "1.2.0".into();
+    let beta_file = out.join("beta-1.2.0.json");
+    std::fs::write(&beta_file, serde_json::to_string(&beta).unwrap()).unwrap();
+    host.published_manifest(Channel::Beta).unwrap();
+    host.push_manifest(Channel::Beta, "1.2.0", &beta_file).unwrap();
+    let versions = |bs: &[lyno_core::github::PublishedBuild]| bs.iter().map(|b| (b.version.clone(), b.beta)).collect::<Vec<_>>();
+    assert_eq!(versions(&host.published_builds().unwrap()), [("1.1.0".into(), false), ("1.0.0".into(), false)]);
+    let author_builds = host.author_builds().unwrap();
+    assert_eq!(versions(&author_builds), [("1.2.0".into(), true), ("1.1.0".into(), false), ("1.0.0".into(), false)]);
+    assert_eq!(Manifest::from_json(&host.manifest_at(&author_builds[0].commit, Channel::Beta).unwrap()).unwrap(), beta);
 }
 
 /// A fake Nexus: the API answers and the CDN file are static files of `dir`,

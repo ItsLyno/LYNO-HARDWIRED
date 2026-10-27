@@ -565,7 +565,7 @@ pub async fn switch_build(app: AppHandle, commit: String) -> CmdResult<()> {
         return Err("Дождитесь окончания проверки файлов".into());
     }
     let repo = settings.author_repo.clone();
-    let text = tauri::async_runtime::spawn_blocking(move || GitHub::new(&repo, "").manifest_at(&commit))
+    let text = tauri::async_runtime::spawn_blocking(move || GitHub::new(&repo, "").manifest_at(&commit, lyno_core::release::Channel::Release))
         .await
         .map_err(err)?
         .map_err(|e| format!("Не удалось загрузить эту версию: {e}"))?;

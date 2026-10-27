@@ -38,6 +38,8 @@ pub struct PublishedBuild {
     pub version: String,
     /// Commit of `main` that published it.
     pub commit: String,
+    /// Published to the beta channel only (as far as its commit tells): the manifest is `manifest-beta.json` at that commit.
+    pub beta: bool,
 }
 
 struct Release {
@@ -94,27 +96,45 @@ impl GitHub {
         Ok(())
     }
 
-    /// Builds published before, newest first, from the last 100 commits of
+    /// Builds released before, newest first, from the last 100 commits of
     /// the manifest on `main`: the launcher and `lyno-pack` both title them
     /// `Build <version>`. Their parts stay downloadable: old releases are never deleted.
     pub fn published_builds(&self) -> Result<Vec<PublishedBuild>> {
-        let path = format!("/repos/{}/commits?path={}&sha={BRANCH}&per_page=100", self.repo, encode(PUBLISHED_MANIFEST));
+        Ok(self.commits(Channel::Release)?.into_iter().map(|(b, _)| b).collect())
+    }
+
+    /// [`Self::published_builds`] and the builds that only went to beta (`Beta <version>`), newest
+    /// first, a version once: the author follows the beta channel, so what they went back from may be there.
+    pub fn author_builds(&self) -> Result<Vec<PublishedBuild>> {
+        let mut all = self.commits(Channel::Release)?;
+        all.extend(self.commits(Channel::Beta)?);
+        all.sort_by(|a, b| b.1.cmp(&a.1));
+        let mut seen = std::collections::HashSet::new();
+        Ok(all.into_iter().map(|(b, _)| b).filter(|b| seen.insert(b.version.clone())).collect())
+    }
+
+    /// Commits of one channel's manifest with their dates (ISO, so they sort as text).
+    fn commits(&self, channel: Channel) -> Result<Vec<(PublishedBuild, String)>> {
+        let file = channel.manifest_path();
+        let path = format!("/repos/{}/commits?path={}&sha={BRANCH}&per_page=100", self.repo, encode(file));
         let (status, body) = self.call("GET", &path, None)?;
-        let list = expect(status, &body, &[200], &format!("history of {PUBLISHED_MANIFEST}"))?;
+        let list = expect(status, &body, &[200], &format!("history of {file}"))?;
+        let prefix = channel.commit_title("");
         Ok(list
             .as_array()
             .into_iter()
             .flatten()
             .filter_map(|c| {
-                let version = c["commit"]["message"].as_str()?.lines().next()?.strip_prefix("Build ")?.trim();
-                Some(PublishedBuild { version: version.to_owned(), commit: c["sha"].as_str()?.to_owned() })
+                let version = c["commit"]["message"].as_str()?.lines().next()?.strip_prefix(prefix.as_str())?.trim();
+                let build = PublishedBuild { version: version.to_owned(), commit: c["sha"].as_str()?.to_owned(), beta: channel == Channel::Beta };
+                Some((build, c["commit"]["committer"]["date"].as_str().unwrap_or_default().to_owned()))
             })
             .collect())
     }
 
-    /// The manifest as commit `commit` published it.
-    pub fn manifest_at(&self, commit: &str) -> Result<String> {
-        self.raw_manifest(&format!("/repos/{}/contents/{PUBLISHED_MANIFEST}?ref={}", self.repo, encode(commit)))
+    /// The manifest of `channel` as commit `commit` published it.
+    pub fn manifest_at(&self, commit: &str, channel: Channel) -> Result<String> {
+        self.raw_manifest(&format!("/repos/{}/contents/{}?ref={}", self.repo, channel.manifest_path(), encode(commit)))
     }
 
     /// The JSON answer carries the content only up to 1 MB; the raw one always.

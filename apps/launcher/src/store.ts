@@ -103,7 +103,7 @@ interface AppStore {
   startRepair: (ids: string[], base: boolean, resetSettings: boolean) => Promise<void>;
   /** Author: the published version of a build mod back over their edits. */
   startRollback: (id: string, folder: string, keepSettings: boolean) => Promise<void>;
-  startRevert: (commit: string) => Promise<void>;
+  startRevert: (commit: string, beta: boolean) => Promise<void>;
   /** The player: an earlier released build instead of the latest. */
   startSwitch: (commit: string) => Promise<void>;
   onUpdateEvent: (e: UpdateEvent) => void;
@@ -306,10 +306,10 @@ export const useApp = create<AppStore>((set, get) => ({
     }
   },
   // Going back to an earlier build installs it like an update.
-  startRevert: async (commit) => {
+  startRevert: async (commit, beta) => {
     set({ progress: noProgress });
     try {
-      await api.authorRevert(commit);
+      await api.authorRevert(commit, beta);
       set({ verifyReport: null });
       await get().refreshStatus();
     } catch (e) {

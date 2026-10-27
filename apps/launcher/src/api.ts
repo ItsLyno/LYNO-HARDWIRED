@@ -329,6 +329,8 @@ export interface BuiltRelease {
 export interface PublishedBuild {
   version: string;
   commit: string;
+  /** Only the beta channel got it: its manifest is the beta one. */
+  beta: boolean;
 }
 
 export interface Versions {
@@ -654,7 +656,7 @@ export const api = isTauri()
       switchBuild: (commit: string) => invoke<void>("switch_build", { commit }),
       authorVersions: () => invoke<Versions>("author_versions"),
       /** Installs an earlier build into the instance, as an update: `update-progress`, then `update-finished`. */
-      authorRevert: (commit: string) => invoke<void>("author_revert", { commit }),
+      authorRevert: (commit: string, beta: boolean) => invoke<void>("author_revert", { commit, beta }),
       /** What the build would warn about from the mod list alone, before hours of packing. */
       authorPreflight: (gameVersion: string) => invoke<string[]>("author_preflight", { gameVersion }),
       authorBuild: (version: string, gameVersion: string, notes: string[]) =>

@@ -170,7 +170,8 @@ fn reverted_from(inst: &Instance) -> Option<String> {
 pub struct Versions {
     /// The instance went back from this published version.
     reverted_from: Option<String>,
-    /// Builds to go back to, newest first, without the installed one. Empty without a GitHub token.
+    /// Builds to go back to, newest first, without the installed one: released ones and ones only in beta.
+    /// Empty without a GitHub token.
     builds: Vec<PublishedBuild>,
 }
 
@@ -182,7 +183,7 @@ pub async fn author_versions(app: AppHandle) -> CmdResult<Versions> {
     let Some(token) = secrets::get(Secret::GithubToken) else { return Ok(Versions { reverted_from, builds: vec![] }) };
     let installed = installed_manifest(&inst).map(|m| m.build_version);
     let repo = settings.author_repo.clone();
-    let builds = tauri::async_runtime::spawn_blocking(move || GitHub::new(&repo, &token).published_builds())
+    let builds = tauri::async_runtime::spawn_blocking(move || GitHub::new(&repo, &token).author_builds())
         .await
         .map_err(err)?
         .map_err(|e| format!("Не удалось прочитать историю выпусков: {e}"))?;
@@ -195,7 +196,7 @@ pub async fn author_versions(app: AppHandle) -> CmdResult<Versions> {
 /// author releases a new version from here; nothing is packed for it, every
 /// package is in the older releases. Going back to the published build undoes it.
 #[tauri::command]
-pub async fn author_revert(app: AppHandle, commit: String) -> CmdResult<()> {
+pub async fn author_revert(app: AppHandle, commit: String, beta: bool) -> CmdResult<()> {
     let (settings, published) = {
         let state = app.state::<AppState>();
         let settings = ready(&state)?;
@@ -207,7 +208,8 @@ pub async fn author_revert(app: AppHandle, commit: String) -> CmdResult<()> {
     }
     let token = secrets::get(Secret::GithubToken).ok_or("Добавьте токен GitHub")?;
     let repo = settings.author_repo.clone();
-    let text = tauri::async_runtime::spawn_blocking(move || GitHub::new(&repo, &token).manifest_at(&commit))
+    let channel = if beta { Channel::Beta } else { Channel::Release };
+    let text = tauri::async_runtime::spawn_blocking(move || GitHub::new(&repo, &token).manifest_at(&commit, channel))
         .await
         .map_err(err)?
         .map_err(|e| format!("Не удалось загрузить эту версию: {e}"))?;

@@ -210,7 +210,7 @@ let verifyProgress: ((e: UpdateEvent) => void) | null = null;
 let verifyCancelled = false;
 
 const secrets = { github: false, nexus: false };
-const publishedBuilds = ["1.4.0", "1.3.9", "1.3.8"].map((version, i) => ({ version, commit: `c${i}` }));
+const publishedBuilds = ["1.4.0", "1.3.9", "1.3.8"].map((version, i) => ({ version, commit: `c${i}`, beta: false }));
 let revertedFrom: string | null = null;
 let built: BuiltRelease | null = null;
 let author: ((e: AuthorEvent) => void) | null = null;

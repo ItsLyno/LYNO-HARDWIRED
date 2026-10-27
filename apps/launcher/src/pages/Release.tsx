@@ -41,6 +41,7 @@ export function Release() {
     setConfirmRevert(false);
     if (installed && canPublish) void run(async () => setVersions(await api.authorVersions()));
   }, [installed, canPublish]);
+  const edited = verifyReport?.damaged.filter((d) => d.id !== null).map((d) => d.folder) ?? [];
   const revertBuild = versions?.builds.find((b) => b.commit === revertTo) ?? versions?.builds[0] ?? null;
 
   const titleOf = (id: string | null, folder: string) => {
@@ -221,12 +222,19 @@ export function Release() {
                   <option key={b.commit} value={b.commit}>
                     {b.version}
                     {b.version === revertedFrom ? " (опубликована)" : ""}
+                    {b.beta ? " (бета)" : ""}
                   </option>
                 ))}
               </select>
               {confirmRevert ? (
                 <>
-                  <Button variant="primary" onClick={() => void startRevert(revertBuild.commit)}>
+                  <div className="basis-full text-[13px] text-warn">
+                    Моды, которые есть и в {revertBuild.version}, получат его файлы: правки в них, не вошедшие в выпуск, пропадут.
+                    {edited.length > 0
+                      ? ` Изменены сейчас: ${edited.join(", ")}.`
+                      : " Что изменено, покажет «Проверка файлов» выше; сохраните эти папки заранее."}
+                  </div>
+                  <Button variant="primary" onClick={() => void startRevert(revertBuild.commit, revertBuild.beta)}>
                     <History size={15} />
                     Да, вернуть к {revertBuild.version}
                   </Button>
