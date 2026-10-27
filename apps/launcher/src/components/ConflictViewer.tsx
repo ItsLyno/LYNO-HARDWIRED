@@ -253,12 +253,11 @@ function FilesView({ mod, title, number, onPick }: { mod: ModConflicts } & Names
   const self = { folder: mod.modFolder };
   return (
     <>
-      <div className="mt-5 grid grid-cols-3 gap-3">
-        <Stat label="Файлов в моде" value={mod.files} />
-        <Stat label="Попадают в игру" value={inGame} tone={dead ? "text-bad" : "text-ok"} />
-        <Stat label="Закрыты другими модами" value={mod.lost} tone={mod.lost ? "text-warn" : undefined} />
-      </div>
-      <div className="mt-3 flex h-1.5 overflow-hidden rounded-full bg-raised" title={`В игре ${inGame} из ${mod.files}`}>
+      <p className="mt-4 text-xs text-muted">
+        В игре <span className={dead ? "text-bad" : "text-ok"}>{inGame}</span> из {mod.files} {plural(mod.files, ...FILES)} мода, закрыто другими модами:{" "}
+        <span className={mod.lost ? "text-warn" : undefined}>{mod.lost}</span>
+      </p>
+      <div className="mt-2 flex h-1.5 overflow-hidden rounded-full bg-raised" title={`В игре ${inGame} из ${mod.files}`}>
         <div className="bg-ok/70" style={{ width: `${(inGame / Math.max(mod.files, 1)) * 100}%` }} />
         <div className="bg-warn/70" style={{ width: `${(mod.lost / Math.max(mod.files, 1)) * 100}%` }} />
       </div>
@@ -286,11 +285,10 @@ function ArchivesView({ mod, title, number, onPick }: { mod: ArchiveConflicts } 
   const lost = sum(mod.loses.map((o) => o.resources));
   return (
     <>
-      <div className="mt-5 grid grid-cols-3 gap-3">
-        <Stat label="Его ресурсы в игре" value={won} tone={won ? "text-ok" : undefined} hint="из тех, что есть и у других модов" />
-        <Stat label="Его ресурсы закрыты" value={lost} tone={lost ? "text-warn" : undefined} />
-        <Stat label="Архивы без эффекта" value={mod.dead.length} tone={mod.dead.length ? "text-bad" : undefined} />
-      </div>
+      <p className="mt-4 text-xs text-muted">
+        Общих с другими модами ресурсов: в игре из этого мода <span className={won ? "text-ok" : undefined}>{won}</span>, закрыто{" "}
+        <span className={lost ? "text-warn" : undefined}>{lost}</span>
+      </p>
       {mod.dead.length > 0 && (
         <Warning>
           {mod.dead.join(", ")}: все ресурсы {mod.dead.length === 1 ? "архива" : "архивов"} берутся из других модов, в игре {mod.dead.length === 1 ? "он ничего не меняет" : "они ничего не меняют"}.
@@ -328,16 +326,6 @@ function ArchivesView({ mod, title, number, onPick }: { mod: ArchiveConflicts } 
       </Section>
       <p className="mt-4 text-xs text-faint">Архивы хранят не имена ресурсов, а хэши путей: по такому числу ресурс находится в WolvenKit.</p>
     </>
-  );
-}
-
-function Stat({ label, value, tone, hint }: { label: string; value: number; tone?: string; hint?: string }) {
-  return (
-    <div className="rounded-lg bg-raised/40 px-4 py-3">
-      <div className={`font-mono text-2xl tabular-nums ${tone ?? "text-fg"}`}>{value}</div>
-      <div className="mt-0.5 text-xs text-muted">{label}</div>
-      {hint && <div className="text-[11px] text-faint">{hint}</div>}
-    </div>
   );
 }
 
