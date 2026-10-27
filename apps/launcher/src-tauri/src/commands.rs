@@ -516,7 +516,19 @@ pub fn start_update(app: AppHandle) -> CmdResult<()> {
     if state.verify.lock().unwrap().is_some() {
         return Err("Дождитесь окончания проверки файлов".into());
     }
+    spawn_update(app, manifest, settings, |_| Ok(()))
+}
 
+/// Installs `manifest` in the background; `done` runs after a successful
+/// install, its error fails the update. Progress arrives as `update-progress`
+/// events, the outcome as `update-finished`.
+pub(crate) fn spawn_update(
+    app: AppHandle,
+    manifest: Manifest,
+    settings: Settings,
+    done: impl FnOnce(&Instance) -> lyno_core::Result<()> + Send + 'static,
+) -> CmdResult<()> {
+    let state = app.state::<AppState>();
     let cancel = Arc::new(AtomicBool::new(false));
     {
         let mut slot = state.update.lock().unwrap();
@@ -528,7 +540,7 @@ pub fn start_update(app: AppHandle) -> CmdResult<()> {
 
     std::thread::spawn(move || {
         log::info!("update to build {} started", manifest.build_version);
-        let result = run_update(&app, &manifest, &settings, &cancel);
+        let result = run_update(&app, &manifest, &settings, &cancel).and_then(|()| done(&Instance::new(&settings.instance_dir)));
         *app.state::<AppState>().update.lock().unwrap() = None;
         let finished = match result {
             Ok(()) => {
@@ -558,7 +570,11 @@ pub fn start_update(app: AppHandle) -> CmdResult<()> {
 fn run_update(app: &AppHandle, manifest: &Manifest, settings: &Settings, cancel: &AtomicBool) -> lyno_core::Result<()> {
     let inst = Instance::new(&settings.instance_dir);
     let current = ModList::load(&inst.modlist_path(&manifest.profile)).unwrap_or_default();
-    let state = install::load_state(&inst, manifest, &current)?;
+    // The author goes back to an older build: a build mod they deleted comes back with it.
+    let state = match settings.author_mode {
+        true => State::load(&install::state_path(&inst))?,
+        false => install::load_state(&inst, manifest, &current)?,
+    };
     let label = match &state.build_version {
         Some(v) if *v == manifest.build_version => "Перед восстановлением сборки".to_owned(),
         Some(_) => format!("Перед обновлением сборки до {}", manifest.build_version),

@@ -34,7 +34,8 @@ function draftNotes(pending: Pending, report: VerifyReport | null, mods: BuildIn
 export function ReleaseBuilder({ canPublish, pending }: { canPublish: boolean; pending: Pending | null }) {
   const { status, build, verifyReport, authorRun, built, published, refreshBuilt, startAuthorJob } = useApp();
   const installed = status?.installedVersion ?? null;
-  const [form, setForm] = useState({ version: nextVersion(installed), gameVersion: build?.gameVersion ?? "", notes: "" });
+  // After going back to an older build the next version still follows the published one.
+  const [form, setForm] = useState({ version: nextVersion(build?.latestVersion ?? installed), gameVersion: build?.gameVersion ?? "", notes: "" });
   const [editing, setEditing] = useState(false);
   const [preflight, setPreflight] = useState<string[]>([]);
 

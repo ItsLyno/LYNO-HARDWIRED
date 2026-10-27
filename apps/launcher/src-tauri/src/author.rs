@@ -10,7 +10,7 @@ use std::time::{Duration, Instant};
 use lyno_core::author;
 use lyno_core::download::Downloader;
 use lyno_core::install::{self, Installer};
-use lyno_core::github::GitHub;
+use lyno_core::github::{GitHub, PublishedBuild};
 use lyno_core::manifest::{ChangelogEntry, Manifest};
 use lyno_core::mo2::Instance;
 use lyno_core::nexus::Nexus;
@@ -147,8 +147,80 @@ fn adopt(inst: &Instance, manifest: &Manifest, out: Option<&std::path::Path>) ->
     })?;
     let json = serde_json::to_string_pretty(manifest).map_err(err)?;
     std::fs::write(installed_manifest_path(inst), json).map_err(err)?;
+    let _ = std::fs::remove_file(revert_marker(inst));
     log::info!("build {} adopted as installed", manifest.build_version);
     Ok(())
+}
+
+/// Holds the published version the author went back from ([`author_revert`]):
+/// until the next release the installed build is older than the published one
+/// on purpose, and a release is built on from it. Without the mark the same
+/// state means a newer build to adopt first.
+fn revert_marker(inst: &Instance) -> PathBuf {
+    inst.root().join(".lyno").join("author-revert")
+}
+
+fn reverted_from(inst: &Instance) -> Option<String> {
+    std::fs::read_to_string(revert_marker(inst)).ok().map(|s| s.trim().to_owned()).filter(|s| !s.is_empty())
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Versions {
+    /// The instance went back from this published version.
+    reverted_from: Option<String>,
+    /// Builds to go back to, newest first, without the installed one. Empty without a GitHub token.
+    builds: Vec<PublishedBuild>,
+}
+
+#[tauri::command]
+pub async fn author_versions(app: AppHandle) -> CmdResult<Versions> {
+    let settings = app.state::<AppState>().settings.lock().unwrap().clone();
+    let inst = Instance::new(&settings.instance_dir);
+    let reverted_from = reverted_from(&inst);
+    let Some(token) = secrets::get(Secret::GithubToken) else { return Ok(Versions { reverted_from, builds: vec![] }) };
+    let installed = installed_manifest(&inst).map(|m| m.build_version);
+    let repo = settings.author_repo.clone();
+    let builds = tauri::async_runtime::spawn_blocking(move || GitHub::new(&repo, &token).published_builds())
+        .await
+        .map_err(err)?
+        .map_err(|e| format!("Не удалось прочитать историю выпусков: {e}"))?;
+    Ok(Versions { reverted_from, builds: builds.into_iter().filter(|b| Some(&b.version) != installed.as_ref()).collect() })
+}
+
+/// Installs an earlier published build into the instance like an update, to
+/// take back a bad release: build mods get that build's files, mods it doesn't
+/// have go under LYNO USER MODS. Players stay on the published build until the
+/// author releases a new version from here; nothing is packed for it, every
+/// package is in the older releases. Going back to the published build undoes it.
+#[tauri::command]
+pub async fn author_revert(app: AppHandle, commit: String) -> CmdResult<()> {
+    let (settings, published) = {
+        let state = app.state::<AppState>();
+        let settings = ready(&state)?;
+        let published = state.manifest.lock().unwrap().clone().ok_or("Нет связи с GitHub: не видно, какая версия опубликована")?;
+        (settings, published)
+    };
+    if running_processes() != (false, false) {
+        return Err("Закройте игру и Mod Organizer 2 перед откатом".into());
+    }
+    let token = secrets::get(Secret::GithubToken).ok_or("Добавьте токен GitHub")?;
+    let repo = settings.author_repo.clone();
+    let text = tauri::async_runtime::spawn_blocking(move || GitHub::new(&repo, &token).manifest_at(&commit))
+        .await
+        .map_err(err)?
+        .map_err(|e| format!("Не удалось загрузить эту версию: {e}"))?;
+    let manifest = Manifest::from_json(&text).map_err(|e| format!("Эту версию лаунчер прочитать не может: {e}"))?;
+    log::info!("author goes back from build {} to {}", published.build_version, manifest.build_version);
+    let (to, from) = (manifest.build_version.clone(), published.build_version);
+    crate::commands::spawn_update(app, manifest, settings, move |inst| {
+        let path = revert_marker(inst);
+        if to == from {
+            let _ = std::fs::remove_file(&path);
+            return Ok(());
+        }
+        std::fs::write(&path, &from).map_err(|e| lyno_core::Error::Io { path, source: e })
+    })
 }
 
 /// Puts the installed build's version of build mod `id` back into `folder`
@@ -299,9 +371,10 @@ pub async fn author_preflight(app: AppHandle, game_version: String) -> CmdResult
         .map_err(|e| format!("Не удалось проверить список модов: {e}"))
 }
 
-/// Packs the instance into `out/` in the background against the published
-/// build, which must be the installed one: the release is a diff of this
-/// instance, and an unaccepted newer build would be silently reverted.
+/// Packs the instance into `out/` in the background against the installed
+/// build, which must be the published one: the release is a diff of this
+/// instance, and an unaccepted newer build would be silently reverted. Unless
+/// the author went back from it on purpose ([`author_revert`]).
 #[tauri::command]
 pub fn author_build(app: AppHandle, version: String, game_version: String, notes: Vec<String>) -> CmdResult<()> {
     let state = app.state::<AppState>();
@@ -316,7 +389,7 @@ pub fn author_build(app: AppHandle, version: String, game_version: String, notes
     let inst = Instance::new(&settings.instance_dir);
     let installed = installed_manifest(&inst).ok_or("Сборка не установлена")?;
     let published = state.manifest.lock().unwrap().clone().ok_or("Нет связи с GitHub: не видно, какая версия опубликована")?;
-    if published.build_version != installed.build_version {
+    if published.build_version != installed.build_version && reverted_from(&inst).as_ref() != Some(&published.build_version) {
         return Err(format!(
             "Опубликована версия {}, а установлена {}. Сначала примите опубликованную версию.",
             published.build_version, installed.build_version
@@ -344,7 +417,8 @@ pub fn author_build(app: AppHandle, version: String, game_version: String, notes
         mo2_version: published.mo2_version.clone(),
         base_url: format!("{}/{}", github_download_root(&settings.author_repo), release_tag(&version)),
         out_dir: out.clone(),
-        previous: Some(published),
+        // Packages are reused from the build these folders hold.
+        previous: Some(installed),
         changelog,
         pack: PackOptions::default(),
         hash_cache: true,

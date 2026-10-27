@@ -270,6 +270,13 @@ export interface BuiltRelease {
   restored: boolean;
 }
 
+export interface Versions {
+  /** The instance went back from this published version: the next release brings players back too. */
+  revertedFrom: string | null;
+  /** Earlier builds to go back to, newest first, without the installed one. Empty without a GitHub token. */
+  builds: { version: string; commit: string }[];
+}
+
 export type AuthorJob = "build" | "publish";
 
 export type AuthorEvent =
@@ -574,6 +581,9 @@ export const api = isTauri()
       /** null forgets the secret. A GitHub token is checked before it is saved. */
       authorSetSecret: (secret: Secret, value: string | null) => invoke<void>("author_set_secret", { secret, value }),
       authorBuilt: () => invoke<BuiltRelease | null>("author_built"),
+      authorVersions: () => invoke<Versions>("author_versions"),
+      /** Installs an earlier build into the instance, as an update: `update-progress`, then `update-finished`. */
+      authorRevert: (commit: string) => invoke<void>("author_revert", { commit }),
       /** What the build would warn about from the mod list alone, before hours of packing. */
       authorPreflight: (gameVersion: string) => invoke<string[]>("author_preflight", { gameVersion }),
       authorBuild: (version: string, gameVersion: string, notes: string[]) =>

@@ -1,6 +1,6 @@
-import { Check, FileSearch, ListTree, PackageCheck, RotateCw } from "lucide-react";
+import { Check, FileSearch, History, ListTree, PackageCheck, RotateCw } from "lucide-react";
 import { useEffect, useState } from "react";
-import { api, type Damaged, type Pending } from "../api";
+import { api, type Damaged, type Pending, type Versions } from "../api";
 import { Button } from "../components/Button";
 import { Credentials } from "../components/Credentials";
 import { list } from "../components/Integrity";
@@ -16,9 +16,12 @@ import { useApp } from "../store";
  * The mod list is compared right away; edited files need the full integrity check.
  */
 export function Release() {
-  const { status, build, verifyProgress, verifyReport, verify, run, refreshStatus, refreshBuild } = useApp();
+  const { status, build, progress, verifyProgress, verifyReport, verify, run, refreshStatus, refreshBuild, startRevert } = useApp();
   const [pending, setPending] = useState<Pending | null>(null);
   const [canPublish, setCanPublish] = useState(false);
+  const [versions, setVersions] = useState<Versions | null>(null);
+  const [revertTo, setRevertTo] = useState("");
+  const [confirmRevert, setConfirmRevert] = useState(false);
   const installed = status?.installedVersion ?? null;
 
   const refresh = () => run(async () => setPending(await api.authorChanges()));
@@ -28,10 +31,16 @@ export function Release() {
       useApp.setState({ verifyReport: null });
       await Promise.all([refreshStatus(), refreshBuild()]);
     });
-  const published = build?.online && build.latestVersion !== installed ? build.latestVersion : null;
+  const revertedFrom = versions?.revertedFrom ?? null;
+  const published = build?.online && build.latestVersion !== installed && !revertedFrom ? build.latestVersion : null;
   useEffect(() => {
     if (installed) void refresh();
   }, [installed]);
+  useEffect(() => {
+    setConfirmRevert(false);
+    if (installed && canPublish) void run(async () => setVersions(await api.authorVersions()));
+  }, [installed, canPublish]);
+  const revertBuild = versions?.builds.find((b) => b.commit === revertTo) ?? versions?.builds[0] ?? null;
 
   const titleOf = (id: string | null, folder: string) => {
     if (id === null) return "Mod Organizer 2 и профиль";
@@ -69,6 +78,16 @@ export function Release() {
             <PackageCheck size={15} />
             Принять {published}
           </Button>
+        </div>
+      )}
+
+      {revertedFrom && (
+        <div className="panel px-5 py-4 text-[13px]">
+          Папка возвращена к версии {installed}, игроки пока остаются на {revertedFrom}.
+          <div className="mt-1 text-muted">
+            Проверьте игру и выпустите новую версию ниже: она вернёт игроков к {installed}. Моды из неё возьмутся из старых
+            релизов, загружать почти нечего. Передумали — верните папку к {revertedFrom} в разделе «Прошлые версии».
+          </div>
         </div>
       )}
 
@@ -165,6 +184,59 @@ export function Release() {
         <div className="px-5 pb-5">
           {/* A new installed version (accepted or just published) starts a fresh form: next version, no notes. */}
           <ReleaseBuilder key={installed} canPublish={canPublish} pending={pending} />
+        </div>
+      </Section>
+
+      <Section title="Прошлые версии">
+        <div className="space-y-3 px-5 pb-5">
+          <p className="text-[13px] text-muted">
+            Если выпуск оказался плохим, верните папку к прошлой версии: лаунчер поставит её как обновление. Моды, которых в
+            ней нет, уйдут под LYNO USER MODS, моды сборки получат её файлы. Игроки ничего не заметят, пока вы не выпустите
+            новую версию.
+          </p>
+          {!canPublish ? (
+            <span className="text-[13px] text-muted">Нужен токен GitHub: история выпусков читается через него.</span>
+          ) : progress ? (
+            <UpdateProgress progress={progress} onCancel={api.cancelUpdate} />
+          ) : !versions ? (
+            <span className="text-[13px] text-muted">Загрузка…</span>
+          ) : !revertBuild ? (
+            <span className="text-[13px] text-muted">Других опубликованных версий нет</span>
+          ) : (
+            <div className="flex flex-wrap items-center gap-3">
+              <select
+                value={revertBuild.commit}
+                onChange={(e) => {
+                  setRevertTo(e.target.value);
+                  setConfirmRevert(false);
+                }}
+                className="h-9 rounded-full bg-raised px-4 font-mono text-[13px] outline-none focus:ring-1 focus:ring-neon/50"
+              >
+                {versions.builds.map((b) => (
+                  <option key={b.commit} value={b.commit}>
+                    {b.version}
+                    {b.version === revertedFrom ? " (опубликована)" : ""}
+                  </option>
+                ))}
+              </select>
+              {confirmRevert ? (
+                <>
+                  <Button variant="primary" onClick={() => void startRevert(revertBuild.commit)}>
+                    <History size={15} />
+                    Да, вернуть к {revertBuild.version}
+                  </Button>
+                  <Button variant="ghost" onClick={() => setConfirmRevert(false)}>
+                    Отмена
+                  </Button>
+                </>
+              ) : (
+                <Button onClick={() => setConfirmRevert(true)}>
+                  <History size={15} />
+                  Вернуть папку к {revertBuild.version}
+                </Button>
+              )}
+            </div>
+          )}
         </div>
       </Section>
 

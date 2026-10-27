@@ -20,6 +20,7 @@ import type {
   NxmHandler,
   UpdatesView,
   Pending,
+  Versions,
   HistoryRow,
   RunReport,
   Secret,
@@ -204,6 +205,8 @@ let verifyProgress: ((e: UpdateEvent) => void) | null = null;
 let verifyCancelled = false;
 
 const secrets = { github: false, nexus: false };
+const publishedBuilds = ["1.4.0", "1.3.9", "1.3.8"].map((version, i) => ({ version, commit: `c${i}` }));
+let revertedFrom: string | null = null;
 let built: BuiltRelease | null = null;
 let author: ((e: AuthorEvent) => void) | null = null;
 let authorCancelled = false;
@@ -268,6 +271,7 @@ async function simulatePublish() {
   status = { ...status, installedVersion: version };
   build = { ...build, latestVersion: version, installedVersion: version, upToDate: true, changes: 0, downloadSize: 0 };
   built = null;
+  revertedFrom = null;
   author?.({ kind: "finished", job: "publish", ok: true, error: null });
 }
 
@@ -310,7 +314,7 @@ async function simulateVerify(): Promise<VerifyReport | null> {
   };
 }
 
-async function simulateUpdate() {
+async function simulateUpdate(to = build.latestVersion) {
   const steps = ["Обновление: Cyber Engine Tweaks", "Обновление: RED4ext", "Установка: Better Vehicle Handling", "Удаление: Immersive Traffic", "Порядок загрузки"];
   const total = build.downloadSize;
   let done = build.downloaded;
@@ -328,11 +332,11 @@ async function simulateUpdate() {
     }
   }
   progress?.({ kind: "done" });
-  status = { ...status, updating: false, installedVersion: build.latestVersion };
+  status = { ...status, updating: false, installedVersion: to };
   build = {
     ...build,
-    installedVersion: build.latestVersion,
-    upToDate: true,
+    installedVersion: to,
+    upToDate: to === build.latestVersion,
     changes: 0,
     downloadSize: 0,
     downloaded: 0,
@@ -666,6 +670,20 @@ export const mock = {
     secrets[secret === "githubToken" ? "github" : "nexus"] = !!value;
   },
   authorBuilt: async () => built,
+  authorVersions: async (): Promise<Versions> => {
+    await delay(200);
+    const builds = publishedBuilds.filter((b) => b.version !== status.installedVersion);
+    return { revertedFrom, builds };
+  },
+  authorRevert: async (commit: string) => {
+    if (status.gameRunning || status.mo2Running) throw new Error("Закройте игру и Mod Organizer 2 перед откатом");
+    const to = publishedBuilds.find((b) => b.commit === commit)?.version;
+    if (!to) throw new Error("Не удалось загрузить эту версию: GitHub answered 404");
+    cancelled = false;
+    status = { ...status, updating: true };
+    revertedFrom = to === build.latestVersion ? null : build.latestVersion;
+    void simulateUpdate(to);
+  },
   authorPreflight: async (gameVersion: string) => {
     await delay(150);
     const warnings = ['"Glitch Effects Tweaks": no Nexus mod id in meta.ini, no link in the launcher'];
@@ -676,7 +694,7 @@ export const mock = {
   },
   authorBuild: async (version: string, gameVersion: string, notes: string[]) => {
     if (status.gameRunning || status.mo2Running) throw new Error("Закройте игру и Mod Organizer 2: MO2 переписывает список модов при выходе");
-    if (build.latestVersion !== status.installedVersion) {
+    if (build.latestVersion !== status.installedVersion && revertedFrom !== build.latestVersion) {
       throw new Error(`Опубликована версия ${build.latestVersion}, а установлена ${status.installedVersion}. Сначала примите опубликованную версию.`);
     }
     built = null;

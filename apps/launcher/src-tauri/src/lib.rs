@@ -120,6 +120,8 @@ pub fn run() {
             author::author_set_secret,
             author::author_built,
             author::author_preflight,
+            author::author_versions,
+            author::author_revert,
             author::author_build,
             author::author_publish,
             author::author_cancel,
