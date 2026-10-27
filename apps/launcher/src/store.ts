@@ -550,9 +550,9 @@ export function isRepairOnly(build: BuildInfo | null): boolean {
 }
 
 /** What the main button should do right now; "setup": no MO2 to start yet. */
-export type PrimaryAction = "loading" | "setup" | "game" | "install" | "update" | "updating" | "play" | "running";
+export type PrimaryAction = "loading" | "setup" | "game" | "install" | "updating" | "play" | "running";
 
-/** In author mode the instance is ahead of the published build on purpose: no update is offered. */
+/** A newer build is never forced: "Play" stays, the update is offered by the notice. */
 export function primaryAction(status: Status | null, build: BuildInfo | null, updating: boolean, settings: Settings | null): PrimaryAction {
   if (!status || !settings) return "loading";
   if (updating || status.updating) return "updating";
@@ -560,8 +560,6 @@ export function primaryAction(status: Status | null, build: BuildInfo | null, up
   const instance = activeInstance(settings);
   if (!instance || (!instance.build && !status.mo2Installed)) return "setup";
   if (instance.build && (!status.installedVersion || !status.mo2Installed)) return build ? "install" : "loading";
-  const authorMode = settings.authorMode;
-  if (build && !build.upToDate && build.online && !authorMode) return "update";
   if (!status.gameFound) return "game";
   return "play";
 }

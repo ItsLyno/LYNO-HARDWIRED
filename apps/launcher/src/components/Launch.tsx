@@ -1,7 +1,7 @@
-import { ChevronDown, Download, FolderCog, FolderSearch, Loader2, Play, RefreshCw, Wrench } from "lucide-react";
+import { ChevronDown, Download, FolderCog, FolderSearch, Loader2, Play, Wrench } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { api, type Executable } from "../api";
-import { isRepairOnly, primaryAction, useApp, type PrimaryAction, type Progress } from "../store";
+import { primaryAction, useApp, type PrimaryAction, type Progress } from "../store";
 import { Button } from "./Button";
 
 /** The launcher's one job, reachable from every page: start the game (or get it ready), MO2 and its tools. */
@@ -21,7 +21,6 @@ export function Launch() {
         setTimeout(() => setLaunching(false), 5000);
         return;
       case "install":
-      case "update":
         setPage("mods");
         return startUpdate();
       case "game":
@@ -39,10 +38,10 @@ export function Launch() {
       <Button
         variant="primary"
         className="min-w-36"
-        disabled={!["play", "install", "update", "game"].includes(action) || launching}
+        disabled={!["play", "install", "game"].includes(action) || launching}
         onClick={onPrimary}
       >
-        {primaryLabel(action, launching, build?.latestVersion, isRepairOnly(build), progress)}
+        {primaryLabel(action, launching, progress)}
       </Button>
     </div>
   );
@@ -99,7 +98,7 @@ function ToolsMenu({ disabled }: { disabled: boolean }) {
   );
 }
 
-function primaryLabel(action: PrimaryAction, launching: boolean, latest: string | undefined, repair: boolean, progress: Progress | null): ReactNode {
+function primaryLabel(action: PrimaryAction, launching: boolean, progress: Progress | null): ReactNode {
   if (launching) return <><Loader2 size={16} className="animate-spin" />Запуск…</>;
   switch (action) {
     case "loading":
@@ -114,8 +113,6 @@ function primaryLabel(action: PrimaryAction, launching: boolean, latest: string 
       return <><FolderSearch size={16} />Указать игру</>;
     case "install":
       return <><Download size={16} />Установить сборку</>;
-    case "update":
-      return repair ? <><Wrench size={16} />Восстановить</> : <><RefreshCw size={16} />Обновить до {latest}</>;
     case "setup":
     case "play":
       return <><Play size={16} fill="currentColor" />Играть</>;

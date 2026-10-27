@@ -10,7 +10,7 @@ import { UpdateProgress } from "./UpdateProgress";
 
 /** What needs the player's attention, and only that: a healthy setup shows nothing. */
 export function Notices() {
-  const { status, build, progress, settings, launcherUpdate, runReport, dismissRunReport, setPage, run } = useApp();
+  const { status, build, progress, settings, launcherUpdate, runReport, dismissRunReport, setPage, run, startUpdate } = useApp();
   const [problems, setProblems] = useState(false);
   const [changelog, setChangelog] = useState(false);
   const [installing, setInstalling] = useState(false);
@@ -84,6 +84,17 @@ export function Notices() {
               <ChevronDown size={14} className={`transition-transform ${changelog ? "rotate-180" : ""}`} />
             </Button>
           )}
+          <Button
+            className="h-8 text-[13px]"
+            disabled={busy}
+            onClick={() => {
+              setPage("mods");
+              void startUpdate();
+            }}
+          >
+            <Download size={14} />
+            {isRepairOnly(buildUpdate) ? "Восстановить" : "Обновить"}
+          </Button>
         </Notice>
       )}
       {launcherUpdate && (
