@@ -111,7 +111,7 @@ export default function App() {
         {(error || notice) && (
           <div
             role="alert"
-            className="fixed right-6 bottom-16 flex max-w-md items-start gap-3 rounded-2xl bg-raised px-4 py-3 shadow-xl"
+            className="fixed right-6 bottom-16 z-[60] flex max-w-md items-start gap-3 rounded-2xl bg-raised px-4 py-3 shadow-xl"
           >
             <div className={`flex-1 text-[13px] ${error ? "text-bad" : "text-warn"}`}>{error ?? notice}</div>
             <button
