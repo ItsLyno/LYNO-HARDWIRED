@@ -1,11 +1,11 @@
 {
-  "version": "0.12.0",
-  "notes": "Новое окно «Конфликты модов» (меню страницы «Моды» или правый клик по моду): видно, какой мод чьи файлы закрывает и что в итоге попадает в игру, а также конфликты ресурсов внутри .archive разных модов с учётом порядка загрузки архивов. Моды, которые целиком закрыты другими и ничего не меняют, помечены.",
-  "pub_date": "2026-10-27T11:06:31Z",
+  "version": "1.0.0",
+  "notes": "",
+  "pub_date": "2026-10-27T13:07:49Z",
   "platforms": {
     "windows-x86_64": {
-      "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/launcher-v0.12.0/LYNO-HARDWIRED_0.12.0_x64-setup.exe",
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUejR0VmZ4WmllZkxlMDRmVXU2ZWtuNDNUdmdTSzdnWlMzSlB1bmN6VVVnN2xNMVBJQVBuMkZJeTBuaU1oTVlBMzhOYnl5a2dvdDJ1bERIeEs4cS9ZZDZuNDA2WnpHbndFPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkzMDk5MTkxCWZpbGU6TFlOTyBIQVJEV0lSRURfMC4xMi4wX3g2NC1zZXR1cC5leGUJdmVyc2lvbjowLjEyLjAKbGVnOHdxSEh1TTRHMk0vajRhRnNOU1BkR2ppZzlPNHoxZ0pETWRDSWlRVFUwTkZYb2l3UWdlR0JXaUpqcENsb2dBTmdobUdXaTN0Slk2bENIUHZ5Q0E9PQo="
+      "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/launcher-v1.0.0/LYNO-HARDWIRED_1.0.0_x64-setup.exe",
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUejR0VmZ4WmllZkVBZndtK2s2NnBVcU9Dejgrd1Z1eGJjb2xMTEgyODJ6Rm5BbDJNdEZEYkNRbXhXSlFHcmJuZ0NoYkNUNjdIRGtIamViZ1oxMElTNUVpTFB5bTRMM3c4PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkzMTA2NDY4CWZpbGU6TFlOTyBIQVJEV0lSRURfMS4wLjBfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjEuMC4wCk9QM2hzQTlWK0RzMHhrWDhwNWo3K1M0djdKYzNMUFhtblJmMTVEQUJ6V0dwZFg5TXFQcXdRbStoL213c2lzME1DdytaUFZubHpvZVdReXpycXZOK0JBPT0K"
     }
   }
 }
