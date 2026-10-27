@@ -382,23 +382,26 @@ export function Mods() {
               className="h-9 w-full rounded-full bg-surface pr-4 pl-9 text-sm outline-none placeholder:text-faint focus:ring-1 focus:ring-neon/50"
             />
           </label>
-          <div className="mx-1 h-5 w-px bg-line" />
-          <Button variant="ghost" size="icon" disabled={reloading} title="Перечитать список модов с диска (F5)" onClick={() => void reload()}>
-            <RotateCw size={15} className={reloading ? "animate-spin" : ""} />
-          </Button>
-          <Button variant="ghost" size="icon" title="История списка: вернуть порядок и включённость модов, как было раньше" onClick={() => setHistory(true)}>
-            <History size={15} />
-          </Button>
-          <Button
-            variant="ghost"
-            size={nexusChecking ? "md" : "icon"}
-            disabled={!!nexusChecking || !nexus?.account}
-            title={nexus?.account ? "Проверить обновления модов на Nexus Mods" : "Войдите в Nexus Mods в настройках, чтобы проверять обновления"}
-            onClick={() => void checkNexus(false)}
-          >
-            <CircleArrowUp size={15} className={nexusChecking ? "animate-pulse" : ""} />
-            {nexusChecking && <span className="font-mono text-[12px] tabular-nums">{`${nexusChecking.done}/${nexusChecking.total}`}</span>}
-          </Button>
+          {/* The rare actions share one menu; a running one still shows itself next to it. */}
+          {(reloading || nexusChecking) && (
+            <span className="flex items-center gap-1.5 text-[12px] text-muted">
+              {nexusChecking ? <CircleArrowUp size={14} className="animate-pulse" /> : <RotateCw size={14} className="animate-spin" />}
+              {nexusChecking && <span className="font-mono tabular-nums">{`Nexus ${nexusChecking.done}/${nexusChecking.total}`}</span>}
+            </span>
+          )}
+          <PageMenu
+            items={[
+              { label: "Перечитать с диска", hint: "F5", icon: RotateCw, disabled: reloading, onClick: () => void reload() },
+              { label: "История списка", icon: History, title: "Вернуть порядок и включённость модов, как было раньше", onClick: () => setHistory(true) },
+              {
+                label: "Проверить обновления на Nexus",
+                icon: CircleArrowUp,
+                disabled: !!nexusChecking || !nexus?.account,
+                title: nexus?.account ? undefined : "Войдите в Nexus Mods в настройках, чтобы проверять обновления",
+                onClick: () => void checkNexus(false),
+              },
+            ]}
+          />
           <Button
             title="Установить мод из архива (zip, 7z, rar), как в MO2. Архив можно и перетащить на список"
             onClick={async () => {
@@ -718,7 +721,52 @@ function MenuButton({ onOpen }: { onOpen: (x: number, y: number) => void }) {
   );
 }
 
-type Item = { label: string; icon: LucideIcon; onClick: () => void; disabled?: boolean; title?: string; danger?: boolean };
+type Item = { label: string; icon: LucideIcon; onClick: () => void; disabled?: boolean; title?: string; danger?: boolean; hint?: string };
+
+// The page's rare actions behind one button, so the toolbar keeps to what the list shows and the main action.
+function PageMenu({ items }: { items: Item[] }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const outside = (e: Event) => !ref.current?.contains(e.target as Node) && setOpen(false);
+    const esc = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    window.addEventListener("mousedown", outside);
+    window.addEventListener("keydown", esc);
+    return () => {
+      window.removeEventListener("mousedown", outside);
+      window.removeEventListener("keydown", esc);
+    };
+  }, [open]);
+  return (
+    <div ref={ref} className="relative">
+      <Button variant="ghost" size="icon" title="Ещё" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(!open)}>
+        <MoreHorizontal size={16} />
+      </Button>
+      {open && (
+        <div role="menu" className="panel absolute top-full right-0 z-50 mt-2 w-72 bg-surface py-1.5 shadow-2xl">
+          {items.map((it) => (
+            <button
+              key={it.label}
+              role="menuitem"
+              disabled={it.disabled}
+              title={it.title}
+              onClick={() => {
+                setOpen(false);
+                it.onClick();
+              }}
+              className="flex h-8 w-full items-center gap-2.5 px-3.5 text-left text-[13px] text-fg outline-none hover:bg-raised focus:bg-raised disabled:cursor-not-allowed disabled:text-faint"
+            >
+              <it.icon size={14} className="shrink-0 opacity-80" />
+              <span className="flex-1 truncate">{it.label}</span>
+              {it.hint && <span className="font-mono text-[11px] text-faint">{it.hint}</span>}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 // Like MO2's right-click menu on a mod. Deleting and renaming are for the player's own mods: a build mod
 // would come back with the next update, so the player only switches it off (the author changes any).
