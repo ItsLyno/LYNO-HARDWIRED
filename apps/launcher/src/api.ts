@@ -388,6 +388,8 @@ export type JobState =
 /** What installing an archive would replace, asked before the install. */
 export interface ArchiveTarget {
   modName: string;
+  /** Folder name of the archive as a new mod: what a separate install offers. */
+  folder: string;
   version: string | null;
   /** The installed mod folder the archive goes over; `null`: a new mod. */
   replaces: string | null;
@@ -613,8 +615,10 @@ export const api = isTauri()
       nexusLimits: () => invoke<RateLimit | null>("nexus_limits"),
       downloadsRecent: () => invoke<DownloadItem[]>("downloads_recent"),
       deleteDownload: (file: string) => invoke<void>("delete_download", { file }),
-      /** A file name in MO2's downloads or an absolute path; `after`: the list entry it was dropped below. */
-      installArchive: (file: string, after: string | null) => invoke<number>("install_archive", { file, after }),
+      /** A file name in MO2's downloads or an absolute path; `after`: the list entry it was dropped below;
+       *  `name`: a new mod of this name instead of the one the archive would replace. */
+      installArchive: (file: string, after: string | null, name: string | null = null) =>
+        invoke<number>("install_archive", { file, after, name }),
       /** MO2's "Install a new mod from an archive": the archives picked in a file dialog, none when cancelled. */
       pickArchives: async () =>
         (await tauriOpen({ multiple: true, filters: [{ name: "Архивы модов", extensions: ["zip", "7z", "rar"] }] })) ?? [],

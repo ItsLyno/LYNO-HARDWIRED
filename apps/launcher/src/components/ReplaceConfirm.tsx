@@ -1,19 +1,23 @@
 import { RefreshCw, X } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useApp } from "../store";
 import { Button } from "./Button";
 
 /**
  * An archive dragged or dropped onto the list is another version of an
  * installed mod: it goes over that mod's folder, so the player says yes first.
+ * Another variant of the same Nexus page (a different body, an option) looks
+ * the same to the launcher: the player installs it next to it under a name of theirs.
  */
 export function ReplaceConfirm() {
   const ask = useApp((s) => s.replaceAsks[0]);
   const answerReplace = useApp((s) => s.answerReplace);
+  const [name, setName] = useState("");
 
   useEffect(() => {
     if (!ask) return;
-    const esc = (e: KeyboardEvent) => e.key === "Escape" && answerReplace(false);
+    setName(ask.target.folder);
+    const esc = (e: KeyboardEvent) => e.key === "Escape" && answerReplace("cancel");
     window.addEventListener("keydown", esc);
     return () => window.removeEventListener("keydown", esc);
   }, [ask]);
@@ -23,13 +27,14 @@ export function ReplaceConfirm() {
   const from = target.installedVersion ?? "неизвестна";
   const to = target.version ?? "неизвестна";
   const same = target.installedVersion !== null && target.installedVersion === target.version;
+  const separate = () => name.trim() && answerReplace({ name: name.trim() });
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-8" role="dialog" aria-modal="true">
       <div className="panel flex w-full max-w-md flex-col overflow-hidden bg-surface shadow-2xl">
         <div className="flex h-14 shrink-0 items-center gap-3 border-b border-line px-5">
           <RefreshCw size={16} className="text-muted" />
           <div className="min-w-0 flex-1 truncate text-sm font-semibold">{target.replaces}</div>
-          <button onClick={() => answerReplace(false)} aria-label="Отмена" className="inline-flex size-8 items-center justify-center rounded-full text-muted hover:bg-raised hover:text-fg">
+          <button onClick={() => answerReplace("cancel")} aria-label="Отмена" className="inline-flex size-8 items-center justify-center rounded-full text-muted hover:bg-raised hover:text-fg">
             <X size={16} />
           </button>
         </div>
@@ -49,12 +54,26 @@ export function ReplaceConfirm() {
               можно в меню мода.
             </p>
           )}
+          <div className="space-y-1.5 border-t border-line pt-3">
+            <p>Другой вариант мода, а не новая версия? Установите его рядом под своим именем:</p>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && separate()}
+              spellCheck={false}
+              placeholder="Название мода"
+              className="h-9 w-full rounded-lg bg-raised px-3 text-sm text-fg outline-none placeholder:text-faint focus:ring-1 focus:ring-neon/50"
+            />
+          </div>
         </div>
         <div className="flex justify-end gap-2 border-t border-line px-5 py-3">
-          <Button variant="ghost" onClick={() => answerReplace(false)}>
+          <Button variant="ghost" onClick={() => answerReplace("cancel")}>
             Отмена
           </Button>
-          <Button variant="primary" autoFocus onClick={() => answerReplace(true)}>
+          <Button variant="ghost" disabled={!name.trim()} onClick={separate}>
+            Установить отдельно
+          </Button>
+          <Button variant="primary" autoFocus onClick={() => answerReplace("replace")}>
             {same ? "Переустановить" : "Заменить"}
           </Button>
         </div>

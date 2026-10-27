@@ -129,7 +129,8 @@ interface AppStore {
   installArchive: (file: string, after: string | null) => Promise<void>;
   /** Runs an `instance*` call, then reloads everything that belongs to the instance. */
   switchInstance: (op: () => Promise<void>) => Promise<boolean>;
-  answerReplace: (replace: boolean) => void;
+  /** `name`: install it as a separate mod of that name, the installed one stays. */
+  answerReplace: (answer: "cancel" | "replace" | { name: string }) => void;
   clearError: () => void;
 }
 
@@ -454,10 +455,12 @@ export const useApp = create<AppStore>((set, get) => ({
       set({ error: String(e) });
     }
   },
-  answerReplace: (replace) => {
+  answerReplace: (answer) => {
     const [ask, ...rest] = get().replaceAsks;
     set({ replaceAsks: rest });
-    if (ask && replace) void api.installArchive(ask.file, ask.after).catch((e) => set({ error: String(e) }));
+    if (!ask || answer === "cancel") return;
+    const name = answer === "replace" ? null : answer.name;
+    void api.installArchive(ask.file, ask.after, name).catch((e) => set({ error: String(e) }));
   },
   switchInstance: async (op) => {
     try {

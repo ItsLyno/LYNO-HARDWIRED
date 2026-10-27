@@ -408,14 +408,24 @@ enum Work {
     /// Download the file of an nxm link into MO2's downloads.
     Fetch(NxmLink),
     /// Install an archive from MO2's downloads or the player's disk.
-    /// `into`: over this mod folder (a reinstall), whatever the archive's own target.
-    Install { archive: PathBuf, after: Option<String>, into: Option<String> },
+    Install { archive: PathBuf, after: Option<String>, dest: Dest },
     /// Install the parked archive as it is (it waited for MO2 to close).
     Resume,
     /// Install the parked FOMOD archive with this choice.
     Fomod(Selection),
     /// Install this folder of the parked archive as the mod.
     Root(String),
+}
+
+/// Which folder an archive install goes to.
+#[derive(Clone)]
+enum Dest {
+    /// The archive's own: the mod it is another version of, else a new one.
+    Own,
+    /// Over this mod folder (a reinstall), whatever the archive's own target.
+    Folder(String),
+    /// A new mod of this name, next to the one it would replace (another variant of the page).
+    Named(String),
 }
 
 #[derive(Clone, Copy, Serialize)]
@@ -723,12 +733,13 @@ fn run_job(app: &AppHandle, job: &Job) -> lyno_core::Result<Result<Next, BuildMo
                 Err(build_mod) => return Ok(Err(build_mod)),
             }
         }
-        Work::Install { archive, after, into } => {
+        Work::Install { archive, after, dest } => {
             let download = mod_install::download_for(&archive);
             update_job(app, id, |j| j.describe(&download));
-            let target = match into {
-                Some(folder) => Target::Replace(folder),
-                None => match mod_install::target_for(&inst, &profile, &download, settings.author_mode, installed_manifest(&inst).as_ref(), after)? {
+            let target = match dest {
+                Dest::Folder(folder) => Target::Replace(folder),
+                Dest::Named(name) => Target::New { personal: !settings.author_mode, after, name: Some(name) },
+                Dest::Own => match mod_install::target_for(&inst, &profile, &download, settings.author_mode, installed_manifest(&inst).as_ref(), after)? {
                     Ok(t) => t,
                     Err(build_mod) => return Ok(Err(build_mod)),
                 },
@@ -880,6 +891,8 @@ fn archive_path(inst: &Instance, file: &str) -> CmdResult<PathBuf> {
 #[serde(rename_all = "camelCase")]
 pub struct ArchiveTarget {
     mod_name: String,
+    /// Folder name of the archive as a new mod: what a separate install offers.
+    folder: String,
     version: Option<String>,
     /// The installed mod folder the archive goes over.
     replaces: Option<String>,
@@ -907,6 +920,7 @@ pub async fn archive_target(app: AppHandle, file: String) -> CmdResult<ArchiveTa
             .and_then(|f| ModMeta::load(&inst.mods_dir().join(f).join("meta.ini")).ok())
             .and_then(|m| m.version);
         Ok(ArchiveTarget {
+            folder: mod_install::folder_name(&download.folder()),
             mod_name: download.mod_name,
             version: download.version.as_deref().map(lyno_core::meta::display_version),
             replaces,
@@ -920,14 +934,19 @@ pub async fn archive_target(app: AppHandle, file: String) -> CmdResult<ArchiveTa
 
 /// Installs an archive: a file name in MO2's downloads (the downloads list)
 /// or a path dropped from Explorer. `after`: the list entry it was dropped
-/// below (`None`: the end of the player's section).
+/// below (`None`: the end of the player's section). `name`: a new mod of this
+/// folder name instead of the one the archive would replace.
 #[tauri::command]
-pub fn install_archive(app: AppHandle, file: String, after: Option<String>) -> CmdResult<u64> {
+pub fn install_archive(app: AppHandle, file: String, after: Option<String>, name: Option<String>) -> CmdResult<u64> {
     let (inst, _) = instance(&app.state::<AppState>())?;
     let archive = archive_path(&inst, &file)?;
-    log::info!("install {} (after {after:?})", archive.display());
+    log::info!("install {} (after {after:?}, name {name:?})", archive.display());
+    let dest = match name.filter(|n| !n.trim().is_empty()) {
+        Some(name) => Dest::Named(name),
+        None => Dest::Own,
+    };
     Ok(push_job(&app, |id| {
-        let mut job = Job::new(id, Source::File, Some(Work::Install { archive: archive.clone(), after, into: None }), JobState::Queued);
+        let mut job = Job::new(id, Source::File, Some(Work::Install { archive: archive.clone(), after, dest }), JobState::Queued);
         job.title = archive.file_name().map(|n| n.to_string_lossy().into_owned());
         job
     }))
@@ -947,7 +966,7 @@ pub fn reinstall_mod(app: AppHandle, folder: String) -> CmdResult<u64> {
         .ok_or("Архива этого мода нет в загрузках Mod Organizer 2: скачайте мод заново и перетащите его в список")?;
     log::info!("reinstall {folder:?} from {}", archive.display());
     Ok(push_job(&app, |id| {
-        let mut job = Job::new(id, Source::File, Some(Work::Install { archive: archive.clone(), after: None, into: Some(folder.clone()) }), JobState::Queued);
+        let mut job = Job::new(id, Source::File, Some(Work::Install { archive: archive.clone(), after: None, dest: Dest::Folder(folder.clone()) }), JobState::Queued);
         job.title = Some(folder.clone());
         job
     }))

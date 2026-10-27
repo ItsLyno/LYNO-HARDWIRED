@@ -115,8 +115,10 @@ pub enum Target {
     /// A new folder. `personal`: under `LYNO USER MODS`; otherwise at the end
     /// of the build section (the author's next release). `after`: right
     /// after this entry of the list (dropped there), within the player's
-    /// section for a personal mod.
-    New { personal: bool, after: Option<String> },
+    /// section for a personal mod. `name`: the player's folder name instead of
+    /// the file's ([`Download::folder`]): a second variant of a page that would
+    /// otherwise replace the first.
+    New { personal: bool, after: Option<String>, name: Option<String> },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
@@ -354,7 +356,7 @@ fn place(
     std::fs::create_dir_all(&mods).map_err(|e| Error::io(&mods, e))?;
     let folder = match target {
         Target::Replace(f) | Target::Own { folder: f, .. } => f.clone(),
-        Target::New { .. } => free_folder(&mods, &folder_name(&dl.folder())),
+        Target::New { name, .. } => free_folder(&mods, &folder_name(name.as_deref().unwrap_or(&dl.folder()))),
     };
     let staging = inst.root().join(".lyno").join("staging").join("nexus");
     if staging.exists() {
@@ -406,7 +408,7 @@ fn place(
     let mut list = if list_path.is_file() { ModList::load(&list_path)? } else { ModList::default() };
     if list.get(&folder).is_none() {
         let (personal, after) = match target {
-            Target::New { personal, after } => (*personal, after.as_deref()),
+            Target::New { personal, after, .. } => (*personal, after.as_deref()),
             Target::Replace(_) | Target::Own { .. } => (true, None),
         };
         let personal = personal && crate::install::has_build(inst);
@@ -791,7 +793,7 @@ pub fn target_for(
     manifest: Option<&Manifest>,
     after: Option<String>,
 ) -> Result<std::result::Result<Target, BuildMod>> {
-    let new = Target::New { personal: !author, after };
+    let new = Target::New { personal: !author, after, name: None };
     if dl.mod_id == 0 || !inst.modlist_path(profile).is_file() {
         return Ok(Ok(new));
     }
@@ -1107,7 +1109,7 @@ mod tests {
         std::fs::remove_file(crate::install::state_path(&inst)).unwrap();
         let archive = dir.path().join("dl.zip");
         zip_with(&archive, &[("Cool/archive/pc/mod/a.archive", b"v1")]);
-        install(&inst, "LYNO", &archive, &download(1, "1.0"), &Target::New { personal: true, after: None }).unwrap();
+        install(&inst, "LYNO", &archive, &download(1, "1.0"), &Target::New { personal: true, after: None, name: None }).unwrap();
         assert_eq!(names(&inst), ["Mine", "Cool_ Mod"]);
     }
 
@@ -1116,7 +1118,7 @@ mod tests {
         let (dir, inst) = instance("+Build Mod\r\n");
         let archive = dir.path().join("dl.zip");
         zip_with(&archive, &[("Cool/archive/pc/mod/a.archive", b"v1")]);
-        let out = install(&inst, "LYNO", &archive, &download(1, "1.0"), &Target::New { personal: true, after: None }).unwrap();
+        let out = install(&inst, "LYNO", &archive, &download(1, "1.0"), &Target::New { personal: true, after: None, name: None }).unwrap();
         assert_eq!(out, Outcome::Installed { folder: "Cool_ Mod".into() });
         assert_eq!(names(&inst), ["Build Mod", "LYNO USER MODS_separator", "Cool_ Mod"]);
         let meta = ModMeta::load(&inst.mods_dir().join("Cool_ Mod/meta.ini")).unwrap();
@@ -1145,12 +1147,31 @@ mod tests {
     }
 
     #[test]
+    fn a_named_install_goes_next_to_the_mod_it_would_replace() {
+        let (dir, inst) = instance("+Build Mod\r\n");
+        // An install moves its archive into downloads/: one per install.
+        let archive = |n: u64| {
+            let path = dir.path().join(format!("dl{n}.zip"));
+            zip_with(&path, &[("Cool/archive/pc/mod/a.archive", b"v1")]);
+            path
+        };
+        let as_named = |name: Option<&str>| Target::New { personal: true, after: None, name: name.map(Into::into) };
+        install(&inst, "LYNO", &archive(1), &download(1, "1.0"), &as_named(None)).unwrap();
+        let out = install(&inst, "LYNO", &archive(2), &download(2, "1.0"), &as_named(Some("Cool: Variant B"))).unwrap();
+        assert_eq!(out, Outcome::Installed { folder: "Cool_ Variant B".into() });
+        assert_eq!(names(&inst), ["Build Mod", "LYNO USER MODS_separator", "Cool_ Mod", "Cool_ Variant B"]);
+        // The name of a folder already there gets a number, as a page title does.
+        let out = install(&inst, "LYNO", &archive(3), &download(3, "1.0"), &as_named(Some("Cool_ Mod"))).unwrap();
+        assert_eq!(out, Outcome::Installed { folder: "Cool_ Mod (2)".into() });
+    }
+
+    #[test]
     fn author_mod_goes_to_the_end_of_the_build_section() {
         let (dir, inst) = instance("+Mine\r\n-LYNO USER MODS_separator\r\n+Build Mod\r\n");
         std::fs::create_dir_all(inst.mods_dir().join("Cool_ Mod")).unwrap();
         let archive = dir.path().join("dl.zip");
         zip_with(&archive, &[("r6/scripts/x.reds", b"x")]);
-        let out = install(&inst, "LYNO", &archive, &download(1, "1"), &Target::New { personal: false, after: None }).unwrap();
+        let out = install(&inst, "LYNO", &archive, &download(1, "1"), &Target::New { personal: false, after: None, name: None }).unwrap();
         assert_eq!(out, Outcome::Installed { folder: "Cool_ Mod (2)".into() });
         assert_eq!(names(&inst), ["Build Mod", "Cool_ Mod (2)", "LYNO USER MODS_separator", "Mine"]);
     }
@@ -1160,7 +1181,7 @@ mod tests {
         let (dir, inst) = instance("+Build Mod\r\n");
         let archive = dir.path().join("dl.zip");
         zip_with(&archive, &[("fomod/ModuleConfig.xml", b"<nope/>"), ("A/archive/pc/mod/a.archive", b"a")]);
-        let target = Target::New { personal: true, after: None };
+        let target = Target::New { personal: true, after: None, name: None };
         let out = install(&inst, "LYNO", &archive, &download(1, "1"), &target).unwrap();
         let kept = inst.downloads_dir().join("Cool Mod-42-1.zip");
         assert_eq!(out, Outcome::Manual { archive: kept.clone(), target: target.clone() });
@@ -1208,7 +1229,7 @@ mod tests {
         let (dir, inst) = instance("+Build Mod\r\n");
         let archive = dir.path().join("dl.zip");
         fomod_zip(&archive);
-        let target = Target::New { personal: true, after: None };
+        let target = Target::New { personal: true, after: None, name: None };
         let out = install(&inst, "LYNO", &archive, &download(1, "1"), &target).unwrap();
         let Outcome::Fomod { archive: kept, target: t } = out else { panic!("{out:?}") };
         assert_eq!(t, target);
@@ -1298,7 +1319,7 @@ mod tests {
         let archive = dir.path().join("my-mod.zip");
         zip_with(&archive, &[("r6/scripts/x.reds", b"x")]);
         let dl = Download::from_file(&archive);
-        let target = Target::New { personal: true, after: Some("Build Mod".into()) };
+        let target = Target::New { personal: true, after: Some("Build Mod".into()), name: None };
         assert_eq!(install(&inst, "LYNO", &archive, &dl, &target).unwrap(), Outcome::Installed { folder: "my-mod".into() });
         assert!(archive.is_file(), "not moved");
         assert!(!inst.downloads_dir().exists());
@@ -1311,7 +1332,7 @@ mod tests {
         let (dir, inst) = instance("+Cool_ Mod\r\n-LYNO USER MODS_separator\r\n");
         let archive = dir.path().join("dl.zip");
         zip_with(&archive, &[("archive/pc/mod/a.archive", b"1")]);
-        install(&inst, "LYNO", &archive, &download(7, "1.0"), &Target::New { personal: true, after: None }).unwrap();
+        install(&inst, "LYNO", &archive, &download(7, "1.0"), &Target::New { personal: true, after: None, name: None }).unwrap();
         // MO2's own download, hidden ones and stray files.
         std::fs::write(inst.downloads_dir().join("Other-9-2-0-1735000000.rar"), b"Rar!").unwrap();
         std::fs::write(
@@ -1335,7 +1356,7 @@ mod tests {
         assert_eq!(target_for(&inst, "LYNO", &same, false, None, None).unwrap().unwrap(), Target::Replace("Cool_ Mod".into()));
         let other = download_for(&inst.downloads_dir().join("Other-9-2-0-1735000000.rar"));
         assert_eq!((other.mod_name.as_str(), other.file_id, other.version.as_deref()), ("Other, the mod", 90, Some("2.0")));
-        assert_eq!(target_for(&inst, "LYNO", &other, false, None, Some("x".into())).unwrap().unwrap(), Target::New { personal: true, after: Some("x".into()) });
+        assert_eq!(target_for(&inst, "LYNO", &other, false, None, Some("x".into())).unwrap().unwrap(), Target::New { personal: true, after: Some("x".into()), name: None });
 
         // Installing MO2's download keeps its `.meta` and only flips the flag.
         let p = inst.downloads_dir().join("Other-9-2-0-1735000000.rar");

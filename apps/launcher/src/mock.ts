@@ -452,8 +452,8 @@ function emitJob(id: number, patch: Partial<NexusJob>) {
 }
 
 /** Installs a mock archive: an odd layout asks for the folder first. */
-async function simulateInstall(id: number, file: string, after: string | null) {
-  const name = file.replace(/\.(zip|7z|rar)$/i, "").replace(/-\d+-.*$/, "").split(/[\\/]/).pop() ?? file;
+async function simulateInstall(id: number, file: string, after: string | null, named: string | null = null) {
+  const name = named ?? file.replace(/\.(zip|7z|rar)$/i, "").replace(/-\d+-.*$/, "").split(/[\\/]/).pop() ?? file;
   await delay(300);
   if (file.endsWith(".rar") && !jobs.find((j) => j.id === id)?.state.kind.startsWith("installing")) {
     emitJob(id, { state: { kind: "choosingRoot" } });
@@ -821,7 +821,7 @@ export const mock = {
   deleteDownload: async (file: string) => {
     downloads = downloads.filter((d) => d.fileName !== file);
   },
-  installArchive: async (file: string, after: string | null) => {
+  installArchive: async (file: string, after: string | null, name: string | null = null) => {
     const job: NexusJob = {
       id: ++jobSeq,
       source: "file",
@@ -837,7 +837,7 @@ export const mock = {
     };
     jobs = [...jobs, job];
     nexusHandlers?.job(job);
-    void simulateInstall(job.id, file, after);
+    void simulateInstall(job.id, file, after, name);
     return job.id;
   },
   allowBackground: async (_path: string) => {},
@@ -847,7 +847,7 @@ export const mock = {
     const d = downloads.find((x) => x.fileName === file);
     const modName = d?.modName ?? file.split(/[\\/]/).pop() ?? file;
     const have = userMods.find((r): r is Extract<UserRow, { kind: "mod" }> => r.kind === "mod" && r.name === modName);
-    return { modName, version: d?.version ?? null, replaces: have?.name ?? null, build: false, installedVersion: have?.version ?? null };
+    return { modName, folder: d?.fileTitle ? `${modName} - ${d.fileTitle}` : modName, version: d?.version ?? null, replaces: have?.name ?? null, build: false, installedVersion: have?.version ?? null };
   },
   installRoots: async (_id: number) => {
     await delay(200);

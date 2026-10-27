@@ -1276,7 +1276,7 @@ fn nexus_updates_are_tracked_and_installed_from_nxm_links() {
     assert!(!fresh.mods_dir().exists());
     assert_eq!(ModList::load(&fresh.modlist_path("LYNO")).unwrap().entries.len(), 1);
     let archive = fresh.root().join("downloads/mod-11.zip");
-    let target = Target::New { personal: true, after: None };
+    let target = Target::New { personal: true, after: None, name: None };
     assert_eq!(install(&fresh, "LYNO", &archive, &dl, &target).unwrap(), Outcome::Installed { folder: "Old Mod - Main File".into() });
 
     // A build where CET is optional: the player may put their own version over it, and the build lets go of it.
