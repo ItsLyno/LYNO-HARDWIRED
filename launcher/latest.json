@@ -1,11 +1,11 @@
 {
-  "version": "1.1.0",
-  "notes": "",
-  "pub_date": "2026-10-27T15:50:48Z",
+  "version": "1.1.1",
+  "notes": "Режим автора: откат к установленной версии сборки, при смене версии моды включаются и выключаются как в ней, удалённые и изменённые моды сборки возвращаются.",
+  "pub_date": "2026-10-27T17:13:41Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUejR0VmZ4WmllZkZndEdsQ2FkNzlqN2hBcktmV2dnbUgzdmdBaWVON0JJcDRSRGFHMHF3UGdDOFN1ckZxRWwvUlNTemVVczVEc296SjlMYnB4bVQyNUg5a1NJK01mTGc4PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkzMTE2MjQ4CWZpbGU6TFlOTyBIQVJEV0lSRURfMS4xLjBfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjEuMS4wClV0U0RVVG41MXpsL3NRY09iOVpVOWlZdXpFQno5NkthaCtpQzNBWTl6bFZWMko1ZDR2WlU2Q1pIN3JGREp3MURBL3NmUFowRzZOZ3BGU0hraytPbURRPT0K",
-      "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/launcher-v1.1.0/LYNO-HARDWIRED_1.1.0_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUejR0VmZ4WmllZkVXamEzcitJbmFsdVZoUktrc1Q0Ym9xbHUyQWtSNGs1NGNlU1BmclBSZTd1U2dRa0ZyWkdLMXlOcVB2amg4N1l2R2VsQXoxaFBqZk1IWFl0UTliWEFRPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkzMTIxMjIxCWZpbGU6TFlOTyBIQVJEV0lSRURfMS4xLjFfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjEuMS4xCkd4allLdWpUTHI1dzV4NWt3NHRCVzU2VUpSVDJ4cGpVdy96UjNHZUFIeDJhMWU1UWVJUk5LT0RXamk4M3crT1VUbVQ2NmxhbFdPcUIybDA0NktobkR3PT0K",
+      "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/launcher-v1.1.1/LYNO-HARDWIRED_1.1.1_x64-setup.exe"
     }
   }
 }
