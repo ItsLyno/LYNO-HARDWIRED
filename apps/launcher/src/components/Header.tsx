@@ -4,6 +4,7 @@ import { Minus, Square, X } from "lucide-react";
 import type { ReactNode } from "react";
 import logo from "../assets/logo.webp";
 import { activeInstance, useApp, type Page } from "../store";
+import { Inbox } from "./Inbox";
 import { Launch } from "./Launch";
 
 /** `build`: only with the build's instance. */
@@ -38,6 +39,7 @@ export function Header() {
         ))}
       </nav>
       <div data-tauri-drag-region className="h-full flex-1" />
+      <Inbox />
       <Launch />
       <div className="flex items-center gap-1">
         <WinButton label="Свернуть" onClick={() => win?.minimize()}>
