@@ -1,4 +1,4 @@
-import { ChevronRight, ExternalLink, Power, PowerOff, FolderOpen, Lock, MoreHorizontal, Pencil, RefreshCw, Search, Trash2, X, type LucideIcon, TriangleAlert, Undo2, ArrowUp, Plus, RotateCw, CircleArrowUp, Wrench, Palette, Eraser, PackagePlus, SeparatorHorizontal, ScrollText, History } from "lucide-react";
+import { ChevronRight, ExternalLink, Power, PowerOff, FolderOpen, Lock, MoreHorizontal, Pencil, RefreshCw, Search, Trash2, X, type LucideIcon, TriangleAlert, Undo2, ArrowUp, Plus, RotateCw, CircleArrowUp, Wrench, Palette, Eraser, PackagePlus, SeparatorHorizontal, ScrollText, History, Anchor, Info, Link2, UserRound } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from "react";
 import { api, type ModRow, type Need, type UserRow } from "../api";
 import { Button } from "../components/Button";
@@ -506,23 +506,19 @@ export function Mods() {
                      <div className="flex min-w-0 items-center gap-2">
                       <span title={m.description ?? undefined} className={`truncate ${m.enabled && !m.removed ? "" : "text-faint"}`}>{m.title ?? m.name}</span>
                       <span className="flex shrink-0 items-center gap-1">
-                      {m.removed && <Badge tone="state" title="Вы удалили этот мод: обновления сборки его не вернут">удалён</Badge>}
-                      {!m.enabled && !m.removed && <Badge tone="state">выключен</Badge>}
+                      {/* Switched off reads from the faded name and the switch; the rest is an icon, its words in the tooltip. */}
+                      {m.removed && <Badge tone="state" icon={Trash2} title="Вы удалили этот мод: обновления сборки его не вернут" />}
                       {m.recent && last && (
-                        <Badge tone="info" icon={m.recent === "added" ? Plus : ArrowUp} title={`В версии ${last.to}`}>
-                          {m.recent === "added" ? "добавлен" : "обновлён"}
-                        </Badge>
+                        <Badge tone="info" icon={m.recent === "added" ? Plus : ArrowUp} title={`${m.recent === "added" ? "Добавлен" : "Обновлён"} в версии ${last.to}`} />
                       )}
-                      {m.outdated && <Badge tone="pending" icon={ArrowUp}>обновится</Badge>}
+                      {m.outdated && <Badge tone="pending" icon={ArrowUp} title="Обновится со следующим обновлением сборки" />}
                       {m.damaged && !m.outdated && (
-                        <Badge tone="pending" icon={Wrench} title="Проверка нашла изменённые или удалённые файлы">
-                          восстановится
-                        </Badge>
+                        <Badge tone="pending" icon={Wrench} title="Восстановится: проверка нашла изменённые или удалённые файлы" />
                       )}
-                      {!m.installed && !m.removed && build?.installedVersion && <Badge tone="pending" icon={Plus}>новый</Badge>}
-                      {m.requires.length > 0 && <Badge tone="info" title={`Обязательные моды: ${m.requires.map((id) => all.find((r) => r.id === id)?.title ?? all.find((r) => r.id === id)?.name ?? id).join(", ")}`}>{`зависимости: ${m.requires.length}`}</Badge>}
-                      {requiredBy(m.id).length > 0 && <Badge tone="state" title={dependencyReason(m.id)}>нужен другим</Badge>}
-                      {m.enabled && m.requires.some((id) => !all.some((r) => r.id === id && r.installed && r.enabled && !r.removed)) && <Badge tone="problem" icon={TriangleAlert}>зависимость выключена или отсутствует</Badge>}
+                      {!m.installed && !m.removed && build?.installedVersion && <Badge tone="pending" icon={Plus} title="Новый: установится со следующим обновлением сборки" />}
+                      {m.requires.length > 0 && <Badge tone="state" icon={Link2} title={`Обязательные моды: ${m.requires.map((id) => all.find((r) => r.id === id)?.title ?? all.find((r) => r.id === id)?.name ?? id).join(", ")}`}>{String(m.requires.length)}</Badge>}
+                      {requiredBy(m.id).length > 0 && <Badge tone="state" icon={Anchor} title={dependencyReason(m.id)} />}
+                      {m.enabled && m.requires.some((id) => !all.some((r) => r.id === id && r.installed && r.enabled && !r.removed)) && <Badge tone="problem" icon={TriangleAlert} title="Обязательный мод выключен или отсутствует">нет зависимости</Badge>}
                       <NeedsBadge needs={needs.get(m.name)} />
                       </span>
                      </div>
@@ -1222,14 +1218,19 @@ const badgeTones = {
   problem: "bg-warn/15 font-medium text-warn",
 };
 
-function Badge(props: { children: string; tone: keyof typeof badgeTones; icon?: LucideIcon; title?: string }) {
+/** Without text, an icon whose meaning is its `title`; a count or a short word may follow it. */
+function Badge(props: { children?: string; tone: keyof typeof badgeTones; icon?: LucideIcon; title?: string }) {
   const Icon = props.icon;
+  const bare = !props.children;
+  const shape = props.tone === "state" ? "" : bare ? "size-5 justify-center" : "px-2 py-0.5";
   return (
     <span
       title={props.title}
-      className={`inline-flex items-center gap-1 whitespace-nowrap rounded-full text-[11px] leading-4 ${props.tone === "state" ? "" : "px-2 py-0.5"} ${badgeTones[props.tone]}`}
+      role={bare ? "img" : undefined}
+      aria-label={bare ? props.title : undefined}
+      className={`inline-flex items-center gap-1 whitespace-nowrap rounded-full text-[11px] leading-4 ${shape} ${badgeTones[props.tone]}`}
     >
-      {Icon && <Icon size={11} />}
+      {Icon && <Icon size={bare ? 12 : 11} />}
       {props.children}
     </span>
   );
@@ -1241,8 +1242,8 @@ function NeedsBadge({ needs }: { needs?: Need[] }) {
   if (missing.length === 0) return null;
   const lines = missing.map((n) => (n.disabled ? `${n.name} — выключен` : `${n.name} — не установлен`));
   return (
-    <Badge tone="info" icon={TriangleAlert} title={`Указано на странице Nexus (может относиться к другим вариантам установки):\n${lines.join("\n")}\n\nЭто подсказки, а не подтверждённые зависимости сборки. Ссылки — в меню мода`}>
-      {`Nexus: ${missing.length} ${plural(missing.length, "подсказка", "подсказки", "подсказок")}`}
+    <Badge tone="state" icon={Info} title={`Nexus: ${missing.length} ${plural(missing.length, "подсказка", "подсказки", "подсказок")}. Указано на странице Nexus (может относиться к другим вариантам установки):\n${lines.join("\n")}\n\nЭто подсказки, а не подтверждённые зависимости сборки. Ссылки — в меню мода`}>
+      {String(missing.length)}
     </Badge>
   );
 }
@@ -1364,11 +1365,8 @@ function UserModRow(props: {
           <span className={`truncate ${r.enabled ? "" : "text-faint"}`}>{r.name}</span>
           <span className="flex shrink-0 items-center gap-1">
             {r.buildId && (
-              <Badge tone="info" title="Ваша версия мода сборки: обновления сборки её не трогают. Вернуть версию сборки — в меню мода">
-                своя версия
-              </Badge>
+              <Badge tone="info" icon={UserRound} title="Своя версия мода сборки: обновления сборки её не трогают. Вернуть версию сборки — в меню мода" />
             )}
-            {!r.enabled && <Badge tone="state">выключен</Badge>}
             <NeedsBadge needs={props.needs} />
           </span>
         </div>
