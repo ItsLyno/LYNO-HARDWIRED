@@ -162,6 +162,7 @@ let status: Status = {
   modsTotal: 14,
   modsEnabled: 13,
   gameRunning: false,
+  gameStarted: null,
   mo2Running: false,
   gamePatch: "2.31",
   gameMismatch: null,
@@ -737,7 +738,7 @@ export const mock = {
   openModFolder: async (_id: string) => {},
   openFolder: async (_folder: Folder) => {},
   launchGame: async () => {
-    status = { ...status, gameRunning: true };
+    status = { ...status, gameRunning: true, gameStarted: Math.floor(Date.now() / 1000) };
     setTimeout(() => (status = { ...status, gameRunning: false }), 8000);
   },
   stopGame: async () => {

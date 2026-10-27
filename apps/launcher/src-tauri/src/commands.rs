@@ -109,6 +109,8 @@ pub struct Status {
     mods_total: usize,
     mods_enabled: usize,
     game_running: bool,
+    /// When the game process started, unix seconds; the launcher shows how long the session lasts.
+    game_started: Option<u64>,
     mo2_running: bool,
     updating: bool,
     /// The patch of the player's `Cyberpunk2077.exe`.
@@ -157,6 +159,7 @@ pub fn get_status(state: TauriState<'_, AppState>) -> Status {
         installed_version: installed.build_version,
         mods_total: list.as_ref().map_or(0, |l| l.mods().count()),
         mods_enabled: list.as_ref().map_or(0, |l| l.mods().filter(|e| e.state == EntryState::Enabled).count()),
+        game_started: game_running.then(game_started).flatten(),
         game_running,
         mo2_running,
         updating: state.update.lock().unwrap().is_some(),
@@ -1465,6 +1468,12 @@ fn setup_mo2(app: &AppHandle, data_dir: &Path, dir: &Path, game_dir: Option<&Pat
     mo2::create_portable(&Instance::new(dir), &archive, game_dir)?;
     let _ = std::fs::remove_file(&archive);
     Ok(())
+}
+
+fn game_started() -> Option<u64> {
+    let mut sys = System::new();
+    sys.refresh_processes_specifics(ProcessesToUpdate::All, true, ProcessRefreshKind::nothing());
+    sys.processes().values().find(|p| p.name().to_string_lossy().eq_ignore_ascii_case(GAME_PROCESS)).map(|p| p.start_time())
 }
 
 pub(crate) fn running_processes() -> (bool, bool) {

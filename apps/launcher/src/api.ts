@@ -39,6 +39,8 @@ export interface Status {
   modsTotal: number;
   modsEnabled: number;
   gameRunning: boolean;
+  /** Unix seconds the game process started at. */
+  gameStarted: number | null;
   mo2Running: boolean;
   updating: boolean;
   /** Patch of the player's Cyberpunk2077.exe. */
