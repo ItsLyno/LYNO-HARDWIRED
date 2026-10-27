@@ -70,7 +70,7 @@ function Downloads() {
         <ChevronUp size={12} className={`transition-transform ${open ? "" : "rotate-180"}`} />
       </button>
       {open && (
-        <div className="panel absolute bottom-11 left-0 z-40 flex max-h-[60vh] w-[380px] flex-col overflow-hidden bg-surface shadow-2xl">
+        <div className="panel absolute bottom-11 left-0 z-40 flex max-h-[60vh] w-[420px] flex-col overflow-hidden bg-surface shadow-2xl">
           {active.length > 0 && (
             <ul className="divide-y divide-line/60 border-b border-line">
               {active.map((j) => (
@@ -116,16 +116,49 @@ function Downloads() {
                 Пусто. Скачайте мод кнопкой «Mod Manager Download» на Nexus или перетащите архив из проводника в окно лаунчера.
               </p>
             )}
-            <ul>
-              {downloads?.map((d) => (
-                <DownloadRow key={d.fileName} item={d} onDragStart={() => setOpen(false)} />
-              ))}
-            </ul>
+            {/* What is still to install comes first; both newest first, as the backend lists them. */}
+            {[
+              { title: "Не установлены", items: downloads?.filter((d) => !d.installed) ?? [] },
+              { title: "Установлены", items: downloads?.filter((d) => d.installed) ?? [] },
+            ].map(
+              (g) =>
+                g.items.length > 0 && (
+                  <section key={g.title}>
+                    <div className="px-4 pt-2 pb-1 text-[11px] text-faint">{`${g.title} · ${g.items.length}`}</div>
+                    <ul>
+                      {g.items.map((d) => (
+                        <DownloadRow key={d.fileName} item={d} onDragStart={() => setOpen(false)} />
+                      ))}
+                    </ul>
+                  </section>
+                ),
+            )}
           </div>
         </div>
       )}
     </div>
   );
+}
+
+/** Bytes a second of a download from its progress events, smoothed so the number doesn't jump with each one. */
+function useRate(done: number | null): number | null {
+  const last = useRef<{ t: number; done: number } | null>(null);
+  const [rate, setRate] = useState<number | null>(null);
+  useEffect(() => {
+    if (done === null) {
+      last.current = null;
+      setRate(null);
+      return;
+    }
+    const now = performance.now();
+    const prev = last.current;
+    if (prev && done > prev.done && now > prev.t) {
+      const r = ((done - prev.done) / (now - prev.t)) * 1000;
+      setRate((old) => (old === null ? r : old * 0.7 + r * 0.3));
+    }
+    if (!prev || done !== prev.done) last.current = { t: now, done };
+  }, [done]);
+  return rate;
 }
 
 function jobTitle(job: NexusJob): string {
@@ -137,10 +170,11 @@ function ActiveJob({ job, onOpen }: { job: NexusJob; onOpen: () => void }) {
   const s = job.state;
   const title = jobTitle(job);
   const pct = s.kind === "downloading" && s.total > 0 ? (s.done / s.total) * 100 : null;
+  const rate = useRate(s.kind === "downloading" ? s.done : null);
   const text: Record<string, string> = {
     queued: "в очереди",
     downloading: pct !== null ? `${Math.floor(pct)}%` : "скачивается",
-    retry: "переподключение…",
+    retry: s.kind === "retry" ? `переподключение, попытка ${s.attempt}…` : "",
     waiting: "ждёт обновления сборки",
     waitingMo2: "поставится, когда закроются MO2 и игра",
     installing: "установка…",
@@ -159,10 +193,16 @@ function ActiveJob({ job, onOpen }: { job: NexusJob; onOpen: () => void }) {
           <span className="min-w-0 flex-1 truncate text-[13px]">{title}</span>
           <span className={`shrink-0 ${s.kind.startsWith("choosing") ? "text-warn" : "text-muted"}`}>{text[s.kind] ?? ""}</span>
         </div>
-        {pct !== null && (
-          <div className="mt-1.5 h-0.5 rounded-full bg-raised">
-            <div className="h-full rounded-full bg-neon transition-[width]" style={{ width: `${pct}%` }} />
-          </div>
+        {pct !== null && s.kind === "downloading" && (
+          <>
+            <div className="mt-1.5 h-0.5 rounded-full bg-raised">
+              <div className="h-full rounded-full bg-neon transition-[width]" style={{ width: `${pct}%` }} />
+            </div>
+            <div className="mt-1 flex justify-between font-mono text-[11px] text-faint tabular-nums">
+              <span>{`${formatBytes(s.done)} из ${formatBytes(s.total)}`}</span>
+              {rate !== null && <span>{`${formatBytes(rate)}/с`}</span>}
+            </div>
+          </>
         )}
       </button>
       {/* Unpacking into the mod folder doesn't stop halfway; everything before it does. */}
@@ -184,7 +224,8 @@ function DownloadRow({ item, onDragStart }: { item: DownloadItem; onDragStart: (
   const { installArchive, refreshDownloads, run, setPage } = useApp();
   const [confirm, setConfirm] = useState(false);
   const label = item.modName || item.fileName;
-  const details = [item.fileTitle, formatBytes(item.size), item.fileName].filter(Boolean).join(" · ");
+  const when = new Date(item.modified * 1000).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+  const details = [item.fileTitle, formatBytes(item.size), when].filter(Boolean).join(" · ");
 
   const press = (e: React.PointerEvent) =>
     pressToDrag(e, (ev) => {
@@ -205,12 +246,15 @@ function DownloadRow({ item, onDragStart }: { item: DownloadItem; onDragStart: (
     <li
       onPointerDown={press}
       onPointerLeave={() => setConfirm(false)}
-      title={details}
-      className="group flex h-8 cursor-grab items-center gap-1 pl-4 pr-2 hover:bg-raised/60 active:cursor-grabbing"
+      title={item.fileName}
+      className="group flex cursor-grab items-center gap-1 py-1.5 pl-4 pr-2 hover:bg-raised/60 active:cursor-grabbing"
     >
-      <span className="min-w-0 flex-1 truncate text-[13px]">
-        {label}
-        {item.version && <span className="ml-1.5 font-mono text-[11px] text-muted">{item.version}</span>}
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-[13px]">
+          {label}
+          {item.version && <span className="ml-1.5 font-mono text-[11px] text-muted">{item.version}</span>}
+        </span>
+        <span className="block truncate text-[11px] text-faint">{details}</span>
       </span>
       {confirm ? (
         <button onPointerDown={(e) => e.stopPropagation()} onClick={remove} className="shrink-0 rounded-full px-2 py-0.5 text-bad hover:bg-bad/10">
@@ -221,20 +265,15 @@ function DownloadRow({ item, onDragStart }: { item: DownloadItem; onDragStart: (
           <Trash2 size={13} />
         </button>
       )}
-      {item.installed ? (
-        <span className="flex size-6 shrink-0 items-center justify-center text-ok" title="Установлен">
-          <Check size={13} />
-        </span>
-      ) : (
-        <button
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={() => void installArchive(item.fileName, null)}
-          className={btn}
-          title="Установить в конец списка ваших модов"
-        >
-          <Plus size={14} />
-        </button>
-      )}
+      {/* An installed archive installs again too: over its mod, or under another name beside it. */}
+      <button
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={() => void installArchive(item.fileName, null)}
+        className={`${btn} ${item.installed ? "text-ok" : ""}`}
+        title={item.installed ? "Установлен. Нажмите, чтобы переустановить или поставить рядом под другим названием" : "Установить в конец списка ваших модов"}
+      >
+        {item.installed ? <Check size={13} /> : <Plus size={14} />}
+      </button>
     </li>
   );
 }
