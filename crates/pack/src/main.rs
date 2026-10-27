@@ -13,7 +13,7 @@ use lyno_core::manifest::{ChangelogEntry, Manifest};
 use lyno_core::nexus::Nexus;
 use lyno_core::package::PackOptions;
 use lyno_core::publish::{build, BuildOptions};
-use lyno_core::release::{github_download_root, release_tag, PUBLISHED_MANIFEST};
+use lyno_core::release::{github_download_root, release_tag, BETA_MANIFEST, PUBLISHED_MANIFEST};
 
 #[derive(Parser)]
 #[command(version, about)]
@@ -42,7 +42,7 @@ enum Command {
         #[arg(long, default_value = "ItsLyno/LYNO-HARDWIRED")]
         repo: String,
         /// Previous manifest: unchanged mods are not re-uploaded. By default the
-        /// manifest published in the repository (`build/manifest.json` on `main`).
+        /// manifest published in the repository (`build/manifest-beta.json` on `main`, else `build/manifest.json`).
         #[arg(long, conflicts_with = "fresh")]
         previous: Option<PathBuf>,
         /// Ignore the published manifest and pack and upload everything again.
@@ -63,7 +63,7 @@ enum Command {
         #[arg(long, default_value_t = 6)]
         zstd_level: i32,
     },
-    /// Upload the assets from `build` and push the manifest to players.
+    /// Upload the assets from `build` and push the manifest to the beta channel.
     ///
     /// Run inside the repository clone, on an up-to-date main. Safe to re-run
     /// after a failure: uploaded assets are skipped.
@@ -77,11 +77,23 @@ enum Command {
         #[arg(short, long)]
         yes: bool,
     },
+    /// Release the beta build to everyone: copies the beta manifest, uploads nothing.
+    Promote {
+        #[arg(long, default_value = "ItsLyno/LYNO-HARDWIRED")]
+        repo: String,
+        /// Don't ask before pushing the manifest.
+        #[arg(short, long)]
+        yes: bool,
+    },
 }
 
 fn main() -> ExitCode {
     match Cli::parse().command {
         Command::Publish { out, repo, yes } => match publish::run(&publish::PublishArgs { out, repo, yes }) {
+            Ok(()) => ExitCode::SUCCESS,
+            Err(e) => fail(e),
+        },
+        Command::Promote { repo, yes } => match publish::promote(&repo, yes) {
             Ok(()) => ExitCode::SUCCESS,
             Err(e) => fail(e),
         },
@@ -182,13 +194,13 @@ fn build_cmd(command: Command) -> ExitCode {
         elapsed(started.elapsed())
     );
     eprintln!();
-    eprintln!("Next step: upload and push the manifest (in the repository clone, on an up-to-date main):");
+    eprintln!("Next step: upload and push the manifest to beta (in the repository clone, on an up-to-date main):");
     eprintln!("  lyno-pack publish --out {} --repo {repo}", out.display());
     ExitCode::SUCCESS
 }
 
-/// `--previous` file, else the manifest published on `main`, else nothing
-/// (first release, or `--fresh`).
+/// `--previous` file, else the newest manifest published on `main` (beta is
+/// ahead of release), else nothing (first release, or `--fresh`).
 fn load_previous(path: Option<PathBuf>, fresh: bool, repo: &str) -> Result<Option<Manifest>, String> {
     if fresh {
         eprintln!("note: --fresh, everything is packed and uploaded again");
@@ -197,16 +209,24 @@ fn load_previous(path: Option<PathBuf>, fresh: bool, repo: &str) -> Result<Optio
     let (text, source) = match path {
         Some(p) => (std::fs::read_to_string(&p).map_err(|e| format!("{}: {e}", p.display()))?, p.display().to_string()),
         None => {
-            let url = format!("https://raw.githubusercontent.com/{repo}/main/{PUBLISHED_MANIFEST}");
-            match ureq::get(&url).call() {
-                Ok(mut resp) => (resp.body_mut().read_to_string().map_err(|e| format!("{url}: {e}"))?, url),
-                Err(ureq::Error::StatusCode(404)) => {
-                    eprintln!("note: no published manifest yet ({url}), packing everything");
-                    return Ok(None);
+            let mut found = None;
+            for file in [BETA_MANIFEST, PUBLISHED_MANIFEST] {
+                let url = format!("https://raw.githubusercontent.com/{repo}/main/{file}");
+                match ureq::get(&url).call() {
+                    Ok(mut resp) => {
+                        found = Some((resp.body_mut().read_to_string().map_err(|e| format!("{url}: {e}"))?, url));
+                        break;
+                    }
+                    Err(ureq::Error::StatusCode(404)) => {}
+                    // Never fall back to a full re-upload silently.
+                    Err(e) => return Err(format!("{url}: {e} (pass --previous <file>, or --fresh to upload everything)")),
                 }
-                // Never fall back to a full re-upload silently.
-                Err(e) => return Err(format!("{url}: {e} (pass --previous <file>, or --fresh to upload everything)")),
             }
+            let Some(found) = found else {
+                eprintln!("note: no published manifest yet, packing everything");
+                return Ok(None);
+            };
+            found
         }
     };
     let m = Manifest::from_json(&text).map_err(|e| format!("previous manifest {source}: {e}"))?;

@@ -1,7 +1,7 @@
 //! [`Host`] over the GitHub REST API with a personal access token, so the
 //! launcher can publish without `git` or `gh`. The manifest is committed to
 //! `main` through the contents API with the blob `sha` read at the start of
-//! the publish: if `build/manifest.json` changed in between (published from
+//! the publish: if the channel's manifest changed in between (published from
 //! somewhere else), GitHub refuses the commit instead of overwriting it.
 
 use std::collections::HashMap;
@@ -13,7 +13,7 @@ use std::time::Duration;
 use base64::Engine;
 use serde_json::{json, Value};
 
-use crate::release::{Host, PUBLISHED_MANIFEST};
+use crate::release::{Channel, Host, PUBLISHED_MANIFEST};
 use crate::{Error, Result};
 
 const API: &str = "https://api.github.com";
@@ -29,8 +29,8 @@ pub struct GitHub {
     /// No overall timeout: a part is up to 1.9 GB on a home uplink.
     upload_agent: ureq::Agent,
     releases: HashMap<String, Release>,
-    /// Blob sha of the published manifest, from [`Host::published_manifest`].
-    manifest_sha: Option<String>,
+    /// Blob sha of each channel's published manifest, from [`Host::published_manifest`].
+    manifest_sha: HashMap<Channel, String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
@@ -76,7 +76,7 @@ impl GitHub {
             agent,
             upload_agent,
             releases: HashMap::new(),
-            manifest_sha: None,
+            manifest_sha: HashMap::new(),
         }
     }
 
@@ -197,15 +197,19 @@ impl GitHub {
 }
 
 impl Host for GitHub {
-    fn published_manifest(&mut self) -> Result<Option<String>> {
-        let path = format!("/repos/{}/contents/{PUBLISHED_MANIFEST}?ref={BRANCH}", self.repo);
+    fn published_manifest(&mut self, channel: Channel) -> Result<Option<String>> {
+        let file = channel.manifest_path();
+        let path = format!("/repos/{}/contents/{file}?ref={BRANCH}", self.repo);
         let (status, body) = self.call("GET", &path, None)?;
         if status == 404 {
-            self.manifest_sha = None;
+            self.manifest_sha.remove(&channel);
             return Ok(None);
         }
-        let meta = expect(status, &body, &[200], PUBLISHED_MANIFEST)?;
-        self.manifest_sha = meta["sha"].as_str().map(Into::into);
+        let meta = expect(status, &body, &[200], file)?;
+        match meta["sha"].as_str() {
+            Some(sha) => self.manifest_sha.insert(channel, sha.into()),
+            None => self.manifest_sha.remove(&channel),
+        };
         self.raw_manifest(&path).map(Some)
     }
 
@@ -260,24 +264,25 @@ impl Host for GitHub {
         Ok(())
     }
 
-    fn push_manifest(&mut self, version: &str, path: &Path) -> Result<()> {
+    fn push_manifest(&mut self, channel: Channel, version: &str, path: &Path) -> Result<()> {
+        let file = channel.manifest_path();
         let bytes = std::fs::read(path).map_err(|e| Error::io(path, e))?;
         let mut body = json!({
-            "message": format!("Build {version}"),
+            "message": channel.commit_title(version),
             "content": base64::engine::general_purpose::STANDARD.encode(bytes),
             "branch": BRANCH,
         });
-        if let Some(sha) = &self.manifest_sha {
+        if let Some(sha) = self.manifest_sha.get(&channel) {
             body["sha"] = json!(sha);
         }
-        let (status, text) = self.call("PUT", &format!("/repos/{}/contents/{PUBLISHED_MANIFEST}", self.repo), Some(body))?;
+        let (status, text) = self.call("PUT", &format!("/repos/{}/contents/{file}", self.repo), Some(body))?;
         if status == 409 || (status == 422 && text.contains("sha")) {
             return Err(Error::Release(format!(
-                "{PUBLISHED_MANIFEST} changed on GitHub while publishing (published from somewhere else?): \
+                "{file} changed on GitHub while publishing (published from somewhere else?): \
                  nothing was overwritten, publish again"
             )));
         }
-        expect_status(status, &text, &[200, 201], &format!("committing {PUBLISHED_MANIFEST}"))
+        expect_status(status, &text, &[200, 201], &format!("committing {file}"))
     }
 }
 

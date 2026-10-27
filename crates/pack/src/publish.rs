@@ -9,7 +9,7 @@ use std::process::{Command, Stdio};
 use std::sync::atomic::AtomicBool;
 
 use lyno_core::download::Downloader;
-use lyno_core::release::{self, Event, Host, PublishOptions, PUBLISHED_MANIFEST};
+use lyno_core::release::{self, Channel, Event, Host, PublishOptions};
 use lyno_core::Error;
 
 pub struct PublishArgs {
@@ -21,13 +21,13 @@ pub struct PublishArgs {
 const BRANCH: &str = "main";
 
 pub fn run(args: &PublishArgs) -> Result<(), String> {
-    let mut host = GitHost::open(&args.repo)?;
+    let mut host = GitHost::open(&args.repo, Channel::Beta)?;
     tool_check("gh", &["--version"])?;
     let root = release::github_download_root(&args.repo);
     let opts = PublishOptions { out: &args.out, download_root: &root };
     let mut ask = |m: &lyno_core::manifest::Manifest| {
         args.yes
-            || confirm(&format!("Publish build {} to players (push {PUBLISHED_MANIFEST} to {BRANCH})?", m.build_version))
+            || confirm(&format!("Publish build {} to beta (push {} to {BRANCH})?", m.build_version, Channel::Beta.manifest_path()))
     };
     let result = release::publish(&mut host, &opts, &Downloader::new(), &AtomicBool::new(false), &mut ask, &print);
     match result {
@@ -38,6 +38,21 @@ pub fn run(args: &PublishArgs) -> Result<(), String> {
         }
         Err(e) => Err(e.to_string()),
     }
+}
+
+/// Beta → release: the manifest is copied, nothing is uploaded.
+pub fn promote(repo: &str, yes: bool) -> Result<(), String> {
+    let mut host = GitHost::open(repo, Channel::Release)?;
+    tool_check("gh", &["--version"])?;
+    let beta = host.published_manifest(Channel::Beta).map_err(|e| e.to_string())?;
+    let version = beta
+        .and_then(|t| lyno_core::manifest::Manifest::from_json(&t).ok())
+        .map(|m| m.build_version)
+        .ok_or("nothing is published to beta yet")?;
+    if !yes && !confirm(&format!("Release build {version} to everyone (push {} to {BRANCH})?", Channel::Release.manifest_path())) {
+        return Err("cancelled, nothing was pushed".into());
+    }
+    release::promote(&mut host, &Downloader::new(), &print).map(drop).map_err(|e| e.to_string())
 }
 
 fn print(event: Event) {
@@ -72,7 +87,8 @@ struct GitHost {
 impl GitHost {
     /// The commit must go straight on top of what players see now: on `main`,
     /// in sync with `origin/main`, with a pushable origin for `repo`.
-    fn open(repo: &str) -> Result<Self, String> {
+    fn open(repo: &str, channel: Channel) -> Result<Self, String> {
+        let manifest = channel.manifest_path();
         tool_check("git", &["--version"])?;
         let root = PathBuf::from(git(Path::new("."), &["rev-parse", "--show-toplevel"]).map_err(|e| {
             format!("{e}\nRun `lyno-pack publish` inside the LYNO-HARDWIRED repository clone")
@@ -98,28 +114,28 @@ impl GitHost {
                 return Err(format!("git {key} is not set, the manifest commit would fail: `git config --global {key} \"...\"`"));
             }
         }
-        let status = git(&root, &["status", "--porcelain", "--", PUBLISHED_MANIFEST])?;
+        let status = git(&root, &["status", "--porcelain", "--", manifest])?;
         if !status.is_empty() {
-            let published = git(&root, &["cat-file", "-e", &format!("HEAD:{PUBLISHED_MANIFEST}")]).is_ok();
+            let published = git(&root, &["cat-file", "-e", &format!("HEAD:{manifest}")]).is_ok();
             if published {
                 // `checkout HEAD` also resets the index: a plain `checkout --` would
                 // restore a change that an earlier run had already staged.
                 return Err(format!(
-                    "{PUBLISHED_MANIFEST} has local changes: revert them (`git checkout HEAD -- {PUBLISHED_MANIFEST}`)"
+                    "{manifest} has local changes: revert them (`git checkout HEAD -- {manifest}`)"
                 ));
             }
             // Not published yet, so only an earlier run that stopped at `git commit`
             // (untracked or already staged) or a manual copy put it there: ours replaces it.
-            eprintln!("note: replacing the unpublished {PUBLISHED_MANIFEST} left by an earlier run");
+            eprintln!("note: replacing the unpublished {manifest} left by an earlier run");
         }
         Ok(Self { repo: repo.to_owned(), root })
     }
 }
 
 impl Host for GitHost {
-    fn published_manifest(&mut self) -> lyno_core::Result<Option<String>> {
+    fn published_manifest(&mut self, channel: Channel) -> lyno_core::Result<Option<String>> {
         // Read from git, not raw.githubusercontent.com, which serves a cached copy.
-        Ok(git(&self.root, &["show", &format!("origin/{BRANCH}:{PUBLISHED_MANIFEST}")]).ok())
+        Ok(git(&self.root, &["show", &format!("origin/{BRANCH}:{}", channel.manifest_path())]).ok())
     }
 
     fn release_assets(&mut self, tag: &str) -> lyno_core::Result<Option<HashMap<String, u64>>> {
@@ -143,15 +159,16 @@ impl Host for GitHost {
         gh(&["release", "upload", tag, &path, "--repo", &self.repo, "--clobber"]).map(drop).map_err(Error::Release)
     }
 
-    fn push_manifest(&mut self, version: &str, path: &Path) -> lyno_core::Result<()> {
-        let dest = self.root.join(PUBLISHED_MANIFEST);
+    fn push_manifest(&mut self, channel: Channel, version: &str, path: &Path) -> lyno_core::Result<()> {
+        let file = channel.manifest_path();
+        let dest = self.root.join(file);
         if let Some(dir) = dest.parent() {
             std::fs::create_dir_all(dir).map_err(|e| Error::Release(format!("{}: {e}", dir.display())))?;
         }
         std::fs::copy(path, &dest).map_err(|e| Error::Release(format!("{}: {e}", dest.display())))?;
         let root = &self.root;
-        git(root, &["add", "--", PUBLISHED_MANIFEST]).map_err(Error::Release)?;
-        git(root, &["commit", "-m", &format!("Build {version}"), "--", PUBLISHED_MANIFEST]).map_err(Error::Release)?;
+        git(root, &["add", "--", file]).map_err(Error::Release)?;
+        git(root, &["commit", "-m", &channel.commit_title(version), "--", file]).map_err(Error::Release)?;
         git(root, &["push", "origin", BRANCH])
             .map(drop)
             .map_err(|e| Error::Release(format!("{e}\nThe commit is local; push it with `git push origin {BRANCH}`")))

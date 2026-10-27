@@ -16,7 +16,7 @@ use lyno_core::modlist::{Entry, EntryState, ModList};
 use lyno_core::package::PackOptions;
 use lyno_core::plan::{plan, set_enabled, Action};
 use lyno_core::publish::{build, check_published, preflight, BuildOptions, ModInfo};
-use lyno_core::release::{publish, release_tag, Host, PublishOptions};
+use lyno_core::release::{promote, publish, release_tag, Channel, Host, PublishOptions};
 use lyno_core::state::State;
 
 // Installed meta.ini is stamped from the manifest; compare payload files.
@@ -747,18 +747,22 @@ fn build_install_update() {
 }
 
 /// Stands in for GitHub: releases are folders under the served directory, the
-/// published manifest is a string. `lose` names an asset whose upload
+/// beta and release manifests are strings. `lose` names an asset whose upload
 /// "succeeds" without the file arriving.
 struct FakeHost {
     releases: PathBuf,
     published: Option<String>,
+    released: Option<String>,
     uploads: Vec<String>,
     lose: Option<String>,
 }
 
 impl Host for FakeHost {
-    fn published_manifest(&mut self) -> lyno_core::Result<Option<String>> {
-        Ok(self.published.clone())
+    fn published_manifest(&mut self, channel: Channel) -> lyno_core::Result<Option<String>> {
+        Ok(match channel {
+            Channel::Beta => self.published.clone(),
+            Channel::Release => self.released.clone(),
+        })
     }
 
     fn release_assets(&mut self, tag: &str) -> lyno_core::Result<Option<std::collections::HashMap<String, u64>>> {
@@ -780,8 +784,12 @@ impl Host for FakeHost {
         Ok(())
     }
 
-    fn push_manifest(&mut self, _version: &str, path: &Path) -> lyno_core::Result<()> {
-        self.published = Some(std::fs::read_to_string(path).unwrap());
+    fn push_manifest(&mut self, channel: Channel, _version: &str, path: &Path) -> lyno_core::Result<()> {
+        let text = Some(std::fs::read_to_string(path).unwrap());
+        match channel {
+            Channel::Beta => self.published = text,
+            Channel::Release => self.released = text,
+        }
         Ok(())
     }
 }
@@ -823,7 +831,7 @@ fn personal_mods_stay_out_and_publish_goes_live_last() {
     std::fs::write(out.join("manifest.json"), serde_json::to_string(&built.manifest).unwrap()).unwrap();
 
     let lost = built.assets[0].file_name.clone();
-    let mut host = FakeHost { releases: releases.clone(), published: None, uploads: vec![], lose: Some(lost.clone()) };
+    let mut host = FakeHost { releases: releases.clone(), published: None, released: None, uploads: vec![], lose: Some(lost.clone()) };
     let opts = PublishOptions { out: &out, download_root: &root };
     let no = AtomicBool::new(false);
     let run = |host: &mut FakeHost, answer: bool| publish(host, &opts, &Downloader::new(), &no, &mut |_| answer, &|_| {});
@@ -846,7 +854,21 @@ fn personal_mods_stay_out_and_publish_goes_live_last() {
     assert_eq!(Manifest::from_json(host.published.as_ref().unwrap()).unwrap(), built.manifest);
 
     let err = run(&mut host, true).unwrap_err().to_string();
-    assert_eq!(err, "build 1.0.0 is already published");
+    assert_eq!(err, "build 1.0.0 is already in beta");
+
+    // Beta reaches everyone by copying the manifest: nothing is uploaded, and only once.
+    assert_eq!(host.released, None, "beta is not release");
+    host.uploads.clear();
+    let released = promote(&mut host, &Downloader::new(), &|_| {}).unwrap();
+    assert_eq!(released, built.manifest);
+    assert_eq!(host.released, host.published);
+    assert!(host.uploads.is_empty());
+    let err = promote(&mut host, &Downloader::new(), &|_| {}).unwrap_err().to_string();
+    assert_eq!(err, "build 1.0.0 is already released");
+    host.published = None;
+    host.released = None;
+    let err = promote(&mut host, &Downloader::new(), &|_| {}).unwrap_err().to_string();
+    assert_eq!(err, "nothing is published to beta yet");
 }
 
 /// The author installs the build with the launcher like a player, keeps
@@ -988,12 +1010,12 @@ fn author_releases_from_launcher_instance() {
     assert!(adopt(&other, &m2, None).unwrap_err().to_string().contains("\"New Mod\""));
 }
 
-/// What a fake GitHub holds: the manifest on `main` and releases with assets.
+/// What a fake GitHub holds: the manifests on `main` and releases with assets.
 #[derive(Default)]
 struct FakeGitHub {
-    /// (blob sha, content)
-    manifest: Option<(String, Vec<u8>)>,
-    /// Commits of the manifest, oldest first: (commit sha, message, content).
+    /// Repository path (`build/manifest.json`, `build/manifest-beta.json`) → (blob sha, content)
+    manifests: std::collections::HashMap<String, (String, Vec<u8>)>,
+    /// Commits of the release manifest, oldest first: (commit sha, message, content).
     history: Vec<(String, String, Vec<u8>)>,
     /// (id, tag)
     releases: Vec<(u64, String)>,
@@ -1072,21 +1094,24 @@ fn fake_github(token: &'static str) -> (String, std::sync::Arc<std::sync::Mutex<
                             None => (404, json(serde_json::json!({ "message": "No commit found for the ref" }))),
                         }
                     }
-                    ("GET", "/repos/o/r/contents/build/manifest.json") => match &st.manifest {
+                    ("GET", p) if p.starts_with("/repos/o/r/contents/build/manifest") => match st.manifests.get(&p["/repos/o/r/contents/".len()..]) {
                         None => (404, json(serde_json::json!({ "message": "Not Found" }))),
                         Some((_, content)) if headers.get("accept").is_some_and(|a| a.contains("raw")) => (200, content.clone()),
                         Some((sha, _)) => (200, json(serde_json::json!({ "sha": sha }))),
                     },
-                    ("PUT", "/repos/o/r/contents/build/manifest.json") => {
+                    ("PUT", p) if p.starts_with("/repos/o/r/contents/build/manifest") => {
+                        let file = p["/repos/o/r/contents/".len()..].to_owned();
                         let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
-                        match (&st.manifest, v["sha"].as_str()) {
+                        match (st.manifests.get(&file), v["sha"].as_str()) {
                             (Some((sha, _)), Some(given)) if sha != given => (409, json(serde_json::json!({ "message": "is at x but expected y" }))),
                             (Some(_), None) => (422, json(serde_json::json!({ "message": "\"sha\" wasn't supplied." }))),
                             _ => {
                                 let content = base64::engine::general_purpose::STANDARD.decode(v["content"].as_str().unwrap()).unwrap();
-                                let commit = format!("c{}", st.history.len() + 1);
-                                st.history.push((commit, v["message"].as_str().unwrap().to_owned(), content.clone()));
-                                st.manifest = Some((blake3::hash(&content).to_hex()[..12].to_owned(), content));
+                                if file == "build/manifest.json" {
+                                    let commit = format!("c{}", st.history.len() + 1);
+                                    st.history.push((commit, v["message"].as_str().unwrap().to_owned(), content.clone()));
+                                }
+                                st.manifests.insert(file, (blake3::hash(&content).to_hex()[..12].to_owned(), content));
                                 (200, json(serde_json::json!({})))
                             }
                         }
@@ -1150,6 +1175,8 @@ fn fake_github(token: &'static str) -> (String, std::sync::Arc<std::sync::Mutex<
 /// meanwhile is not overwritten.
 #[test]
 fn publishes_through_github_api() {
+    const BETA: &str = "build/manifest-beta.json";
+    const RELEASE: &str = "build/manifest.json";
     use lyno_core::github::GitHub;
     use lyno_core::release::Event;
     let tmp = tempfile::tempdir().unwrap();
@@ -1177,8 +1204,11 @@ fn publishes_through_github_api() {
     {
         let st = gh.lock().unwrap();
         assert_eq!(st.assets.len(), built.assets.len());
-        assert_eq!(Manifest::from_json(std::str::from_utf8(&st.manifest.as_ref().unwrap().1).unwrap()).unwrap(), built.manifest);
+        assert_eq!(Manifest::from_json(std::str::from_utf8(&st.manifests[BETA].1).unwrap()).unwrap(), built.manifest);
+        assert!(!st.manifests.contains_key(RELEASE), "beta is not release");
     }
+    promote(&mut host, &Downloader::new(), &|_| {}).unwrap();
+    assert_eq!(gh.lock().unwrap().manifests[BETA].1, gh.lock().unwrap().manifests[RELEASE].1);
 
     // 1.1.0: an earlier run created the release and left one part half-uploaded.
     write(&author, "mods/Archive Mod/archive/pc/mod/a.archive", &noise(200_000, 5));
@@ -1200,7 +1230,7 @@ fn publishes_through_github_api() {
     // Someone publishes from elsewhere while this publish is waiting for confirmation.
     let mut host = GitHub::with_roots("o/r", "tok", &root, &root);
     let mut meanwhile = |_: &Manifest| {
-        gh.lock().unwrap().manifest.as_mut().unwrap().0 = "other".into();
+        gh.lock().unwrap().manifests.get_mut(BETA).unwrap().0 = "other".into();
         true
     };
     let err = publish(&mut host, &opts, &Downloader::new(), &no, &mut meanwhile, &|_| {}).unwrap_err().to_string();
@@ -1215,8 +1245,9 @@ fn publishes_through_github_api() {
     {
         let st = gh.lock().unwrap();
         assert!(!st.log.iter().any(|l| l.starts_with("POST /repos/o/r/releases/")), "nothing uploaded again: {:?}", st.log);
-        assert_eq!(Manifest::from_json(std::str::from_utf8(&st.manifest.as_ref().unwrap().1).unwrap()).unwrap().build_version, "1.1.0");
+        assert_eq!(Manifest::from_json(std::str::from_utf8(&st.manifests[BETA].1).unwrap()).unwrap().build_version, "1.1.0");
     }
+    promote(&mut host, &Downloader::new(), &|_| {}).unwrap();
 
     // Earlier builds, to go back to: from the manifest's history on main.
     let builds = host.published_builds().unwrap();

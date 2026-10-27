@@ -17,6 +17,33 @@ use crate::{Error, Result};
 
 /// Where launchers read the build from, on the repository's `main`.
 pub const PUBLISHED_MANIFEST: &str = "build/manifest.json";
+/// The same for players who opted into beta.
+pub const BETA_MANIFEST: &str = "build/manifest-beta.json";
+
+/// A build goes to `Beta` first and reaches everyone by [`promote`]: both
+/// channels point at the same release assets, so nothing is uploaded twice.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Channel {
+    Beta,
+    Release,
+}
+
+impl Channel {
+    pub fn manifest_path(self) -> &'static str {
+        match self {
+            Channel::Beta => BETA_MANIFEST,
+            Channel::Release => PUBLISHED_MANIFEST,
+        }
+    }
+
+    /// `GitHub::published_builds` reads the release ones back as `Build <version>`.
+    pub fn commit_title(self, version: &str) -> String {
+        match self {
+            Channel::Beta => format!("Beta {version}"),
+            Channel::Release => format!("Build {version}"),
+        }
+    }
+}
 
 /// GitHub release that holds the parts packed for `version`.
 pub fn release_tag(version: &str) -> String {
@@ -30,9 +57,9 @@ pub fn github_download_root(repo: &str) -> String {
 
 /// Where releases and the published manifest live.
 pub trait Host {
-    /// The manifest players see now, read past any cache; `None` before the
-    /// first release.
-    fn published_manifest(&mut self) -> Result<Option<String>>;
+    /// The manifest players of `channel` see now, read past any cache; `None`
+    /// before the first release.
+    fn published_manifest(&mut self, channel: Channel) -> Result<Option<String>>;
     /// Names and sizes of the fully uploaded assets of `tag`; `None` when the
     /// release does not exist yet.
     fn release_assets(&mut self, tag: &str) -> Result<Option<HashMap<String, u64>>>;
@@ -40,8 +67,8 @@ pub trait Host {
     /// Must replace an asset of the same name: an interrupted run may have left
     /// it half-uploaded. `progress` gets the bytes of this file sent so far.
     fn upload_asset(&mut self, tag: &str, path: &Path, progress: &dyn Fn(u64)) -> Result<()>;
-    /// Makes the manifest at `path` the published one.
-    fn push_manifest(&mut self, version: &str, path: &Path) -> Result<()>;
+    /// Makes the manifest at `path` the published one of `channel`.
+    fn push_manifest(&mut self, channel: Channel, version: &str, path: &Path) -> Result<()>;
 }
 
 pub struct PublishOptions<'a> {
@@ -68,7 +95,7 @@ pub enum Event {
 }
 
 /// Uploads what is missing, checks every part over HTTP, asks `confirm`, then
-/// pushes the manifest. Safe to re-run after any failure: uploaded assets are
+/// pushes the manifest to the beta channel. Safe to re-run after any failure: uploaded assets are
 /// skipped. `cancel` is honored between uploads and before the push.
 pub fn publish(
     host: &mut dyn Host,
@@ -85,13 +112,13 @@ pub fn publish(
     let tag = release_tag(version);
     let assets = new_assets(&manifest, opts.out, opts.download_root, &tag)?;
 
-    let current = match host.published_manifest()? {
+    let current = match host.published_manifest(Channel::Beta)? {
         // An unreadable published manifest is replaced like a missing one.
         Some(text) => Manifest::from_json(&text).ok().map(|m| m.build_version),
         None => None,
     };
     if current.as_ref() == Some(version) {
-        return Err(Error::Release(format!("build {version} is already published")));
+        return Err(Error::Release(format!("build {version} is already in beta")));
     }
     log(Event::Current(current));
 
@@ -102,25 +129,51 @@ pub fn publish(
         upload(host, &tag, &manifest, &assets, cancel, log)?;
     }
 
-    let parts = std::iter::once(&manifest.base).chain(manifest.mod_specs().map(|m| &m.package)).map(|p| p.parts.len()).sum();
-    log(Event::Checking { done: 0, total: parts });
-    let broken = check_published(&manifest, downloader, &|done, total| log(Event::Checking { done, total }));
-    if !broken.is_empty() {
-        return Err(Error::Release(format!(
-            "{} part(s) are not downloadable, the manifest was not published:\n  {}\n\
-             Publish again: uploaded assets are skipped. A timeout or connection error is the network, \
-             not the file; HTTP 404 or a wrong size in an older release means that release was changed or deleted",
-            broken.len(),
-            broken.join("\n  ")
-        )));
-    }
+    check_parts(&manifest, downloader, log)?;
 
     if cancel.load(Ordering::Relaxed) || !confirm(&manifest) {
         return Err(Error::Cancelled);
     }
-    host.push_manifest(version, &manifest_path)?;
+    host.push_manifest(Channel::Beta, version, &manifest_path)?;
     log(Event::Live { version: version.clone() });
     Ok(manifest)
+}
+
+/// Makes the beta build the release one: copies the manifest, the parts stay
+/// where they are. Parts are checked again, an old release may have changed since.
+pub fn promote(host: &mut dyn Host, downloader: &Downloader, log: &(dyn Fn(Event) + Sync)) -> Result<Manifest> {
+    let text = host.published_manifest(Channel::Beta)?.ok_or_else(|| Error::Release("nothing is published to beta yet".into()))?;
+    let manifest = Manifest::from_json(&text).map_err(|e| Error::Release(format!("beta manifest: {e}")))?;
+    let released = host.published_manifest(Channel::Release)?.and_then(|t| Manifest::from_json(&t).ok()).map(|m| m.build_version);
+    if released.as_ref() == Some(&manifest.build_version) {
+        return Err(Error::Release(format!("build {} is already released", manifest.build_version)));
+    }
+    log(Event::Current(released));
+    check_parts(&manifest, downloader, log)?;
+
+    let path = std::env::temp_dir().join("lyno-promote-manifest.json");
+    std::fs::write(&path, &text).map_err(|e| Error::io(&path, e))?;
+    let pushed = host.push_manifest(Channel::Release, &manifest.build_version, &path);
+    let _ = std::fs::remove_file(&path);
+    pushed?;
+    log(Event::Live { version: manifest.build_version.clone() });
+    Ok(manifest)
+}
+
+fn check_parts(manifest: &Manifest, downloader: &Downloader, log: &(dyn Fn(Event) + Sync)) -> Result<()> {
+    let parts = std::iter::once(&manifest.base).chain(manifest.mod_specs().map(|m| &m.package)).map(|p| p.parts.len()).sum();
+    log(Event::Checking { done: 0, total: parts });
+    let broken = check_published(manifest, downloader, &|done, total| log(Event::Checking { done, total }));
+    if broken.is_empty() {
+        return Ok(());
+    }
+    Err(Error::Release(format!(
+        "{} part(s) are not downloadable, the manifest was not published:\n  {}\n\
+         Publish again: uploaded assets are skipped. A timeout or connection error is the network, \
+         not the file; HTTP 404 or a wrong size in an older release means that release was changed or deleted",
+        broken.len(),
+        broken.join("\n  ")
+    )))
 }
 
 /// A new part of this build, written by `build` into `out`.
