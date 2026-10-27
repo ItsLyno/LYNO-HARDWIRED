@@ -284,6 +284,45 @@ fn going_back_to_an_older_build_repacks_nothing() {
     assert_eq!(packages(&built.manifest), packages(&m1));
 }
 
+/// The author puts the folder back to the installed build itself: a deleted build mod comes
+/// back, an edited one (found by verify) gets the build's files, switches follow the build.
+#[test]
+fn going_back_to_the_installed_build_undoes_the_authors_changes() {
+    let tmp = tempfile::tempdir().unwrap();
+    let author = tmp.path().join("author");
+    let release = tmp.path().join("release");
+    author_instance(&author);
+    let (base_url, _) = serve(release.clone());
+    let out = tmp.path().join("out");
+    let built = build(&author, &options("1.0.0", &base_url, &out, None), &mut |_| ModInfo::default(), &mut |_| {}).unwrap();
+    upload(&built, &release);
+    let m1 = built.manifest;
+
+    let inst = Instance::new(tmp.path().join("instance"));
+    install(&inst, &m1);
+    let archive = "mods/Archive Mod/archive/pc/mod/a.archive";
+    let shipped = std::fs::read(inst.root().join(archive)).unwrap();
+    std::fs::remove_dir_all(inst.root().join("mods/CET")).unwrap();
+    write(inst.root(), archive, b"edited");
+    let path = inst.modlist_path("LYNO");
+    let mut list = ModList::load(&path).unwrap();
+    list.entries.iter_mut().find(|e| e.name == "Archive Mod").unwrap().state = EntryState::Disabled;
+    list.save(&path).unwrap();
+
+    lyno_core::install::mark_for_reset(&inst, &["archive-mod".into()]).unwrap();
+    let state = State::load(&state_path(&inst)).unwrap();
+    lyno_core::plan::as_published(&m1, &state, &ModList::load(&path).unwrap()).save(&path).unwrap();
+    let mut actions = install(&inst, &m1);
+    actions.sort_by_key(|a| format!("{a:?}"));
+    assert_eq!(actions, [
+        Action::Repair { id: "archive-mod".into(), from_folder: "Archive Mod".into() },
+        Action::Repair { id: "cet".into(), from_folder: "CET".into() },
+    ]);
+    assert_eq!(std::fs::read(inst.root().join(archive)).unwrap(), shipped);
+    assert!(inst.root().join("mods/CET/bin/x64/plugins/cyber_engine_tweaks.asi").is_file());
+    assert_eq!(ModList::load(&path).unwrap().get("Archive Mod").unwrap().state, EntryState::Enabled);
+}
+
 /// A player switches to an older build and back to the fresh one: mods get that
 /// build's files each way, their own mod stays, `state.json` follows the version.
 #[test]

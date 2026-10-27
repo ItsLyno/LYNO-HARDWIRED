@@ -54,6 +54,18 @@ pub fn has_build(inst: &Instance) -> bool {
     State::load(&state_path(inst)).is_ok_and(|s| s.build_version.is_some())
 }
 
+/// The author going to a build, the installed one too, wants its mods as published. The plan
+/// only compares package hashes: a build mod whose folder the author deleted, or `edited` ones
+/// (found by [`crate::verify`]), would stay as they are. Flagged, the next update downloads them again.
+pub fn mark_for_reset(inst: &Instance, edited: &[String]) -> Result<()> {
+    let path = state_path(inst);
+    let mut state = State::load(&path)?;
+    for (id, m) in &mut state.mods {
+        m.damaged |= edited.contains(id) || !inst.mods_dir().join(&m.folder).is_dir();
+    }
+    state.save(&path)
+}
+
 /// The installed state, with optional build mods the player deleted in MO2
 /// (gone from `list` and from `mods/`) recorded as removed, as by
 /// [`remove_mod`]. Not while an update is unfinished: it has installed mods
