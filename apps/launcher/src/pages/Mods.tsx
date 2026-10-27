@@ -445,9 +445,6 @@ export function Mods() {
             )}
           </div>
           <CategoryNav nav={nav} active={active} folded={(key) => collapsed.has(key) && !q} searching={!!q} onJump={jump} />
-          <p className="shrink-0 border-t border-line px-4 py-3 text-[11px] leading-relaxed text-muted">
-            Все моды принадлежат их авторам. Если мод понравился — поддержите автора на Nexus Mods.
-          </p>
         </aside>
 
         <div
