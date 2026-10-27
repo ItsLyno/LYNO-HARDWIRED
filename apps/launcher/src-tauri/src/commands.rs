@@ -89,7 +89,7 @@ pub fn save_settings(state: TauriState<'_, AppState>, mut settings: Settings) ->
         }
     }
     settings.save(&state.settings_path).map_err(err)?;
-    log::info!("settings saved: instance {:?}, game {:?}, manifest {}", settings.instance_dir, settings.game_dir, settings.manifest_url);
+    log::info!("settings saved: instance {:?}, game {:?}, manifest {}", settings.instance_dir, settings.game_dir, settings.channel_url());
     *state.settings.lock().unwrap() = settings;
     Ok(())
 }
@@ -353,7 +353,7 @@ pub async fn fetch_build(app: AppHandle) -> CmdResult<Option<BuildInfo>> {
         *state.manifest.lock().unwrap() = None;
         return Ok(None);
     }
-    let url = settings.manifest_url.clone();
+    let url = settings.channel_url();
     let remote = tauri::async_runtime::spawn_blocking(move || {
         let text = Downloader::new().get_text(&url)?;
         Manifest::from_json(&text)
@@ -363,7 +363,7 @@ pub async fn fetch_build(app: AppHandle) -> CmdResult<Option<BuildInfo>> {
 
     let inst = Instance::new(&settings.instance_dir);
     if let Err(e) = &remote {
-        log::warn!("manifest {}: {e}", settings.manifest_url);
+        log::warn!("manifest {}: {e}", settings.channel_url());
     }
     let (manifest, online) = match remote {
         Ok(m) => (m, true),
@@ -1529,7 +1529,7 @@ pub async fn export_report(app: AppHandle) -> CmdResult<PathBuf> {
             || "unknown".into(),
             |v| format!("patch {} (product {:?}, file {:?})", v.patch(), v.product, v.file)
         ),
-        url = settings.manifest_url,
+        url = settings.channel_url(),
         installed = installed.build_version.as_deref().unwrap_or("none"),
         latest = latest.map_or_else(|| "not fetched".into(), |(v, g)| format!("{v} (game {g})")),
         game_running = yes_no(game_running),

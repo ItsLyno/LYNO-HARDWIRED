@@ -32,6 +32,9 @@ pub struct Settings {
     /// URL of the published `manifest.json`.
     #[serde(default = "default_manifest_url")]
     pub manifest_url: String,
+    /// Follow the beta channel: builds arrive here before they are released to everyone.
+    #[serde(default)]
+    pub beta: bool,
     /// The build author releases from this instance (see `lyno_core::author`):
     /// differences from the published build are their next release, so updates
     /// and repairs, which would undo them, are off.
@@ -76,6 +79,7 @@ impl Settings {
             instances: Vec::new(),
             game_dir: None,
             manifest_url: default_manifest_url(),
+            beta: false,
             author_mode: false,
             author_repo: default_repo(),
             author_out_dir: None,
@@ -100,6 +104,15 @@ impl Settings {
         s
     }
 
+    /// Manifest of the channel the player follows: `manifest-beta.json` next to `manifest.json`.
+    /// The author follows beta, where their releases land first.
+    pub fn channel_url(&self) -> String {
+        match self.manifest_url.strip_suffix("manifest.json") {
+            Some(dir) if self.beta || self.author_mode => format!("{dir}manifest-beta.json"),
+            _ => self.manifest_url.clone(),
+        }
+    }
+
     /// The active instance is the build's.
     pub fn build(&self) -> bool {
         self.active().is_some_and(|i| i.build)
@@ -114,5 +127,25 @@ impl Settings {
             std::fs::create_dir_all(dir)?;
         }
         std::fs::write(path, serde_json::to_string_pretty(self).expect("settings serialize"))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn beta_reads_the_beta_manifest_next_to_the_release_one() {
+        let mut s = Settings::defaults(Path::new("data"));
+        assert_eq!(s.channel_url(), DEFAULT_MANIFEST_URL);
+        s.beta = true;
+        let beta = DEFAULT_MANIFEST_URL.replace("manifest.json", "manifest-beta.json");
+        assert_eq!(s.channel_url(), beta);
+        s.beta = false;
+        s.author_mode = true;
+        assert_eq!(s.channel_url(), beta);
+        s.beta = true;
+        s.manifest_url = "http://localhost/custom".into();
+        assert_eq!(s.channel_url(), "http://localhost/custom", "a custom URL has no channels");
     }
 }

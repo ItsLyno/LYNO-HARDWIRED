@@ -125,6 +125,8 @@ pub fn run() {
             author::author_revert,
             author::author_build,
             author::author_publish,
+            author::author_promote,
+            author::author_channels,
             author::author_cancel,
             commands::open_mod_folder,
             commands::open_folder,

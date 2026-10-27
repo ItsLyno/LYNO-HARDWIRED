@@ -16,7 +16,7 @@ use lyno_core::mo2::Instance;
 use lyno_core::nexus::Nexus;
 use lyno_core::package::PackOptions;
 use lyno_core::publish::{build, BuildOptions};
-use lyno_core::release::{self, github_download_root, release_tag, Event, PublishOptions};
+use lyno_core::release::{self, github_download_root, release_tag, Channel, Event, Host, PublishOptions};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, State as TauriState};
 
@@ -40,6 +40,7 @@ enum AuthorEvent {
 enum Job {
     Build,
     Publish,
+    Promote,
 }
 
 /// A build in `out/` waiting to be published.
@@ -527,6 +528,59 @@ pub fn author_publish(app: AppHandle) -> CmdResult<()> {
     Ok(())
 }
 
+/// Versions the two channels hold now; `None`: nothing published there yet.
+#[derive(Serialize)]
+pub struct Channels {
+    beta: Option<String>,
+    release: Option<String>,
+}
+
+#[tauri::command]
+pub async fn author_channels(state: TauriState<'_, AppState>) -> CmdResult<Channels> {
+    let settings = state.settings.lock().unwrap().clone();
+    if !settings.author_mode {
+        return Err("Доступно только в режиме автора".into());
+    }
+    let token = secrets::get(Secret::GithubToken).ok_or("Добавьте токен GitHub")?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut host = GitHub::new(&settings.author_repo, &token);
+        let mut version = |channel| -> lyno_core::Result<Option<String>> {
+            Ok(host.published_manifest(channel)?.and_then(|t| Manifest::from_json(&t).ok()).map(|m| m.build_version))
+        };
+        Ok(Channels { beta: version(Channel::Beta)?, release: version(Channel::Release)? })
+    })
+    .await
+    .map_err(err)?
+    .map_err(|e: lyno_core::Error| format!("Не удалось прочитать каналы: {e}"))
+}
+
+/// Releases the beta build to everyone: the manifest is copied, no part is uploaded.
+#[tauri::command]
+pub fn author_promote(app: AppHandle) -> CmdResult<()> {
+    let state = app.state::<AppState>();
+    let settings = ready(&state)?;
+    let token = secrets::get(Secret::GithubToken).ok_or("Добавьте токен GitHub")?;
+    *state.author_job.lock().unwrap() = Some(Arc::new(AtomicBool::new(false)));
+
+    std::thread::spawn(move || {
+        let mut host = GitHub::new(&settings.author_repo, &token);
+        let log_line = |e: Event| match e {
+            Event::Current(v) => emit(&app, AuthorEvent::Log { line: format!("Сейчас в релизе версия {}", v.as_deref().unwrap_or("—")) }),
+            Event::Checking { done, total } => emit(&app, AuthorEvent::Step { index: done, total, label: "Проверка частей по HTTP".into() }),
+            Event::Live { version } => emit(&app, AuthorEvent::Log { line: format!("Версия {version} выпущена в релиз") }),
+            _ => {}
+        };
+        let result = release::promote(&mut host, &Downloader::new(), &log_line);
+        *app.state::<AppState>().author_job.lock().unwrap() = None;
+        let error = result.err().map(|e| {
+            log::error!("promote failed: {e}");
+            format!("Не удалось выпустить в релиз: {e}")
+        });
+        emit(&app, AuthorEvent::Finished { job: Job::Promote, ok: error.is_none(), error });
+    });
+    Ok(())
+}
+
 fn run_publish(app: &AppHandle, settings: &Settings, token: &str, out: &std::path::Path, cancel: &AtomicBool) -> lyno_core::Result<Manifest> {
     let mut host = GitHub::new(&settings.author_repo, token);
     let root = github_download_root(&settings.author_repo);
@@ -558,7 +612,7 @@ fn run_publish(app: &AppHandle, settings: &Settings, token: &str, out: &std::pat
         Event::Checking { done, total } => {
             throttled(AuthorEvent::Step { index: done, total, label: "Проверка частей по HTTP".into() }, done == total)
         }
-        Event::Live { version } => log_line(format!("Версия {version} опубликована")),
+        Event::Live { version } => log_line(format!("Версия {version} опубликована в бету")),
     })?;
     Ok(manifest)
 }
