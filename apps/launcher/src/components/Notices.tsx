@@ -34,85 +34,88 @@ export function Notices() {
     });
 
   return (
-    <div className="space-y-3 empty:hidden [&:not(:empty)]:mt-4">
+    // Hidden while nothing inside renders: the list panel is always there, empty when all is well.
+    <div className="mt-4 hidden space-y-3 has-[>:not(:empty)]:block">
       {progress && <UpdateProgress progress={progress} />}
-      {status && !status.gameFound && (
-        <Notice tone="bad" icon={FolderSearch} label="Игра" text="Папка Cyberpunk 2077 не найдена: без неё игру не запустить.">
-          <Button className="h-8 text-[13px]" onClick={() => setPage("settings")}>
-            Указать в настройках
-          </Button>
-        </Notice>
-      )}
-      {status?.gameMismatch && <GameMismatchNotice m={status.gameMismatch} />}
-      {runReport && (
-        <Notice tone={runReport.scriptsFailed ? "bad" : "warn"} icon={Bug} label="Последний запуск" text={runSummary(runReport)}>
-          <Button className="h-8 text-[13px]" onClick={() => setProblems(true)}>
-            Подробнее
-          </Button>
-          <button onClick={() => dismissRunReport(false)} aria-label="Скрыть" className="inline-flex size-8 items-center justify-center rounded-full text-muted hover:bg-raised hover:text-fg">
-            <X size={15} />
-          </button>
-        </Notice>
-      )}
-      {problems && runReport && <RunProblems report={runReport} onClose={() => setProblems(false)} />}
-      {buildUpdate && !progress && (
-        <Notice
-          tone="accent"
-          icon={Package}
-          label="Сборка"
-          text={
-            <>
-              {isRepairOnly(buildUpdate)
-                ? "Нужно восстановить файлы сборки"
-                : buildUpdate.installedVersion
-                  ? `Доступна сборка ${buildUpdate.latestVersion}`
-                  : "Сборка не установлена"}
-              <span className="text-muted">
-                {" "}· {buildUpdate.changes} {plural(buildUpdate.changes, "изменение", "изменения", "изменений")} · {downloadLabel(buildUpdate)}
-              </span>
-            </>
-          }
-          below={
-            changelog && (
-              <div className="max-h-64 overflow-y-auto border-t border-line/60 pt-4">
-                <Changelog entries={upcoming} installed={buildUpdate.installedVersion} />
-              </div>
-            )
-          }
-        >
-          {upcoming.length > 0 && (
-            <Button variant="ghost" className="h-8 text-[13px]" onClick={() => setChangelog(!changelog)} aria-expanded={changelog}>
-              Что нового
-              <ChevronDown size={14} className={`transition-transform ${changelog ? "rotate-180" : ""}`} />
+      <div className="panel divide-y divide-line/60 overflow-hidden text-[13px] empty:hidden">
+        {status && !status.gameFound && (
+          <Notice tone="bad" icon={FolderSearch} title="Игра не найдена" text="Без папки Cyberpunk 2077 игру не запустить">
+            <Button className="h-8 text-[13px]" onClick={() => setPage("settings")}>
+              Указать в настройках
             </Button>
-          )}
-          <Button
-            className="h-8 text-[13px]"
-            disabled={busy}
-            onClick={() => {
-              setPage("mods");
-              void startUpdate();
-            }}
+          </Notice>
+        )}
+        {status?.gameMismatch && <GameMismatchNotice m={status.gameMismatch} />}
+        {runReport && (
+          <Notice
+            tone={runReport.scriptsFailed ? "bad" : "warn"}
+            icon={Bug}
+            title={runReport.scriptsFailed ? "Скрипты модов не собрались" : "Ошибки в последнем запуске"}
+            text={runSummary(runReport)}
           >
-            <Download size={14} />
-            {isRepairOnly(buildUpdate) ? "Восстановить" : "Обновить"}
-          </Button>
-        </Notice>
-      )}
-      {launcherUpdate && (
-        <Notice tone="neon" icon={Rocket} label="Лаунчер" text={`Доступен лаунчер ${launcherUpdate.version}`}>
-          <Button
-            className="h-8 text-[13px]"
-            onClick={installLauncher}
-            disabled={installing || busy}
-            title={busy ? "Дождитесь окончания обновления сборки" : (launcherUpdate.notes ?? undefined)}
+            <Button className="h-8 text-[13px]" onClick={() => setProblems(true)}>
+              Подробнее
+            </Button>
+            <button onClick={() => dismissRunReport(false)} aria-label="Скрыть" className="inline-flex size-8 items-center justify-center rounded-full text-muted hover:bg-raised hover:text-fg">
+              <X size={15} />
+            </button>
+          </Notice>
+        )}
+        {buildUpdate && !progress && (
+          <Notice
+            tone="accent"
+            icon={Package}
+            title={
+              isRepairOnly(buildUpdate)
+                ? "Файлы сборки повреждены"
+                : buildUpdate.installedVersion
+                  ? `Сборка ${buildUpdate.latestVersion}`
+                  : "Сборка не установлена"
+            }
+            text={`${buildUpdate.changes} ${plural(buildUpdate.changes, "изменение", "изменения", "изменений")} · ${downloadLabel(buildUpdate)}`}
+            below={
+              changelog && (
+                <div className="max-h-64 overflow-y-auto border-t border-line/60 pt-4">
+                  <Changelog entries={upcoming} installed={buildUpdate.installedVersion} />
+                </div>
+              )
+            }
           >
-            {installing ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
-            {installing ? "Загрузка…" : "Обновить"}
-          </Button>
-        </Notice>
-      )}
-      {isBuild && build?.lastUpdate && build.lastUpdate.ownCopies.length > 0 && !settings?.authorMode && <OwnCopiesNotice update={build.lastUpdate} />}
+            {upcoming.length > 0 && (
+              <Button variant="ghost" className="h-8 text-[13px]" onClick={() => setChangelog(!changelog)} aria-expanded={changelog}>
+                Что нового
+                <ChevronDown size={14} className={`transition-transform ${changelog ? "rotate-180" : ""}`} />
+              </Button>
+            )}
+            <Button
+              className="h-8 text-[13px]"
+              disabled={busy}
+              onClick={() => {
+                setPage("mods");
+                void startUpdate();
+              }}
+            >
+              <Download size={14} />
+              {isRepairOnly(buildUpdate) ? "Восстановить" : "Обновить"}
+            </Button>
+          </Notice>
+        )}
+        {launcherUpdate && (
+          <Notice tone="neon" icon={Rocket} title={`Лаунчер ${launcherUpdate.version}`} text="Новая версия лаунчера">
+            <Button
+              className="h-8 text-[13px]"
+              onClick={installLauncher}
+              disabled={installing || busy}
+              title={busy ? "Дождитесь окончания обновления сборки" : (launcherUpdate.notes ?? undefined)}
+            >
+              {installing ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+              {installing ? "Загрузка…" : "Обновить"}
+            </Button>
+          </Notice>
+        )}
+        {isBuild && build?.lastUpdate && build.lastUpdate.ownCopies.length > 0 && !settings?.authorMode && <OwnCopiesNotice update={build.lastUpdate} />}
+      </div>
+      {problems && runReport && <RunProblems report={runReport} onClose={() => setProblems(false)} />}
     </div>
   );
 }
@@ -126,13 +129,13 @@ function GameMismatchNotice({ m }: { m: GameMismatch }) {
     m.newer === false
       ? `Сборка сделана для патча ${m.expected}, а у вас ${yours}: обновите игру`
       : m.newer
-        ? `Игра обновилась (${yours}), а сборка сделана для патча ${m.expected}`
+        ? `У вас ${yours}, а сборка сделана для патча ${m.expected}`
         : `Сборка сделана для патча ${m.expected}, а у вас ${yours}`;
   return (
     <Notice
       tone="warn"
       icon={TriangleAlert}
-      label="Версия игры"
+      title={m.newer === false ? "Игра старее сборки" : m.newer ? "Игра обновилась" : "Другая версия игры"}
       text={text}
       below={
         open && (
@@ -198,7 +201,7 @@ function OwnCopiesNotice({ update }: { update: LastUpdate }) {
     <Notice
       tone="info"
       icon={Copy}
-      label="Ваши моды"
+      title={n === 1 ? "Ваша копия мода выключена" : "Ваши копии модов выключены"}
       text={
         n === 1
           ? `В сборку ${update.to} вошёл мод «${update.ownCopies[0].title}», который у вас уже стоял: ваш выключен`
@@ -250,35 +253,26 @@ function OwnCopiesNotice({ update }: { update: LastUpdate }) {
 function runSummary(r: RunReport): string {
   const mods = [...new Set(r.problems.flatMap((p) => (p.modFolder ? [p.modFolder] : [])))];
   const named = mods.length === 0 ? "" : mods.length === 1 ? `: «${mods[0]}»` : `: «${mods[0]}» и ещё ${mods.length - 1}`;
-  if (r.scriptsFailed) return `Скрипты модов не собрались, моды на redscript не работали${named}`;
+  if (r.scriptsFailed) return `Моды на redscript не работали${named}`;
   const n = r.problems.filter((p) => p.severity === "error").reduce((sum, p) => sum + p.count, 0);
   if (n === 0) return `Плагины не загрузились или не подходят к версии игры${named}`;
-  return `В последнем запуске моды записали ${n} ${plural(n, "ошибку", "ошибки", "ошибок")}${named}`;
+  return `Моды записали ${n} ${plural(n, "ошибку", "ошибки", "ошибок")}${named}`;
 }
 
-/** One colour per kind of notice, so a glance at the list says what is broken, what is risky and what is merely new. */
-const tones = {
-  bad: { text: "text-bad", chip: "bg-bad/15", bar: "before:bg-bad", tint: "from-bad/10" },
-  warn: { text: "text-warn", chip: "bg-warn/15", bar: "before:bg-warn", tint: "from-warn/10" },
-  accent: { text: "text-accent", chip: "bg-accent/15", bar: "before:bg-accent", tint: "from-accent/10" },
-  neon: { text: "text-neon", chip: "bg-neon/15", bar: "before:bg-neon", tint: "from-neon/10" },
-  info: { text: "text-muted", chip: "bg-raised", bar: "before:bg-faint", tint: "from-raised/60" },
-};
+/** The icon's colour says how urgent: broken, risky, an update, or only worth knowing. */
+const tones = { bad: "text-bad", warn: "text-warn", accent: "text-accent", neon: "text-neon", info: "text-muted" };
 
-/** Every notice says what it is about (icon + label) before what it says: with several at once they are told apart
- *  by the label and the colour, not by reading each line. */
-function Notice(props: { tone: keyof typeof tones; icon: LucideIcon; label: string; text: ReactNode; below?: ReactNode; children?: ReactNode }) {
-  const t = tones[props.tone];
+/** A short title says what it is about, the muted line the details: with several at once they are told apart by
+ *  the titles alone. */
+function Notice(props: { tone: keyof typeof tones; icon: LucideIcon; title: string; text: ReactNode; below?: ReactNode; children?: ReactNode }) {
   return (
-    <div className={`panel relative overflow-hidden text-[13px] before:absolute before:inset-y-0 before:left-0 before:w-1 ${t.bar}`}>
-      <div className={`flex min-h-12 items-center gap-3 bg-linear-to-r ${t.tint} to-transparent to-60% px-5 py-2`}>
-        <span className={`inline-flex shrink-0 items-center gap-2 text-[11px] font-medium uppercase tracking-wider ${t.text}`}>
-          <span className={`inline-flex size-6 items-center justify-center rounded-full ${t.chip}`}>
-            <props.icon size={14} />
-          </span>
-          <span className="w-28 truncate">{props.label}</span>
-        </span>
-        <span className="min-w-0 flex-1 truncate text-fg">{props.text}</span>
+    <div>
+      <div className="flex items-center gap-3 px-5 py-3">
+        <props.icon size={16} className={`shrink-0 ${tones[props.tone]}`} />
+        <div className="min-w-0 flex-1">
+          <div className="truncate font-medium text-fg">{props.title}</div>
+          <div className="truncate text-muted">{props.text}</div>
+        </div>
         {props.children}
       </div>
       {props.below}
