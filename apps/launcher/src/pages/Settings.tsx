@@ -1,4 +1,4 @@
-import { AppWindow, Check, Download, FileArchive, FolderOpen, Layers, Loader2, RotateCw, Search } from "lucide-react";
+import { AppWindow, Check, Download, FileArchive, FolderOpen, Gamepad2, Globe, Image, Layers, Loader2, RotateCw, Search, Wrench, type LucideIcon } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { api, type Folder, type Settings as SettingsT } from "../api";
 import { Button } from "../components/Button";
@@ -15,6 +15,7 @@ export function Settings() {
   const [draft, setDraft] = useState<SettingsT | null>(settings);
   const [saved, setSaved] = useState(false);
   const [detectNote, setDetectNote] = useState<string | null>(null);
+  const [tab, setTab] = useState<Tab>("profiles");
   const [report, setReport] = useState<{ busy: boolean; path: string | null }>({ busy: false, path: null });
 
   useEffect(() => {
@@ -63,10 +64,29 @@ export function Settings() {
     });
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
+    <div className="mx-auto max-w-5xl space-y-6">
       <PageTitle>Настройки</PageTitle>
-      <Profiles />
-      <h2 className="pt-4 text-base font-semibold">Игра</h2>
+      <div className="flex items-start gap-8">
+        <nav className="sticky top-4 w-48 shrink-0 space-y-1">
+          {TABS.map(([id, label, Icon]) => (
+            <button
+              key={id}
+              onClick={() => setTab(id)}
+              aria-current={tab === id}
+              className={`flex h-9 w-full items-center gap-2.5 rounded-full px-4 text-left text-[13px] transition-colors ${
+                tab === id ? "bg-raised text-fg ring-1 ring-neon/50" : "text-muted hover:bg-raised hover:text-fg"
+              }`}
+            >
+              <Icon size={15} />
+              {label}
+            </button>
+          ))}
+        </nav>
+        <div className="min-w-0 flex-1 space-y-6">
+      {tab === "profiles" && <Profiles />}
+      {tab === "game" && (
+        <>
+      <h2 className="text-base font-semibold">Игра</h2>
       <div className="panel divide-y divide-line/60">
         <Field label="Папка Cyberpunk 2077" hint="Папка, в которой лежит bin\x64\Cyberpunk2077.exe.">
           <div className="flex gap-2">
@@ -115,13 +135,29 @@ export function Settings() {
           </span>
         )}
       </div>
-      <h2 className="pt-4 text-base font-semibold">Фон</h2>
+        </>
+      )}
+      {tab === "background" && (
+        <>
+      <h2 className="text-base font-semibold">Фон</h2>
       <BackgroundSettings />
-      <h2 className="pt-4 text-base font-semibold">Обновления</h2>
+        </>
+      )}
+      {tab === "updates" && (
+        <>
+      <h2 className="text-base font-semibold">Обновления</h2>
       <Updates />
-      <h2 className="pt-4 text-base font-semibold">Nexus Mods</h2>
+        </>
+      )}
+      {tab === "nexus" && (
+        <>
+      <h2 className="text-base font-semibold">Nexus Mods</h2>
       <NexusAccount />
-      <h2 className="pt-4 text-base font-semibold">Папки</h2>
+        </>
+      )}
+      {tab === "tools" && (
+        <>
+      <h2 className="text-base font-semibold">Папки</h2>
       <div className="panel">
         <Field
           label="Открыть в проводнике"
@@ -175,9 +211,24 @@ export function Settings() {
         LYNO//HARDWIRED · Моды принадлежат их авторам.
       </p>
       {!settings?.authorMode && <AuthorUnlock repo={settings?.authorRepo ?? ""} onEnabled={authorEnabled} />}
+        </>
+      )}
+        </div>
+      </div>
     </div>
   );
 }
+
+type Tab = "profiles" | "game" | "background" | "updates" | "nexus" | "tools";
+
+const TABS: [Tab, string, LucideIcon][] = [
+  ["profiles", "Профили", Layers],
+  ["game", "Игра", Gamepad2],
+  ["background", "Фон", Image],
+  ["updates", "Обновления", RotateCw],
+  ["nexus", "Nexus Mods", Globe],
+  ["tools", "Папки и диагностика", Wrench],
+];
 
 /** One card per MO2 instance: the active one is marked, the others switch with a click. */
 // Applied at once and kept on this machine: a look has nothing to review before saving.
