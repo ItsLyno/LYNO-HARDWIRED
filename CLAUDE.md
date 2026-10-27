@@ -37,7 +37,7 @@ Core modules: `publish.rs` (author side: build manifest, reuse unchanged package
 `modlist.txt` before the launcher changes it, `.lyno/history/`; restore puts back order and on/off, build section by the build),
 `game.rs` (finding the game; `exe_version`: the patch from `Cyberpunk2077.exe`'s version resource, checked against `Manifest.game_exe`),
 `package.rs` (tar.zst split into ≤1.9 GB parts), `tree.rs` (tree hash), `rules.rs`
-(which files ship and which are hashed), `mo2.rs`, `modlist.rs`, `meta.rs`, `state.rs`.
+(which files ship and which are hashed), `coop.rs` (the Coop profile made from the manifest), `mo2.rs`, `modlist.rs`, `meta.rs`, `state.rs`.
 
 ## Commands
 
@@ -111,6 +111,10 @@ updater reads. Launcher logs go through `log::` macros to `tauri-plugin-log`.
   (`install::detach`, `state.removed`) until `restore_mod`; a core one never (`mod_install::BuildMod`).
   The author may update any, keeping `[LYNO] id`. A Nexus download only goes to `downloads/` (`mod_install::fetch`);
   the player installs it by dragging it onto the list and confirms a replace. Installs that write `modlist.txt` need MO2 closed.
+- **Coop plays the author's set only**: the `Coop` profile (`manifest::COOP_PROFILE`) is never shipped, the
+  launcher writes it from `ModSpec::coop` before each Coop start (`coop::prepare`, `plan::coop_modlist`);
+  every folder that isn't the author's stays off in it, and while Coop is on (`.lyno/coop`) nothing changes the list
+  (`commands::not_in_coop`). A new command that edits `modlist.txt` needs that guard.
 - MO2 executable titles come from the author's `ModOrganizer.ini`; the launcher
   uses `Cyberpunk 2077` / `Cyberpunk 2077 (REDmod)` (`mo2::game_executable`).
 

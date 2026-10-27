@@ -77,6 +77,16 @@ folder name, and renaming the folder makes it a new mod (full re-download).
 `lyno-pack` warns when `LocalSaves` or `LocalSettings` is on: those files are never
 shipped.
 
+## Coop profile
+
+`profiles/Coop/` is a second profile of the build's instance, made by the launcher (`coop::prepare`),
+never shipped: `base_files` only takes the build's own profile. The author's `Coop` profile is read
+by `publish` into `ModSpec::coop` (on in Coop or not). Before each Coop start `plan::coop_modlist`
+writes the list again: the build's mods as the author has them, every other folder of `mods/` off
+(MO2 adds folders a profile doesn't list, so they are listed explicitly), `*` entries carried over.
+`profiles/Coop/settings.ini` and the other files are copied from the build's profile once; saves and
+`UserSettings.json` are not. Coop is on while `.lyno/coop` exists; the launcher then refuses edits of the list.
+
 ## `ModOrganizer.ini`
 
 - `[General]` `gamePath=@ByteArray(D:/…/Cyberpunk 2077)`, `selected_profile`.
