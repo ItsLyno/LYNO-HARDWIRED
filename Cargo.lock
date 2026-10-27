@@ -2478,6 +2478,7 @@ dependencies = [
  "tauri-plugin-updater",
  "thiserror 2.0.21",
  "time",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]

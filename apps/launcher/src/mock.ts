@@ -684,6 +684,9 @@ export const mock = {
     status = { ...status, gameRunning: true };
     setTimeout(() => (status = { ...status, gameRunning: false }), 8000);
   },
+  stopGame: async () => {
+    status = { ...status, gameRunning: false };
+  },
   modlistHistory: async (): Promise<HistoryRow[]> => [
     { id: Date.now() - 4 * 60_000, label: "Перед выключением «Stealth Overhaul»", more: 3, build: "1.3.2", diff: { switched: 4, off: 0, gone: 0, moved: false }, blocked: null },
     { id: Date.now() - 50 * 60_000, label: "Перед запуском игры", more: 0, build: "1.3.2", diff: { switched: 4, off: 1, gone: 0, moved: true }, blocked: null },

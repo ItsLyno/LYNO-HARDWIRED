@@ -1,5 +1,6 @@
 mod author;
 mod commands;
+mod lock_window;
 mod nexus;
 mod secrets;
 mod settings;
@@ -124,6 +125,7 @@ pub fn run() {
             commands::open_mod_folder,
             commands::open_folder,
             commands::launch_game,
+            commands::stop_game,
             commands::executables,
             commands::open_mo2,
             commands::export_report,

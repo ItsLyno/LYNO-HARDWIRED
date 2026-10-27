@@ -24,8 +24,8 @@ use tauri_plugin_updater::UpdaterExt;
 use crate::settings::{self, InstanceEntry, Settings};
 use crate::AppState;
 
-const GAME_PROCESS: &str = "Cyberpunk2077.exe";
-const MO2_PROCESS: &str = "ModOrganizer.exe";
+pub(crate) const GAME_PROCESS: &str = "Cyberpunk2077.exe";
+pub(crate) const MO2_PROCESS: &str = "ModOrganizer.exe";
 const DEFAULT_PROFILE: &str = "LYNO";
 
 /// Errors cross the IPC boundary as plain strings for the UI to show.
@@ -1250,11 +1250,27 @@ pub fn launch_game(state: TauriState<'_, AppState>, executable: Option<String>) 
     snapshot(&inst, &profile, "Перед запуском игры", false);
     let executable = executable.unwrap_or_else(|| mo2::game_executable(redmod).to_owned());
     log::info!("launching {executable:?} (profile {profile}, REDmod {redmod})");
+    let is_game = executable == mo2::game_executable(redmod);
+    // A window the player opened on their own is not the "locked" one.
+    let mo2_was_open = running_processes().1;
     spawn_mo2(&inst, &mo2::run_args(&profile, &executable))?;
-    if executable == mo2::game_executable(redmod) {
+    if is_game {
         *state.last_launch.lock().unwrap() = Some(std::time::SystemTime::now());
+        if !mo2_was_open {
+            crate::lock_window::hide_until_game_over();
+        }
     }
     Ok(())
+}
+
+/// For a game that hangs: the launcher's own screen has no MO2 window with an Unlock button to fall back on.
+#[tauri::command]
+pub fn stop_game() {
+    let mut sys = System::new();
+    sys.refresh_processes_specifics(ProcessesToUpdate::All, true, ProcessRefreshKind::nothing());
+    for p in sys.processes().values().filter(|p| p.name().to_string_lossy().eq_ignore_ascii_case(GAME_PROCESS)) {
+        p.kill();
+    }
 }
 
 /// Errors the frameworks logged in the game's last run, once it is over; the next run starts afresh.

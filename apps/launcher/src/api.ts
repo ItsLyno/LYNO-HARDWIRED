@@ -575,6 +575,8 @@ export const api = isTauri()
       openModFolder: (id: string) => invoke<void>("open_mod_folder", { id }),
       openFolder: (folder: Folder) => invoke<void>("open_folder", { folder }),
       launchGame: () => invoke<void>("launch_game", { executable: null }),
+      /** Kills a hung game. */
+      stopGame: () => invoke<void>("stop_game"),
       /** Once the game has closed: errors in its logs; null when none or no run was seen. */
       lastRun: () => invoke<RunReport | null>("last_run"),
       modlistHistory: () => invoke<HistoryRow[]>("modlist_history"),

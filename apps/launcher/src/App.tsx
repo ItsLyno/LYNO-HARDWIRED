@@ -6,6 +6,7 @@ import { DragGhost } from "./components/DragGhost";
 import { InstanceSetup } from "./components/InstanceSetup";
 import { PageTitle } from "./components/PageTitle";
 import { FomodWizard } from "./components/FomodWizard";
+import { GameRunning } from "./components/GameRunning";
 import { Footer } from "./components/Footer";
 import { ReplaceConfirm } from "./components/ReplaceConfirm";
 import { RootPicker } from "./components/RootPicker";
@@ -125,6 +126,7 @@ export default function App() {
         )}
       </main>
       <Footer />
+      <GameRunning />
       <DragGhost />
     </div>
   );
