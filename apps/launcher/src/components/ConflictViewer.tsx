@@ -266,16 +266,16 @@ function FilesView({ mod, title, number, onPick }: { mod: ModConflicts } & Names
           Все файлы мода закрыты модами ниже в списке: в игре он ничего не меняет. Опустите его ниже в списке, если он должен победить, или выключите.
         </Warning>
       )}
-      <Section heading="Его файлы закрыты" hint="Игра берёт эти файлы из другого мода" tone="text-warn" empty={mod.loses.length === 0}>
-        {mod.loses.map((o) => (
-          <Duel key={o.modFolder} loser={self} winner={{ folder: o.modFolder }} self="loser" items={o.files} unit={FILES} title={title} number={number} onPick={onPick} />
-        ))}
-      </Section>
-      <Section heading="Он закрывает чужие файлы" hint="Игра берёт эти файлы из этого мода" tone="text-ok" empty={mod.wins.length === 0}>
-        {mod.wins.map((o) => (
-          <Duel key={o.modFolder} loser={{ folder: o.modFolder }} winner={self} self="winner" items={o.files} unit={FILES} title={title} number={number} onPick={onPick} />
-        ))}
-      </Section>
+      <Graph
+        key={mod.modFolder}
+        self={mod.modFolder}
+        beats={mod.wins.map((o) => ({ folder: o.modFolder, pairs: [{ loser: { folder: o.modFolder }, winner: self, items: o.files }] }))}
+        beaten={mod.loses.map((o) => ({ folder: o.modFolder, pairs: [{ loser: self, winner: { folder: o.modFolder }, items: o.files }] }))}
+        unit={FILES}
+        title={title}
+        number={number}
+        onPick={onPick}
+      />
     </>
   );
 }
@@ -294,36 +294,16 @@ function ArchivesView({ mod, title, number, onPick }: { mod: ArchiveConflicts } 
           {mod.dead.join(", ")}: все ресурсы {mod.dead.length === 1 ? "архива" : "архивов"} берутся из других модов, в игре {mod.dead.length === 1 ? "он ничего не меняет" : "они ничего не меняют"}.
         </Warning>
       )}
-      <Section heading="Его ресурсы закрыты" hint="Игра берёт эти ресурсы из архива другого мода" tone="text-warn" empty={mod.loses.length === 0}>
-        {mod.loses.map((o) => (
-          <Duel
-            key={`${o.archive}|${o.modFolder}|${o.other}`}
-            loser={{ folder: mod.modFolder, archive: o.archive }}
-            winner={{ folder: o.modFolder, archive: o.other }}
-            self="loser"
-            items={o.resources}
-            unit={RESOURCES}
-            title={title}
-            number={number}
-            onPick={onPick}
-          />
-        ))}
-      </Section>
-      <Section heading="Он закрывает чужие ресурсы" hint="Игра берёт эти ресурсы из архива этого мода" tone="text-ok" empty={mod.wins.length === 0}>
-        {mod.wins.map((o) => (
-          <Duel
-            key={`${o.archive}|${o.modFolder}|${o.other}`}
-            loser={{ folder: o.modFolder, archive: o.other }}
-            winner={{ folder: mod.modFolder, archive: o.archive }}
-            self="winner"
-            items={o.resources}
-            unit={RESOURCES}
-            title={title}
-            number={number}
-            onPick={onPick}
-          />
-        ))}
-      </Section>
+      <Graph
+        key={mod.modFolder}
+        self={mod.modFolder}
+        beats={byMod(mod.wins.map((o) => ({ folder: o.modFolder, loser: { folder: o.modFolder, archive: o.other }, winner: { folder: mod.modFolder, archive: o.archive }, items: o.resources })))}
+        beaten={byMod(mod.loses.map((o) => ({ folder: o.modFolder, loser: { folder: mod.modFolder, archive: o.archive }, winner: { folder: o.modFolder, archive: o.other }, items: o.resources })))}
+        unit={RESOURCES}
+        title={title}
+        number={number}
+        onPick={onPick}
+      />
       <p className="mt-4 text-xs text-faint">Архивы хранят не имена ресурсов, а хэши путей: по такому числу ресурс находится в WolvenKit.</p>
     </>
   );
@@ -338,20 +318,116 @@ function Warning({ children }: { children: ReactNode }) {
   );
 }
 
-function Section(props: { heading: string; hint: string; tone: string; empty: boolean; children: ReactNode }) {
-  if (props.empty) return null;
-  return (
-    <section className="mt-7">
-      <div className="mb-2.5 flex items-baseline gap-2">
-        <h3 className={`text-[13px] font-semibold ${props.tone}`}>{props.heading}</h3>
-        <span className="text-xs text-faint">{props.hint}</span>
-      </div>
-      <div className="space-y-2">{props.children}</div>
-    </section>
-  );
+type Side = { folder: string; archive?: string };
+type Pair = { loser: Side; winner: Side; items: string[] };
+/** Another mod and everything this one shares with it on one side of the graph. */
+type Link = { folder: string; pairs: Pair[] };
+
+const count = (l: Link) => sum(l.pairs.map((p) => p.items));
+
+/** Archive overlaps come per pair of archives; the graph draws one node per mod. */
+function byMod(pairs: (Pair & { folder: string })[]): Link[] {
+  const out = new Map<string, Pair[]>();
+  for (const { folder, ...p } of pairs) out.set(folder, [...(out.get(folder) ?? []), p]);
+  return [...out].map(([folder, pairs]) => ({ folder, pairs }));
 }
 
-type Side = { folder: string; archive?: string };
+const ROW = 52;
+const NODE = 40;
+// Column edges in % of the width: losers | this mod | winners.
+const LEFT = 30;
+const MID = [38, 62];
+const RIGHT = 70;
+
+/**
+ * The mod among the ones it shares files with, laid out as the game decides: copies flow to the right,
+ * the rightmost is what the game gets. Nodes select a link; its files are listed under the graph.
+ */
+function Graph({ self, beats, beaten, unit, title, number, onPick }: { self: string; beats: Link[]; beaten: Link[]; unit: readonly [string, string, string] } & Names) {
+  const [picked, setPicked] = useState<{ side: "beats" | "beaten"; folder: string } | null>(() =>
+    beaten[0] ? { side: "beaten", folder: beaten[0].folder } : beats[0] ? { side: "beats", folder: beats[0].folder } : null,
+  );
+  const height = Math.max(beats.length, beaten.length, 1) * ROW;
+  const ys = (n: number) => Array.from({ length: n }, (_, i) => (height - n * ROW) / 2 + i * ROW + ROW / 2);
+  const max = Math.max(...[...beats, ...beaten].map(count), 1);
+  const width = (l: Link) => 1.5 + 5 * Math.sqrt(count(l) / max);
+  const isPicked = (side: "beats" | "beaten", l: Link) => picked?.side === side && picked.folder === l.folder;
+  const selected = picked && (picked.side === "beats" ? beats : beaten).find((l) => l.folder === picked.folder);
+  const mid = height / 2;
+  const curve = (x1: number, y1: number, x2: number, y2: number) => `M${x1},${y1} C${(x1 + x2) / 2},${y1} ${(x1 + x2) / 2},${y2} ${x2},${y2}`;
+
+  const node = (side: "beats" | "beaten", l: Link, y: number) => {
+    const on = isPicked(side, l);
+    return (
+      <button
+        key={`${side}|${l.folder}`}
+        onClick={() => setPicked({ side, folder: l.folder })}
+        style={{ top: y - NODE / 2, height: NODE, width: `${LEFT}%`, ...(side === "beats" ? { left: 0 } : { left: `${RIGHT}%` }) }}
+        className={`absolute flex items-center gap-2 rounded-md px-3 text-left transition-colors ${side === "beaten" ? "bg-ok/10" : "bg-raised/60"} ${
+          on ? "ring-1 ring-neon" : "hover:ring-1 hover:ring-neon/40"
+        }`}
+      >
+        <span className="shrink-0 font-mono text-[11px] text-faint tabular-nums">#{number(l.folder)}</span>
+        <span className={`min-w-0 flex-1 truncate text-[13px] ${side === "beaten" ? "text-fg" : "text-muted"}`}>{title(l.folder)}</span>
+        <span className={`shrink-0 font-mono text-[11px] tabular-nums ${side === "beaten" ? "text-warn" : "text-ok"}`}>{count(l)}</span>
+      </button>
+    );
+  };
+
+  return (
+    <>
+      <div className="mt-6 mb-2 flex text-[11px] font-semibold tracking-wide uppercase">
+        <span className="text-ok" style={{ width: `${LEFT}%` }}>
+          Он закрывает
+        </span>
+        <span className="text-center text-faint" style={{ marginLeft: `${MID[0] - LEFT}%`, width: `${MID[1] - MID[0]}%` }}>
+          →&nbsp;в игру попадает правый&nbsp;→
+        </span>
+        <span className="ml-auto text-right text-warn" style={{ width: `${100 - RIGHT}%` }}>
+          Закрывают его
+        </span>
+      </div>
+      <div className="relative" style={{ height }}>
+        <svg className="absolute inset-0 h-full w-full overflow-visible" viewBox={`0 0 100 ${height}`} preserveAspectRatio="none" aria-hidden>
+          {beats.map((l, i) => (
+            <path key={l.folder} d={curve(LEFT, ys(beats.length)[i], MID[0], mid)} fill="none" vectorEffect="non-scaling-stroke" strokeWidth={width(l)}
+              className={isPicked("beats", l) ? "stroke-neon" : "stroke-ok/35"} />
+          ))}
+          {beaten.map((l, i) => (
+            <path key={l.folder} d={curve(MID[1], mid, RIGHT, ys(beaten.length)[i])} fill="none" vectorEffect="non-scaling-stroke" strokeWidth={width(l)}
+              className={isPicked("beaten", l) ? "stroke-neon" : "stroke-warn/35"} />
+          ))}
+        </svg>
+        {beats.map((l, i) => node("beats", l, ys(beats.length)[i]))}
+        <div
+          style={{ top: mid - NODE / 2 - 6, height: NODE + 12, left: `${MID[0]}%`, width: `${MID[1] - MID[0]}%` }}
+          className="absolute flex items-center gap-2 rounded-lg bg-raised px-3 ring-1 ring-line"
+        >
+          <span className="shrink-0 font-mono text-[11px] text-faint tabular-nums">#{number(self)}</span>
+          <span className="min-w-0 truncate text-[13px] font-semibold">{title(self)}</span>
+        </div>
+        {beaten.map((l, i) => node("beaten", l, ys(beaten.length)[i]))}
+      </div>
+      {selected && (
+        <div className="mt-6 space-y-2">
+          {selected.pairs.map((p) => (
+            <Duel
+              key={`${p.loser.archive}|${p.winner.archive}`}
+              loser={p.loser}
+              winner={p.winner}
+              self={p.winner.folder === self ? "winner" : "loser"}
+              items={p.items}
+              unit={unit}
+              title={title}
+              number={number}
+              onPick={onPick}
+            />
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
 
 /** One pair: the mod whose copy is hidden → the one whose copy the game gets, with what they share. */
 function Duel(props: { loser: Side; winner: Side; self: "loser" | "winner"; items: string[]; unit: readonly [string, string, string] } & Names) {
