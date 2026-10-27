@@ -284,6 +284,42 @@ fn going_back_to_an_older_build_repacks_nothing() {
     assert_eq!(packages(&built.manifest), packages(&m1));
 }
 
+/// A player switches to an older build and back to the fresh one: mods get that
+/// build's files each way, their own mod stays, `state.json` follows the version.
+#[test]
+fn player_switches_between_builds() {
+    let tmp = tempfile::tempdir().unwrap();
+    let author = tmp.path().join("author");
+    let release = tmp.path().join("release");
+    author_instance(&author);
+    let (base_url, _) = serve(release.clone());
+    let mut no_info = |_: &ModMeta| ModInfo::default();
+    let out = tmp.path().join("out");
+    let built = build(&author, &options("1.0.0", &base_url, &out, None), &mut no_info, &mut |_| {}).unwrap();
+    upload(&built, &release);
+    let m1 = built.manifest;
+    let old_archive = std::fs::read(author.join("mods/Archive Mod/archive/pc/mod/a.archive")).unwrap();
+    write(&author, "mods/Archive Mod/archive/pc/mod/a.archive", &noise(200_000, 7));
+    let new_archive = std::fs::read(author.join("mods/Archive Mod/archive/pc/mod/a.archive")).unwrap();
+    let built = build(&author, &options("1.1.0", &base_url, &out, Some(m1.clone())), &mut no_info, &mut |_| {}).unwrap();
+    upload(&built, &release);
+    let m2 = built.manifest;
+
+    let user = Instance::new(tmp.path().join("player"));
+    install(&user, &m2);
+    write(user.root(), "mods/Mine/x.archive", b"mine");
+    let archive = |i: &Instance| std::fs::read(i.root().join("mods/Archive Mod/archive/pc/mod/a.archive")).unwrap();
+    let version = |i: &Instance| State::load(&state_path(i)).unwrap().build_version;
+    assert_eq!(archive(&user), new_archive);
+
+    let update = Action::Update { id: "archive-mod".into(), from_folder: "Archive Mod".into() };
+    assert_eq!(install(&user, &m1), [update.clone()]);
+    assert_eq!((archive(&user), version(&user)), (old_archive, Some("1.0.0".into())));
+    assert_eq!(install(&user, &m2), [update]);
+    assert_eq!((archive(&user), version(&user)), (new_archive, Some("1.1.0".into())));
+    assert_eq!(std::fs::read(user.root().join("mods/Mine/x.archive")).unwrap(), b"mine");
+}
+
 /// The player removes optional build mods, in the launcher or in MO2: updates
 /// leave them out until the player brings them back. Core mods stay.
 #[test]
