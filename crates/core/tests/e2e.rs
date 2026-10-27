@@ -12,10 +12,10 @@ use lyno_core::install::{state_path, Event, Installer};
 use lyno_core::manifest::Manifest;
 use lyno_core::meta::ModMeta;
 use lyno_core::mo2::Instance;
-use lyno_core::modlist::{EntryState, ModList};
+use lyno_core::modlist::{Entry, EntryState, ModList};
 use lyno_core::package::PackOptions;
 use lyno_core::plan::{plan, set_enabled, Action};
-use lyno_core::publish::{build, check_published, BuildOptions, ModInfo};
+use lyno_core::publish::{build, check_published, preflight, BuildOptions, ModInfo};
 use lyno_core::release::{publish, release_tag, Host, PublishOptions};
 use lyno_core::state::State;
 
@@ -172,6 +172,41 @@ fn install(user: &Instance, manifest: &Manifest) -> Vec<Action> {
     let (actions, result) = try_install(user, manifest);
     result.unwrap();
     actions
+}
+
+/// What a build warns about from the mod list and `meta.ini` files alone shows
+/// before packing, which takes hours for a real build; the build itself warns
+/// the same.
+#[test]
+fn preflight_warns_before_packing() {
+    let tmp = tempfile::tempdir().unwrap();
+    let author = tmp.path().join("author");
+    let out = tmp.path().join("out");
+    author_instance(&author);
+    assert_eq!(preflight(&author, "LYNO", "2.31", &out).unwrap(), Vec::<String>::new());
+
+    write(&author, "mods/No Nexus/x.archive", b"x");
+    write(&author, "mods/Mine/x.archive", b"x");
+    write(&author, "mods/CET/meta.ini", b"[General]\nmodid=107\n[LYNO]\nrequires=[\"archive-mod\"]\n");
+    let path = author.join("profiles/LYNO/modlist.txt");
+    let mut list = ModList::load(&path).unwrap();
+    list.entries.iter_mut().find(|e| e.name == "Archive Mod").unwrap().state = EntryState::Disabled;
+    list.entries.splice(0..0, [Entry::enabled("No Nexus"), Entry::enabled("Gone")]);
+    list.entries.extend([Entry::separator("LYNO USER MODS"), Entry::enabled("Mine")]);
+    list.save(&path).unwrap();
+    let warnings = preflight(&author, "LYNO", "2.31", &out).unwrap();
+    assert_eq!(warnings.len(), 4, "{warnings:?}");
+    for expected in ["under LYNO USER MODS are not shipped: Mine", "\"Gone\" is in modlist.txt but has no folder",
+        "\"No Nexus\": no Nexus mod id", "\"CET\" requires archive-mod, which is switched off"] {
+        assert!(warnings.iter().any(|w| w.contains(expected)), "{expected}: {warnings:?}");
+    }
+
+    list.entries.iter_mut().find(|e| e.name == "Archive Mod").unwrap().state = EntryState::Enabled;
+    list.save(&path).unwrap();
+    let warnings = preflight(&author, "LYNO", "2.31", &out).unwrap();
+    assert_eq!(warnings.len(), 3, "{warnings:?}");
+    let built = build(&author, &options("1.0.0", "http://x", &out, None), &mut |_| ModInfo::default(), &mut |_| {}).unwrap();
+    assert_eq!(built.warnings, warnings);
 }
 
 /// The player removes optional build mods, in the launcher or in MO2: updates

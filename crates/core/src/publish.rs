@@ -110,21 +110,15 @@ pub fn build(
     let inst = Instance::new(root);
     let list = ModList::load(&inst.modlist_path(&opts.profile))?;
     let metas = inst.scan_mods()?;
-    let mut warnings = Vec::new();
+    let mut warnings = preflight(root, &opts.profile, &opts.game_version, &opts.out_dir)?;
     let cache = if opts.hash_cache { HashCache::load(root.join(".lyno").join("pack-cache.json")) } else { HashCache::disabled() };
     let mut packer = Packer { opts, cache, assets: Vec::new(), repacked: Vec::new() };
-    let (entries, personal) = split_user_section(&list);
+    let (entries, _) = split_user_section(&list);
     let is_mod = |e: &&Entry| e.state != EntryState::Unmanaged && e.separator_title().is_none();
-    let personal: Vec<&str> = personal.iter().filter(is_mod).map(|e| e.name.as_str()).collect();
-    if !personal.is_empty() {
-        warnings.push(format!("{} mod(s) under {USER_SEPARATOR} are not shipped: {}", personal.len(), personal.join(", ")));
-    }
     let steps = 1 + entries.iter().filter(is_mod).count();
 
-    warnings.extend(profile_warnings(&inst.profile_dir(&opts.profile)));
     let mut files = base_files(root, &opts.profile, Some(&opts.out_dir))?;
     warnings.extend(base_warnings(&files));
-    warnings.extend(skipped_root_warning(root, &opts.out_dir));
     let staged_ini = stage_mo2_ini(root, &mut files)?;
     let base_source = |p: &str| match &staged_ini {
         Some(staged) if p == MO2_INI => staged.clone(),
@@ -151,7 +145,6 @@ pub fn build(
         }
         let folder = inst.mods_dir().join(&entry.name);
         if !folder.is_dir() {
-            warnings.push(format!("{:?} is in modlist.txt but has no folder, skipped", entry.name));
             continue;
         }
         step += 1;
@@ -181,13 +174,10 @@ pub fn build(
         let source = |p: &str| tree::from_slash(&folder, p);
         let package = packer.package(&source, &prefix, &files, &id, &entry.name, &step_label, previous, log)?;
 
-        let nexus = match (meta.mod_id, meta.game_name.as_deref()) {
-            (Some(mod_id), game) => Some(NexusRef { game: game.unwrap_or("cyberpunk2077").to_lowercase(), mod_id }),
-            (None, _) => {
-                warnings.push(format!("{:?}: no Nexus mod id in meta.ini, no link in the launcher", entry.name));
-                None
-            }
-        };
+        let nexus = meta.mod_id.map(|mod_id| NexusRef {
+            game: meta.game_name.as_deref().unwrap_or("cyberpunk2077").to_lowercase(),
+            mod_id,
+        });
         let mut extra = if nexus.is_some() { info(&meta) } else { ModInfo::default() };
         // Without a Nexus key (or with Nexus down) the same Nexus page keeps
         // the author and title it had, instead of losing them for players.
@@ -210,21 +200,7 @@ pub fn build(
         }));
     }
 
-    // Most likely a forgotten flag rather than a build without frameworks.
-    let specs = || mods.iter().filter_map(|e| if let ModEntry::Mod(m) = e { Some(m) } else { None });
-    if specs().next().is_some() && specs().all(|m| m.optional) {
-        warnings.push("no core mods ([LYNO] core=true on a separator or a mod): players can switch off every mod".into());
-    }
-    warnings.extend(overwrite_warning(&inst.overwrite_dir())?);
-    let game_exe = inst.game_path().and_then(|d| crate::game::exe_version(&d)).map(|v| v.patch());
-    if let Some(exe) = &game_exe {
-        if crate::game::compare_patch(exe, &opts.game_version) != Some(std::cmp::Ordering::Equal) {
-            warnings.push(format!(
-                "game version {:?} given, but the game this instance runs is patch {exe}: players are checked against {exe}",
-                opts.game_version
-            ));
-        }
-    }
+    let game_exe = game_patch(&inst);
     packer.cache.save()?;
     let Packer { assets, repacked, .. } = packer;
     remove_stray_files(&opts.out_dir, &assets)?;
@@ -251,6 +227,68 @@ pub fn build(
         }
     }
     Ok(BuildOutput { manifest, assets, repacked, warnings })
+}
+
+/// What [`build`] warns about from the mod list, `meta.ini` files and the
+/// profile alone, without listing or reading mod files: a real build packs for
+/// hours, and a forgotten flag is cheaper to see before that. Only generated
+/// files in mods and an oversized base are left to the build.
+pub fn preflight(root: &Path, profile: &str, game_version: &str, out_dir: &Path) -> Result<Vec<String>> {
+    let inst = Instance::new(root);
+    let list = ModList::load(&inst.modlist_path(profile))?;
+    let metas = inst.scan_mods()?;
+    let mut warnings = Vec::new();
+    let (entries, personal) = split_user_section(&list);
+    let is_mod = |e: &&Entry| e.state != EntryState::Unmanaged && e.separator_title().is_none();
+    let personal: Vec<&str> = personal.iter().filter(is_mod).map(|e| e.name.as_str()).collect();
+    if !personal.is_empty() {
+        warnings.push(format!("{} mod(s) under {USER_SEPARATOR} are not shipped: {}", personal.len(), personal.join(", ")));
+    }
+    warnings.extend(profile_warnings(&inst.profile_dir(profile)));
+    warnings.extend(skipped_root_warning(root, out_dir));
+
+    // (id, folder, enabled, optional, requires) of the mods the build ships.
+    let mut mods = Vec::new();
+    let mut core_section = false;
+    for entry in entries.iter().filter(|e| e.state != EntryState::Unmanaged) {
+        let meta = metas.get(&entry.name).cloned().unwrap_or_default();
+        if entry.separator_title().is_some() {
+            core_section = meta.lyno_core;
+            continue;
+        }
+        if !inst.mods_dir().join(&entry.name).is_dir() {
+            warnings.push(format!("{:?} is in modlist.txt but has no folder, skipped", entry.name));
+            continue;
+        }
+        if meta.mod_id.is_none() {
+            warnings.push(format!("{:?}: no Nexus mod id in meta.ini, no link in the launcher", entry.name));
+        }
+        let enabled = entry.state == EntryState::Enabled;
+        mods.push((mod_id(&entry.name, &meta), &entry.name, enabled, is_optional(&meta, core_section), meta.lyno_requires));
+    }
+    // Most likely a forgotten flag rather than a build without frameworks.
+    if !mods.is_empty() && mods.iter().all(|m| m.3) {
+        warnings.push("no core mods ([LYNO] core=true on a separator or a mod): players can switch off every mod".into());
+    }
+    for (_, name, _, _, requires) in mods.iter().filter(|m| m.2) {
+        for dep in requires.iter().filter(|dep| mods.iter().any(|d| d.0 == **dep && !d.2)) {
+            warnings.push(format!("{name:?} requires {dep}, which is switched off: the build will fail"));
+        }
+    }
+    warnings.extend(overwrite_warning(&inst.overwrite_dir())?);
+    if let Some(exe) = game_patch(&inst) {
+        if crate::game::compare_patch(&exe, game_version) != Some(std::cmp::Ordering::Equal) {
+            warnings.push(format!(
+                "game version {game_version:?} given, but the game this instance runs is patch {exe}: players are checked against {exe}"
+            ));
+        }
+    }
+    Ok(warnings)
+}
+
+/// Patch of the game this instance runs, from its exe.
+fn game_patch(inst: &Instance) -> Option<String> {
+    inst.game_path().and_then(|d| crate::game::exe_version(&d)).map(|v| v.patch())
 }
 
 /// Build entries and the author's own ones. The author plays in a launcher
