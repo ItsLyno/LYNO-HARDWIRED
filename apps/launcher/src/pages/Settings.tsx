@@ -24,7 +24,7 @@ export function Settings() {
   if (!draft) return null;
 
   // Instances and the check interval change through their own calls, not the Save button.
-  const editable = (s: SettingsT | null) => s && { ...s, instanceDir: null, instances: null, updateCheckHours: null };
+  const editable = (s: SettingsT | null) => s && { ...s, instanceDir: null, instances: null, updateCheckHours: null, beta: null };
   const dirty = JSON.stringify(editable(draft)) !== JSON.stringify(editable(settings));
   const isBuild = !!activeInstance(settings)?.build;
   // Applied at once, not through the Save button; the draft follows so a later save doesn't undo it.
@@ -123,7 +123,7 @@ export function Settings() {
           variant="primary"
           disabled={!dirty}
           onClick={async () => {
-            if (settings && (await saveSettings({ ...draft, updateCheckHours: settings.updateCheckHours }))) setSaved(true);
+            if (settings && (await saveSettings({ ...draft, updateCheckHours: settings.updateCheckHours, beta: settings.beta }))) setSaved(true);
           }}
         >
           Сохранить
@@ -358,6 +358,10 @@ function Updates() {
   const busy = !!progress || !!status?.updating;
   // Applied at once, like the author mode switch: a timer setting has nothing to review before saving.
   const setHours = (hours: number) => void saveSettings({ ...settings, updateCheckHours: hours });
+  // The channel changes what the next check finds, so check at once.
+  const setBeta = async (beta: boolean) => {
+    if (await saveSettings({ ...settings, beta })) void checkUpdates();
+  };
   const checked = lastCheck
     ? new Date(lastCheck).toLocaleString("ru-RU", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })
     : "ещё не было";
@@ -451,6 +455,29 @@ function Updates() {
           ))}
         </div>
       </div>
+      {isBuild && !settings.authorMode && (
+        <div className="border-t border-line/60 px-5 py-5">
+          <div className="text-sm font-medium">Бета-версии сборки</div>
+          <div className="mt-0.5 text-[13px] text-muted">
+            Новые версии сборки приходят сюда раньше, чем ко всем остальным, и могут быть сырыми. Выключите бету, и лаунчер
+            предложит версию из релиза.
+          </div>
+          <div className="mt-3 flex gap-1.5">
+            {([false, true] as const).map((on) => (
+              <button
+                key={String(on)}
+                onClick={() => void setBeta(on)}
+                aria-pressed={settings.beta === on}
+                className={`h-8 rounded-full px-3.5 text-[13px] transition-colors ${
+                  settings.beta === on ? "bg-raised text-fg ring-1 ring-neon/50" : "text-muted hover:bg-raised hover:text-fg"
+                }`}
+              >
+                {on ? "Бета" : "Релиз"}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

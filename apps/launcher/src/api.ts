@@ -27,6 +27,8 @@ export interface Settings {
   authorOutDir: string | null;
   /** Automatic update checks while the launcher runs; 0: off. */
   updateCheckHours: number;
+  /** Follow the beta channel: builds arrive before they are released to everyone. */
+  beta: boolean;
 }
 
 export interface Status {
@@ -327,7 +329,13 @@ export interface Versions {
   builds: { version: string; commit: string }[];
 }
 
-export type AuthorJob = "build" | "publish";
+export type AuthorJob = "build" | "publish" | "promote";
+
+/** Versions the two channels hold now; null: nothing there yet. */
+export interface Channels {
+  beta: string | null;
+  release: string | null;
+}
 
 export type AuthorEvent =
   | { kind: "step"; index: number; total: number; label: string }
@@ -639,6 +647,9 @@ export const api = isTauri()
       authorBuild: (version: string, gameVersion: string, notes: string[]) =>
         invoke<void>("author_build", { version, gameVersion, notes }),
       authorPublish: () => invoke<void>("author_publish"),
+      /** Beta → release: the manifest is copied, no part is uploaded. */
+      authorPromote: () => invoke<void>("author_promote"),
+      authorChannels: () => invoke<Channels>("author_channels"),
       authorCancel: () => invoke<void>("author_cancel"),
       onAuthorEvent: (handler: (e: AuthorEvent) => void): Promise<UnlistenFn> =>
         listen<AuthorEvent>("author-event", (e) => handler(e.payload)),

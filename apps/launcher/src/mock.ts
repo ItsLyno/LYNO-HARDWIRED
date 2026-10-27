@@ -137,6 +137,7 @@ let settings: Settings = {
   authorRepo: "ItsLyno/LYNO-HARDWIRED",
   authorOutDir: null,
   updateCheckHours: 6,
+  beta: false,
 };
 
 const AUTHOR_MODE_NO_UPDATE =
@@ -247,6 +248,8 @@ async function simulateBuild(version: string, gameVersion: string, notes: string
   };
   author?.({ kind: "finished", job: "build", ok: true, error: null });
 }
+
+let channels = { beta: "1.4.1", release: "1.4.0" };
 
 async function simulatePublish() {
   authorCancelled = false;
@@ -706,6 +709,18 @@ export const mock = {
   authorPublish: async () => {
     if (!secrets.github) throw new Error("Добавьте токен GitHub");
     void simulatePublish();
+  },
+  authorChannels: async () => ({ beta: channels.beta, release: channels.release }),
+  authorPromote: async () => {
+    void (async () => {
+      author?.({ kind: "log", line: `Сейчас в релизе версия ${channels.release}` });
+      for (let i = 1; i <= 40; i += 3) {
+        author?.({ kind: "step", index: i, total: 40, label: "Проверка частей по HTTP" });
+        await delay(40);
+      }
+      channels = { ...channels, release: channels.beta };
+      author?.({ kind: "finished", job: "promote", ok: true, error: null });
+    })();
   },
   authorCancel: async () => {
     authorCancelled = true;

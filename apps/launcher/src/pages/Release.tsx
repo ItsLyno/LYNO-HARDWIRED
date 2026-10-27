@@ -2,6 +2,7 @@ import { Check, FileSearch, History, ListTree, PackageCheck, RotateCw } from "lu
 import { useEffect, useState } from "react";
 import { api, type Damaged, type Pending, type Versions } from "../api";
 import { Button } from "../components/Button";
+import { ChannelPromote } from "../components/ChannelPromote";
 import { Credentials } from "../components/Credentials";
 import { list } from "../components/Integrity";
 import { PageTitle } from "../components/PageTitle";
@@ -185,6 +186,10 @@ export function Release() {
           {/* A new installed version (accepted or just published) starts a fresh form: next version, no notes. */}
           <ReleaseBuilder key={installed} canPublish={canPublish} pending={pending} />
         </div>
+      </Section>
+
+      <Section title="Бета и релиз">
+        <ChannelPromote canPublish={canPublish} />
       </Section>
 
       <Section title="Прошлые версии">

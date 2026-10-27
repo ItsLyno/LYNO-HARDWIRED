@@ -59,7 +59,9 @@ export function ReleaseBuilder({ canPublish, pending }: { canPublish: boolean; p
         <div className="text-[13px] text-muted">
           {authorRun.job === "build"
             ? "Упаковка. Неизменённые моды не перечитываются; отмена сработает после текущего мода, а следующая сборка продолжит с того же места."
-            : "Публикация. Загруженные части не загружаются повторно: после обрыва просто опубликуйте ещё раз."}
+            : authorRun.job === "promote"
+              ? "Выпуск в релиз. Части не загружаются: копируется манифест беты."
+              : "Публикация в бету. Загруженные части не загружаются повторно: после обрыва просто опубликуйте ещё раз."}
         </div>
         <UpdateProgress progress={authorRun.progress} onCancel={api.authorCancel} />
         {authorRun.log.length > 0 && (
@@ -136,14 +138,14 @@ export function ReleaseBuilder({ canPublish, pending }: { canPublish: boolean; p
         <div className="flex flex-wrap items-center gap-3">
           <Button variant="primary" disabled={!canPublish} onClick={() => startAuthorJob("publish", api.authorPublish)}>
             <Rocket size={15} />
-            Опубликовать {built.version}
+            Опубликовать {built.version} в бету
           </Button>
           <Button onClick={() => setEditing(true)}>Собрать заново</Button>
           {!canPublish && <span className="text-[13px] text-muted">Сначала сохраните токен GitHub ниже</span>}
         </div>
         <p className="text-[13px] text-faint">
           Сначала загрузятся новые части и лаунчер проверит, что скачивается каждая часть сборки. Только после этого
-          игроки увидят новую версию.
+          версию увидят игроки с бетой; остальным её откроет «Выпустить в релиз».
         </p>
       </div>
     );
@@ -162,8 +164,8 @@ export function ReleaseBuilder({ canPublish, pending }: { canPublish: boolean; p
         <div className="flex items-start gap-2 text-[13px]">
           <CircleCheck size={15} className="mt-0.5 shrink-0 text-ok" />
           <span>
-            Версия {published} опубликована. Лаунчеры игроков увидят её при следующей проверке; GitHub может несколько минут
-            отдавать старый манифест.
+            Версия {published} опубликована в бету. Её видят игроки с включённой бетой; всем остальным её отдаёт кнопка
+            «Выпустить в релиз» ниже. GitHub может несколько минут отдавать старый манифест.
           </span>
         </div>
       )}
