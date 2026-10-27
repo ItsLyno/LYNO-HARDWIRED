@@ -18,10 +18,18 @@ export function ReleaseBuilder({ canPublish }: { canPublish: boolean }) {
   const installed = status?.installedVersion ?? null;
   const [form, setForm] = useState({ version: nextVersion(installed), gameVersion: build?.gameVersion ?? "", notes: "" });
   const [editing, setEditing] = useState(false);
+  const [preflight, setPreflight] = useState<string[]>([]);
 
   useEffect(() => {
     void refreshBuilt();
   }, [refreshBuilt]);
+  // Re-checked as the game version is typed: it is compared with the game's exe.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      api.authorPreflight(form.gameVersion).then(setPreflight, () => setPreflight([]));
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [form.gameVersion]);
   useEffect(() => {
     setForm((f) => ({ ...f, gameVersion: f.gameVersion || build?.gameVersion || "" }));
   }, [build?.gameVersion]);
@@ -81,16 +89,7 @@ export function ReleaseBuilder({ canPublish }: { canPublish: boolean }) {
           </p>
         )}
 
-        {built.warnings.length > 0 && (
-          <ul className="space-y-1">
-            {built.warnings.map((w) => (
-              <li key={w} className="flex gap-2 text-[13px] break-words text-warn">
-                <TriangleAlert size={14} className="mt-0.5 shrink-0" />
-                {w}
-              </li>
-            ))}
-          </ul>
-        )}
+        <Warnings items={built.warnings} />
 
         {built.notes.length > 0 && (
           <ul className="list-inside list-disc text-[13px] text-muted">
@@ -149,6 +148,7 @@ export function ReleaseBuilder({ canPublish }: { canPublish: boolean }) {
           className="w-full rounded-2xl bg-raised px-4 py-2.5 text-[13px] outline-none focus:ring-1 focus:ring-neon/50"
         />
       </Labeled>
+      <Warnings items={preflight} />
       <div className="flex items-center gap-3">
         <Button variant="primary" onClick={submit} disabled={!form.version.trim() || !form.gameVersion.trim()}>
           <Hammer size={15} />
@@ -164,6 +164,20 @@ export function ReleaseBuilder({ canPublish }: { canPublish: boolean }) {
         Закройте игру и MO2. Сборка упаковывает только новые и изменённые моды; моды под LYNO USER MODS в неё не попадают.
       </p>
     </div>
+  );
+}
+
+function Warnings({ items }: { items: string[] }) {
+  if (items.length === 0) return null;
+  return (
+    <ul className="space-y-1">
+      {items.map((w) => (
+        <li key={w} className="flex gap-2 text-[13px] break-words text-warn">
+          <TriangleAlert size={14} className="mt-0.5 shrink-0" />
+          {w}
+        </li>
+      ))}
+    </ul>
   );
 }
 

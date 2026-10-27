@@ -659,6 +659,14 @@ export const mock = {
     secrets[secret === "githubToken" ? "github" : "nexus"] = !!value;
   },
   authorBuilt: async () => built,
+  authorPreflight: async (gameVersion: string) => {
+    await delay(150);
+    const warnings = ['"Glitch Effects Tweaks": no Nexus mod id in meta.ini, no link in the launcher'];
+    if (gameVersion !== build.gameVersion) {
+      warnings.push(`game version "${gameVersion}" given, but the game this instance runs is patch ${build.gameVersion}: players are checked against ${build.gameVersion}`);
+    }
+    return warnings;
+  },
   authorBuild: async (version: string, gameVersion: string, notes: string[]) => {
     if (status.gameRunning || status.mo2Running) throw new Error("Закройте игру и Mod Organizer 2: MO2 переписывает список модов при выходе");
     if (build.latestVersion !== status.installedVersion) {

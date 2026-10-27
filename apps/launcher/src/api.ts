@@ -568,6 +568,8 @@ export const api = isTauri()
       /** null forgets the secret. A GitHub token is checked before it is saved. */
       authorSetSecret: (secret: Secret, value: string | null) => invoke<void>("author_set_secret", { secret, value }),
       authorBuilt: () => invoke<BuiltRelease | null>("author_built"),
+      /** What the build would warn about from the mod list alone, before hours of packing. */
+      authorPreflight: (gameVersion: string) => invoke<string[]>("author_preflight", { gameVersion }),
       authorBuild: (version: string, gameVersion: string, notes: string[]) =>
         invoke<void>("author_build", { version, gameVersion, notes }),
       authorPublish: () => invoke<void>("author_publish"),

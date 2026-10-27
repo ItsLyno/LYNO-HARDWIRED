@@ -119,6 +119,7 @@ pub fn run() {
             author::author_enable,
             author::author_set_secret,
             author::author_built,
+            author::author_preflight,
             author::author_build,
             author::author_publish,
             author::author_cancel,

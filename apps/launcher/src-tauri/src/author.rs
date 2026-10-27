@@ -284,6 +284,20 @@ pub fn author_built(app: AppHandle) -> CmdResult<Option<BuiltRelease>> {
     }))
 }
 
+/// What the build would warn about from the mod list alone, before packing.
+#[tauri::command]
+pub async fn author_preflight(app: AppHandle, game_version: String) -> CmdResult<Vec<String>> {
+    let settings = app.state::<AppState>().settings.lock().unwrap().clone();
+    let out = out_dir(&app, &settings)?;
+    let inst = Instance::new(&settings.instance_dir);
+    let profile = installed_manifest(&inst).ok_or("Сборка не установлена")?.profile;
+    // Reads every meta.ini: off the UI thread.
+    tauri::async_runtime::spawn_blocking(move || lyno_core::publish::preflight(inst.root(), &profile, game_version.trim(), &out))
+        .await
+        .map_err(err)?
+        .map_err(|e| format!("Не удалось проверить список модов: {e}"))
+}
+
 /// Packs the instance into `out/` in the background against the published
 /// build, which must be the installed one: the release is a diff of this
 /// instance, and an unaccepted newer build would be silently reverted.
