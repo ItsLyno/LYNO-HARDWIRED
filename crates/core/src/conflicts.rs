@@ -36,6 +36,8 @@ pub struct Conflicts {
     pub files: Vec<ModConflicts>,
     pub archives: Vec<ArchiveConflicts>,
     pub archive_order: ArchiveOrder,
+    /// File names of the archives sharing any resource, in the order the game loads them.
+    pub archive_load: Vec<String>,
 }
 
 /// One enabled mod's overlaps with the others; only mods that have any.
@@ -126,11 +128,11 @@ pub fn scan(inst: &Instance, list: &ModList) -> Result<Conflicts> {
         }
     }
     let archive_order = archive_order(inst);
-    let archives = archive_conflicts(&sources, &owners, archive_order);
+    let (archives, archive_load) = archive_conflicts(&sources, &owners, archive_order);
     let files = file_conflicts(&sources, &owners, &counts);
     let has = |name: &str| files.iter().any(|m| m.mod_folder == name) || archives.iter().any(|m| m.mod_folder == name);
     let mods = sources.iter().map(|(name, _)| name).filter(|name| has(name)).cloned().collect();
-    Ok(Conflicts { mods, files, archives, archive_order })
+    Ok(Conflicts { mods, files, archives, archive_order, archive_load })
 }
 
 fn file_conflicts(sources: &[(String, PathBuf)], owners: &HashMap<String, (String, Vec<usize>)>, counts: &[usize]) -> Vec<ModConflicts> {
@@ -226,12 +228,17 @@ fn load_order(sources: &[(String, PathBuf)], owners: &HashMap<String, (String, V
     loaded
 }
 
-fn archive_conflicts(sources: &[(String, PathBuf)], owners: &HashMap<String, (String, Vec<usize>)>, order: ArchiveOrder) -> Vec<ArchiveConflicts> {
+fn archive_conflicts(
+    sources: &[(String, PathBuf)],
+    owners: &HashMap<String, (String, Vec<usize>)>,
+    order: ArchiveOrder,
+) -> (Vec<ArchiveConflicts>, Vec<String>) {
     let loaded = load_order(sources, owners, order);
     // Unreadable or not an archive: the game skips it too, nothing to show.
     let hashes: Vec<Vec<u64>> = loaded.iter().map(|a| resource_hashes(&a.path).unwrap_or_default()).collect();
     let mut first: HashMap<u64, usize> = HashMap::new();
     let mut lost = vec![0usize; loaded.len()];
+    let mut shared = vec![false; loaded.len()];
     // (this archive, other archive) → resources, by the mod of this archive.
     let mut wins: Vec<BTreeMap<(usize, usize), Vec<u64>>> = vec![BTreeMap::new(); sources.len()];
     let mut loses: Vec<BTreeMap<(usize, usize), Vec<u64>>> = vec![BTreeMap::new(); sources.len()];
@@ -245,6 +252,7 @@ fn archive_conflicts(sources: &[(String, PathBuf)], owners: &HashMap<String, (St
             let (w, l) = (loaded[winner].source, loaded[idx].source);
             // A mod's own archives overriding each other is how its author built it.
             if w != l {
+                (shared[winner], shared[idx]) = (true, true);
                 wins[w].entry((winner, idx)).or_default().push(hash);
                 loses[l].entry((idx, winner)).or_default().push(hash);
             }
@@ -274,7 +282,8 @@ fn archive_conflicts(sources: &[(String, PathBuf)], owners: &HashMap<String, (St
             .collect();
         out.push(ArchiveConflicts { mod_folder: sources[idx].0.clone(), wins: overlaps(w), loses: overlaps(l), dead });
     }
-    out
+    let load = loaded.iter().zip(shared).filter(|(_, s)| *s).map(|(a, _)| a.name.clone()).collect();
+    (out, load)
 }
 
 /// Path hashes of an RDAR archive's resources, from its index alone (WolvenKit's `ArchiveReader`):
@@ -441,12 +450,14 @@ mod tests {
         assert_eq!(alpha.dead, ["z_main.archive"]);
         assert_eq!(alpha.loses.len(), 3);
         assert_eq!(c.mods, ["Zeta", "Old", "Alpha", "Fix", "Upper"], "Old by its hidden file");
+        assert_eq!(c.archive_load, ["#fix.archive", "B.archive", "a_patch.archive", "z_main.archive"], "only the ones sharing resources");
 
         // The plugin's list: lowest MO2 priority first and winning.
         let ini = "[Plugins]\r\nCyberpunk%202077%20Support%20Plugin\\enforce_archive_load_order=true\r\n";
         std::fs::write(inst.ini_path(), ini).unwrap();
         let c = scan(&inst, &list).unwrap();
         assert_eq!(c.archive_order, ArchiveOrder::Mo2);
+        assert_eq!(c.archive_load, ["a_patch.archive", "z_main.archive", "#fix.archive", "B.archive"]);
         assert_eq!(
             taken(&c),
             [
