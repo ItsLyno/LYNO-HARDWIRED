@@ -241,6 +241,32 @@ fn repacked_mods_list_their_changed_files() {
     assert_eq!(cet.settings.sample, ["bin/x64/plugins/cyber_engine_tweaks/bindings.json"]);
 }
 
+/// The author's own `Coop` MO2 profile says which mods are on in Coop; the profile itself never ships.
+#[test]
+fn build_records_what_the_authors_coop_profile_enables() {
+    let tmp = tempfile::tempdir().unwrap();
+    let author = tmp.path().join("author");
+    author_instance(&author);
+    let spec = |m: &Manifest, name: &str| m.mod_specs().find(|s| s.name == name).unwrap().coop;
+
+    let none = build(&author, &options("1.0.0", "http://x", &tmp.path().join("out"), None), &mut |_| ModInfo::default(), &mut |_| {}).unwrap().manifest;
+    assert!(!none.has_coop(), "no Coop profile, no Coop in the build");
+
+    // Archive Mod is not in the profile at all: off, as in MO2.
+    write(&author, "profiles/Coop/modlist.txt", b"# x\r\n+REDmod Thing\r\n-Extras_separator\r\n+CET\r\n");
+    let m = build(&author, &options("1.0.0", "http://x", &tmp.path().join("out"), None), &mut |_| ModInfo::default(), &mut |_| {}).unwrap().manifest;
+    assert!(m.has_coop());
+    assert_eq!(
+        [spec(&m, "CET"), spec(&m, "REDmod Thing"), spec(&m, "Archive Mod")],
+        [Some(true), Some(true), Some(false)]
+    );
+    assert!(!m.base.parts.is_empty());
+    assert!(
+        lyno_core::publish::base_files(&author, "LYNO", None).unwrap().iter().all(|f| !f.path.starts_with("profiles/Coop")),
+        "the Coop profile is made by the launcher"
+    );
+}
+
 /// The author takes back a bad release: the launcher installs the older build
 /// into their instance like an update, then a build of it packs nothing: every
 /// package is in the older releases, only a manifest goes up. The author's

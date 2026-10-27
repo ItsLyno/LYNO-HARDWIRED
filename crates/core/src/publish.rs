@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use crate::download::Downloader;
 use crate::files::{self, FileList};
 use crate::hash_cache::HashCache;
-use crate::manifest::{ChangelogEntry, Manifest, ModEntry, ModSpec, NexusRef, Package, Part, SCHEMA_VERSION};
+use crate::manifest::{ChangelogEntry, Manifest, ModEntry, ModSpec, NexusRef, Package, Part, COOP_PROFILE, SCHEMA_VERSION};
 use crate::meta::ModMeta;
 use crate::mo2::Instance;
 use crate::modlist::{Entry, EntryState, ModList};
@@ -146,6 +146,9 @@ pub fn build(
     let inst = Instance::new(root);
     let list = ModList::load(&inst.modlist_path(&opts.profile))?;
     let metas = inst.scan_mods()?;
+    // The author's Coop profile never ships: players get it made from these flags.
+    let coop_path = inst.modlist_path(COOP_PROFILE);
+    let coop_list = if coop_path.is_file() { Some(ModList::load(&coop_path)?) } else { None };
     let mut warnings = preflight(root, &opts.profile, &opts.game_version, &opts.out_dir)?;
     let cache = if opts.hash_cache { HashCache::load(root.join(".lyno").join("pack-cache.json")) } else { HashCache::disabled() };
     let mut packer = Packer { inst: &inst, opts, cache, assets: Vec::new(), repacked: Vec::new() };
@@ -226,6 +229,7 @@ pub fn build(
             name: entry.name.clone(),
             enabled: entry.state == EntryState::Enabled,
             optional: is_optional(&meta, core_section),
+            coop: coop_list.as_ref().map(|l| l.get(&entry.name).is_some_and(|e| e.state == EntryState::Enabled)),
             version: meta.version.clone(),
             description: meta.lyno_description.clone(),
             requires: meta.lyno_requires.clone(),

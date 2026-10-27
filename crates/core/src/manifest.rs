@@ -14,6 +14,10 @@ use crate::{Error, Result};
 
 pub const SCHEMA_VERSION: u32 = 4;
 
+/// The MO2 profile of the Coop mod set: the author's, from which `publish` records `ModSpec::coop`,
+/// and the one the launcher makes next to the build's to start the game in Coop.
+pub const COOP_PROFILE: &str = "Coop";
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Manifest {
@@ -79,6 +83,11 @@ pub struct ModSpec {
     /// core=true` on the mod or on its separator in the author's MO2.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub optional: bool,
+    /// On in the build's [`COOP_PROFILE`], as the author set it in their MO2 profile of that name.
+    /// `None` in builds without one. Unlike `enabled` the player can't change it: in Coop everybody
+    /// plays the same set, see [`crate::plan::coop_modlist`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub coop: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
     /// Confirmed hard dependencies, by stable build mod id. Nexus suggestions are separate.
@@ -147,6 +156,11 @@ impl Manifest {
             ModEntry::Mod(m) => Some(m),
             ModEntry::Separator { .. } => None,
         })
+    }
+
+    /// The build has a Coop mod set (the author's Coop profile was there when it was made).
+    pub fn has_coop(&self) -> bool {
+        self.mod_specs().any(|m| m.coop.is_some())
     }
 
     /// Folders of the build's separators in `mods/` (`<title>_separator`).
@@ -254,6 +268,7 @@ pub(crate) mod tests {
             name: format!("{id} folder"),
             enabled: true,
             optional: false,
+            coop: None,
             description: None,
             requires: vec![],
             version: Some("1.0".into()),
