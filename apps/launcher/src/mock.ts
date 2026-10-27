@@ -677,6 +677,18 @@ export const mock = {
     secrets[secret === "githubToken" ? "github" : "nexus"] = !!value;
   },
   authorBuilt: async () => built,
+  buildVersions: async () => {
+    await delay(200);
+    return publishedBuilds.filter((b) => b.version !== status.installedVersion);
+  },
+  switchBuild: async (commit: string) => {
+    if (status.gameRunning || status.mo2Running) throw new Error("Закройте игру и Mod Organizer 2 перед сменой версии");
+    const to = publishedBuilds.find((b) => b.commit === commit)?.version;
+    if (!to) throw new Error("Не удалось загрузить эту версию: GitHub answered 404");
+    cancelled = false;
+    status = { ...status, updating: true };
+    void simulateUpdate(to);
+  },
   authorVersions: async (): Promise<Versions> => {
     await delay(200);
     const builds = publishedBuilds.filter((b) => b.version !== status.installedVersion);

@@ -104,6 +104,8 @@ interface AppStore {
   /** Author: the published version of a build mod back over their edits. */
   startRollback: (id: string, folder: string, keepSettings: boolean) => Promise<void>;
   startRevert: (commit: string) => Promise<void>;
+  /** The player: an earlier released build instead of the latest. */
+  startSwitch: (commit: string) => Promise<void>;
   onUpdateEvent: (e: UpdateEvent) => void;
   onVerifyEvent: (e: UpdateEvent) => void;
   onUpdateFinished: (ok: boolean, error: string | null) => void;
@@ -309,6 +311,15 @@ export const useApp = create<AppStore>((set, get) => ({
     try {
       await api.authorRevert(commit);
       set({ verifyReport: null });
+      await get().refreshStatus();
+    } catch (e) {
+      set({ progress: null, error: String(e) });
+    }
+  },
+  startSwitch: async (commit) => {
+    set({ progress: noProgress });
+    try {
+      await api.switchBuild(commit);
       await get().refreshStatus();
     } catch (e) {
       set({ progress: null, error: String(e) });

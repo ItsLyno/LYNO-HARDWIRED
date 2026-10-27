@@ -1,6 +1,6 @@
-import { AppWindow, Check, Download, FileArchive, FolderOpen, Gamepad2, Globe, Image, Layers, Loader2, RotateCw, Search, Wrench, type LucideIcon } from "lucide-react";
+import { AppWindow, Check, Download, FileArchive, FolderOpen, Gamepad2, Globe, History, Image, Layers, Loader2, RotateCw, Search, Wrench, type LucideIcon } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
-import { api, type Folder, type Settings as SettingsT } from "../api";
+import { api, type Folder, type PublishedBuild, type Settings as SettingsT } from "../api";
 import { Button } from "../components/Button";
 import { InstanceSetup } from "../components/InstanceSetup";
 import { Integrity } from "../components/Integrity";
@@ -475,6 +475,73 @@ function Updates() {
           </div>
         </div>
       )}
+      {isBuild && !settings.authorMode && build?.online && <OtherVersions busy={busy} installed={installed} />}
+    </div>
+  );
+}
+
+/** Switching to an earlier release: it installs like an update (mods get that build's files), the way back is the usual «Обновить». */
+function OtherVersions({ busy, installed }: { busy: boolean; installed: string | null }) {
+  const { startSwitch, setPage } = useApp();
+  const [builds, setBuilds] = useState<PublishedBuild[] | null>(null);
+  const [pick, setPick] = useState("");
+  const [confirm, setConfirm] = useState(false);
+  useEffect(() => {
+    api.buildVersions().then(setBuilds, () => setBuilds([]));
+  }, [installed]);
+  const target = builds?.find((b) => b.commit === pick) ?? builds?.[0] ?? null;
+  const go = () => {
+    if (!target) return;
+    setConfirm(false);
+    setPage("mods");
+    void startSwitch(target.commit);
+  };
+  return (
+    <div className="border-t border-line/60 px-5 py-5">
+      <div className="text-sm font-medium">Другие версии сборки</div>
+      <div className="mt-0.5 text-[13px] text-muted">
+        Вернуться на прошлую версию: лаунчер скачает её моды заново и заменит нынешние, ваши моды останутся. Обратно на свежую версию — кнопка «Обновить» выше.
+      </div>
+      <div className="mt-3 flex flex-wrap items-center gap-3">
+        {!builds ? (
+          <span className="text-[13px] text-muted">Загрузка…</span>
+        ) : !target ? (
+          <span className="text-[13px] text-muted">Других версий нет</span>
+        ) : (
+          <>
+            <select
+              value={target.commit}
+              onChange={(e) => {
+                setPick(e.target.value);
+                setConfirm(false);
+              }}
+              className="h-9 rounded-full bg-raised px-4 font-mono text-[13px] outline-none focus:ring-1 focus:ring-neon/50"
+            >
+              {builds.map((b) => (
+                <option key={b.commit} value={b.commit}>
+                  {b.version}
+                </option>
+              ))}
+            </select>
+            {confirm ? (
+              <>
+                <Button variant="primary" disabled={busy} onClick={go}>
+                  <History size={15} />
+                  Да, перейти на {target.version}
+                </Button>
+                <Button variant="ghost" onClick={() => setConfirm(false)}>
+                  Отмена
+                </Button>
+              </>
+            ) : (
+              <Button disabled={busy} onClick={() => setConfirm(true)}>
+                <History size={15} />
+                Перейти на {target.version}
+              </Button>
+            )}
+          </>
+        )}
+      </div>
     </div>
   );
 }
