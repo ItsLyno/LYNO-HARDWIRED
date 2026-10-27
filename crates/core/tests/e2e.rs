@@ -267,6 +267,42 @@ fn build_records_what_the_authors_coop_profile_enables() {
     );
 }
 
+/// The Coop mod set travels in the manifest: the player's Coop profile has the author's mods on and
+/// everything of their own off, while their usual profile stays as it was.
+#[test]
+fn players_get_the_authors_coop_set_without_their_own_mods() {
+    use lyno_core::coop;
+    use lyno_core::install::load_state;
+    let tmp = tempfile::tempdir().unwrap();
+    let author = tmp.path().join("author");
+    let release = tmp.path().join("release");
+    author_instance(&author);
+    write(&author, "profiles/Coop/modlist.txt", b"# x\r\n+CET\r\n-Extras_separator\r\n+REDmod Thing\r\n");
+    let (base_url, _) = serve(release.clone());
+    let mut no_info = |_: &ModMeta| ModInfo { author: None, title: None };
+    let built = build(&author, &options("1.0.0", &base_url, &tmp.path().join("out"), None), &mut no_info, &mut |_| {}).unwrap();
+    upload(&built, &release);
+    let m = built.manifest;
+
+    let user = Instance::new(tmp.path().join("user"));
+    install(&user, &m);
+    write(user.root(), "mods/Mine/x.archive", b"mine");
+    let mut list = ModList::load(&user.modlist_path("LYNO")).unwrap();
+    list.entries.push(Entry::enabled("Mine"));
+    list.save(&user.modlist_path("LYNO")).unwrap();
+    assert!(!user.profile_dir("Coop").exists(), "the author's profile doesn't ship");
+
+    coop::prepare(&user, &m, &load_state(&user, &m, &list).unwrap()).unwrap();
+    let coop_list = ModList::load(&user.modlist_path("Coop")).unwrap();
+    let on = |name: &str| coop_list.get(name).map(|e| e.state);
+    assert_eq!(
+        [on("CET"), on("REDmod Thing"), on("Archive Mod"), on("Mine")],
+        [Some(EntryState::Enabled), Some(EntryState::Enabled), Some(EntryState::Disabled), Some(EntryState::Disabled)]
+    );
+    assert!(user.profile_dir("Coop").join("settings.ini").is_file());
+    assert_eq!(ModList::load(&user.modlist_path("LYNO")).unwrap(), list, "their usual profile is untouched");
+}
+
 /// The author takes back a bad release: the launcher installs the older build
 /// into their instance like an update, then a build of it packs nothing: every
 /// package is in the older releases, only a manifest goes up. The author's
