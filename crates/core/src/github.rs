@@ -33,6 +33,13 @@ pub struct GitHub {
     manifest_sha: Option<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub struct PublishedBuild {
+    pub version: String,
+    /// Commit of `main` that published it.
+    pub commit: String,
+}
+
 struct Release {
     id: u64,
     /// Name → (asset id, size, fully uploaded).
@@ -85,6 +92,43 @@ impl GitHub {
             )));
         }
         Ok(())
+    }
+
+    /// Builds published before, newest first, from the last 100 commits of
+    /// the manifest on `main`: the launcher and `lyno-pack` both title them
+    /// `Build <version>`. Their parts stay downloadable: old releases are never deleted.
+    pub fn published_builds(&self) -> Result<Vec<PublishedBuild>> {
+        let path = format!("/repos/{}/commits?path={}&sha={BRANCH}&per_page=100", self.repo, encode(PUBLISHED_MANIFEST));
+        let (status, body) = self.call("GET", &path, None)?;
+        let list = expect(status, &body, &[200], &format!("history of {PUBLISHED_MANIFEST}"))?;
+        Ok(list
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(|c| {
+                let version = c["commit"]["message"].as_str()?.lines().next()?.strip_prefix("Build ")?.trim();
+                Some(PublishedBuild { version: version.to_owned(), commit: c["sha"].as_str()?.to_owned() })
+            })
+            .collect())
+    }
+
+    /// The manifest as commit `commit` published it.
+    pub fn manifest_at(&self, commit: &str) -> Result<String> {
+        self.raw_manifest(&format!("/repos/{}/contents/{PUBLISHED_MANIFEST}?ref={}", self.repo, encode(commit)))
+    }
+
+    /// The JSON answer carries the content only up to 1 MB; the raw one always.
+    fn raw_manifest(&self, path: &str) -> Result<String> {
+        let url = format!("{}{path}", self.api);
+        let mut resp = self
+            .request("GET", &url)
+            .header("Accept", "application/vnd.github.raw")
+            .call()
+            .map_err(|e| Error::Release(format!("GitHub {PUBLISHED_MANIFEST}: {e}")))?;
+        let status = resp.status().as_u16();
+        let text = resp.body_mut().read_to_string().map_err(|e| Error::Release(format!("GitHub {PUBLISHED_MANIFEST}: {e}")))?;
+        expect_status(status, &text, &[200], PUBLISHED_MANIFEST)?;
+        Ok(text)
     }
 
     fn request(&self, method: &str, url: &str) -> ureq::RequestBuilder<ureq::typestate::WithoutBody> {
@@ -162,17 +206,7 @@ impl Host for GitHub {
         }
         let meta = expect(status, &body, &[200], PUBLISHED_MANIFEST)?;
         self.manifest_sha = meta["sha"].as_str().map(Into::into);
-        // The JSON answer carries the content only up to 1 MB; the raw one always.
-        let url = format!("{}{path}", self.api);
-        let mut resp = self
-            .request("GET", &url)
-            .header("Accept", "application/vnd.github.raw")
-            .call()
-            .map_err(|e| Error::Release(format!("GitHub {PUBLISHED_MANIFEST}: {e}")))?;
-        let status = resp.status().as_u16();
-        let text = resp.body_mut().read_to_string().map_err(|e| Error::Release(format!("GitHub {PUBLISHED_MANIFEST}: {e}")))?;
-        expect_status(status, &text, &[200], PUBLISHED_MANIFEST)?;
-        Ok(Some(text))
+        self.raw_manifest(&path).map(Some)
     }
 
     fn release_assets(&mut self, tag: &str) -> Result<Option<HashMap<String, u64>>> {

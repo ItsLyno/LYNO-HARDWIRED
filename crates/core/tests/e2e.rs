@@ -241,6 +241,49 @@ fn repacked_mods_list_their_changed_files() {
     assert_eq!(cet.settings.sample, ["bin/x64/plugins/cyber_engine_tweaks/bindings.json"]);
 }
 
+/// The author takes back a bad release: the launcher installs the older build
+/// into their instance like an update, then a build of it packs nothing: every
+/// package is in the older releases, only a manifest goes up. The author's
+/// unreleased mod goes under LYNO USER MODS, out of the build.
+#[test]
+fn going_back_to_an_older_build_repacks_nothing() {
+    let tmp = tempfile::tempdir().unwrap();
+    let author = tmp.path().join("author");
+    let release = tmp.path().join("release");
+    author_instance(&author);
+    let (base_url, _) = serve(release.clone());
+    let mut no_info = |_: &ModMeta| ModInfo::default();
+    let out = tmp.path().join("out");
+    let built = build(&author, &options("1.0.0", &base_url, &out, None), &mut no_info, &mut |_| {}).unwrap();
+    upload(&built, &release);
+    let m1 = built.manifest;
+    write(&author, "mods/Archive Mod/archive/pc/mod/a.archive", &noise(200_000, 7));
+    let built = build(&author, &options("1.1.0", &base_url, &out, Some(m1.clone())), &mut no_info, &mut |_| {}).unwrap();
+    upload(&built, &release);
+    let m2 = built.manifest;
+
+    // The author's launcher instance has 1.1.0 and a new mod for the next release.
+    let inst = Instance::new(tmp.path().join("instance"));
+    install(&inst, &m2);
+    write(inst.root(), "mods/Unreleased/x.archive", b"wip");
+    let mut list = ModList::load(&inst.modlist_path("LYNO")).unwrap();
+    list.entries.insert(0, Entry::enabled("Unreleased"));
+    list.save(&inst.modlist_path("LYNO")).unwrap();
+
+    let actions = install(&inst, &m1);
+    assert_eq!(actions, [Action::Update { id: "archive-mod".into(), from_folder: "Archive Mod".into() }]);
+    let changes = pending(&inst, &m1).unwrap();
+    assert!(changes.is_empty(), "{changes:?}");
+    assert_eq!(changes.personal, ["Unreleased"]);
+
+    let out = tmp.path().join("out-instance");
+    let built = build(inst.root(), &options("1.2.0", &base_url, &out, Some(m1.clone())), &mut no_info, &mut |_| {}).unwrap();
+    assert_eq!(built.repacked, []);
+    assert_eq!(built.assets, []);
+    let packages = |m: &Manifest| m.mod_specs().map(|s| s.package.clone()).collect::<Vec<_>>();
+    assert_eq!(packages(&built.manifest), packages(&m1));
+}
+
 /// The player removes optional build mods, in the launcher or in MO2: updates
 /// leave them out until the player brings them back. Core mods stay.
 #[test]
@@ -950,6 +993,8 @@ fn author_releases_from_launcher_instance() {
 struct FakeGitHub {
     /// (blob sha, content)
     manifest: Option<(String, Vec<u8>)>,
+    /// Commits of the manifest, oldest first: (commit sha, message, content).
+    history: Vec<(String, String, Vec<u8>)>,
     /// (id, tag)
     releases: Vec<(u64, String)>,
     /// asset id → (release id, name, bytes)
@@ -1014,6 +1059,19 @@ fn fake_github(token: &'static str) -> (String, std::sync::Arc<std::sync::Mutex<
                 let id_after = |prefix: &str| path.strip_prefix(prefix).and_then(|r| r.split('/').next()).and_then(|r| r.parse::<u64>().ok());
                 match (method.as_str(), path) {
                     ("GET", "/repos/o/r") => (200, json(serde_json::json!({ "permissions": { "push": true } }))),
+                    ("GET", "/repos/o/r/commits") => {
+                        assert!(query.contains("path=build%2Fmanifest.json") && query.contains("sha=main"), "{query}");
+                        let list: Vec<_> = st.history.iter().rev().map(|(sha, message, _)| serde_json::json!({ "sha": sha, "commit": { "message": message } })).collect();
+                        (200, json(serde_json::json!(list)))
+                    }
+                    ("GET", "/repos/o/r/contents/build/manifest.json") if !query.contains("ref=main") => {
+                        let commit = query.strip_prefix("ref=").unwrap();
+                        match st.history.iter().find(|c| c.0 == commit) {
+                            Some((_, _, content)) if headers.get("accept").is_some_and(|a| a.contains("raw")) => (200, content.clone()),
+                            Some(_) => (200, json(serde_json::json!({ "sha": "blob" }))),
+                            None => (404, json(serde_json::json!({ "message": "No commit found for the ref" }))),
+                        }
+                    }
                     ("GET", "/repos/o/r/contents/build/manifest.json") => match &st.manifest {
                         None => (404, json(serde_json::json!({ "message": "Not Found" }))),
                         Some((_, content)) if headers.get("accept").is_some_and(|a| a.contains("raw")) => (200, content.clone()),
@@ -1026,6 +1084,8 @@ fn fake_github(token: &'static str) -> (String, std::sync::Arc<std::sync::Mutex<
                             (Some(_), None) => (422, json(serde_json::json!({ "message": "\"sha\" wasn't supplied." }))),
                             _ => {
                                 let content = base64::engine::general_purpose::STANDARD.decode(v["content"].as_str().unwrap()).unwrap();
+                                let commit = format!("c{}", st.history.len() + 1);
+                                st.history.push((commit, v["message"].as_str().unwrap().to_owned(), content.clone()));
                                 st.manifest = Some((blake3::hash(&content).to_hex()[..12].to_owned(), content));
                                 (200, json(serde_json::json!({})))
                             }
@@ -1123,6 +1183,7 @@ fn publishes_through_github_api() {
     // 1.1.0: an earlier run created the release and left one part half-uploaded.
     write(&author, "mods/Archive Mod/archive/pc/mod/a.archive", &noise(200_000, 5));
     let m1 = built.manifest;
+    let m1_published = m1.clone();
     let built = build(&author, &options("1.1.0", &format!("{download}/build-1.1.0"), &out, Some(m1)), &mut no_info, &mut |_| {}).unwrap();
     std::fs::write(out.join("manifest.json"), serde_json::to_string(&built.manifest).unwrap()).unwrap();
     let half = &built.assets[0];
@@ -1151,9 +1212,17 @@ fn publishes_through_github_api() {
     gh.lock().unwrap().log.clear();
     let mut host = GitHub::with_roots("o/r", "tok", &root, &root);
     publish(&mut host, &opts, &Downloader::new(), &no, &mut |_| true, &|_| {}).unwrap();
-    let st = gh.lock().unwrap();
-    assert!(!st.log.iter().any(|l| l.starts_with("POST /repos/o/r/releases/")), "nothing uploaded again: {:?}", st.log);
-    assert_eq!(Manifest::from_json(std::str::from_utf8(&st.manifest.as_ref().unwrap().1).unwrap()).unwrap().build_version, "1.1.0");
+    {
+        let st = gh.lock().unwrap();
+        assert!(!st.log.iter().any(|l| l.starts_with("POST /repos/o/r/releases/")), "nothing uploaded again: {:?}", st.log);
+        assert_eq!(Manifest::from_json(std::str::from_utf8(&st.manifest.as_ref().unwrap().1).unwrap()).unwrap().build_version, "1.1.0");
+    }
+
+    // Earlier builds, to go back to: from the manifest's history on main.
+    let builds = host.published_builds().unwrap();
+    let versions: Vec<_> = builds.iter().map(|b| b.version.as_str()).collect();
+    assert_eq!(versions, ["1.1.0", "1.0.0"]);
+    assert_eq!(Manifest::from_json(&host.manifest_at(&builds[1].commit).unwrap()).unwrap(), m1_published);
 }
 
 /// A fake Nexus: the API answers and the CDN file are static files of `dir`,
