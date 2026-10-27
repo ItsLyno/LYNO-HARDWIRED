@@ -1208,7 +1208,10 @@ fn publishes_through_github_api() {
         assert!(!st.manifests.contains_key(RELEASE), "beta is not release");
     }
     promote(&mut host, &Downloader::new(), &|_| {}).unwrap();
-    assert_eq!(gh.lock().unwrap().manifests[BETA].1, gh.lock().unwrap().manifests[RELEASE].1);
+    {
+        let st = gh.lock().unwrap();
+        assert_eq!(st.manifests[BETA].1, st.manifests[RELEASE].1);
+    }
 
     // 1.1.0: an earlier run created the release and left one part half-uploaded.
     write(&author, "mods/Archive Mod/archive/pc/mod/a.archive", &noise(200_000, 5));
