@@ -1,4 +1,4 @@
-import { ChevronDown, Download, Loader2, X } from "lucide-react";
+import { Bug, ChevronDown, Copy, Download, FolderSearch, Loader2, Package, Rocket, TriangleAlert, X, type LucideIcon } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { api, type GameMismatch, type LastUpdate, type OwnCopy, type RunReport } from "../api";
 import { downloadLabel, plural } from "../format";
@@ -36,7 +36,7 @@ export function Notices() {
     <div className="space-y-3 empty:hidden [&:not(:empty)]:mt-4">
       {progress && <UpdateProgress progress={progress} />}
       {status && !status.gameFound && (
-        <Notice tone="bad" text="Папка Cyberpunk 2077 не найдена: без неё игру не запустить.">
+        <Notice tone="bad" icon={FolderSearch} label="Игра" text="Папка Cyberpunk 2077 не найдена: без неё игру не запустить.">
           <Button className="h-8 text-[13px]" onClick={() => setPage("settings")}>
             Указать в настройках
           </Button>
@@ -45,7 +45,7 @@ export function Notices() {
       {status?.gameMismatch && <GameMismatchNotice m={status.gameMismatch} />}
       {isBuild && build?.lastUpdate && build.lastUpdate.ownCopies.length > 0 && !settings?.authorMode && <OwnCopiesNotice update={build.lastUpdate} />}
       {runReport && (
-        <Notice tone={runReport.scriptsFailed ? "bad" : "accent"} text={runSummary(runReport)}>
+        <Notice tone={runReport.scriptsFailed ? "bad" : "accent"} icon={Bug} label="Последний запуск" text={runSummary(runReport)}>
           <Button className="h-8 text-[13px]" onClick={() => setProblems(true)}>
             Подробнее
           </Button>
@@ -58,6 +58,8 @@ export function Notices() {
       {buildUpdate && !progress && (
         <Notice
           tone="accent"
+          icon={Package}
+          label="Сборка"
           text={
             <>
               {isRepairOnly(buildUpdate)
@@ -98,7 +100,7 @@ export function Notices() {
         </Notice>
       )}
       {launcherUpdate && (
-        <Notice tone="accent" text={`Доступен лаунчер ${launcherUpdate.version}`}>
+        <Notice tone="accent" icon={Rocket} label="Лаунчер" text={`Доступен лаунчер ${launcherUpdate.version}`}>
           <Button
             className="h-8 text-[13px]"
             onClick={installLauncher}
@@ -128,6 +130,8 @@ function GameMismatchNotice({ m }: { m: GameMismatch }) {
   return (
     <Notice
       tone="bad"
+      icon={TriangleAlert}
+      label="Версия игры"
       text={text}
       below={
         open && (
@@ -192,6 +196,8 @@ function OwnCopiesNotice({ update }: { update: LastUpdate }) {
   return (
     <Notice
       tone="accent"
+      icon={Copy}
+      label="Ваши моды"
       text={
         n === 1
           ? `В сборку ${update.to} вошёл мод «${update.ownCopies[0].title}», который у вас уже стоял: ваш выключен`
@@ -249,13 +255,25 @@ function runSummary(r: RunReport): string {
   return `В последнем запуске моды записали ${n} ${plural(n, "ошибку", "ошибки", "ошибок")}${named}`;
 }
 
-const tones = { accent: "text-accent", bad: "text-bad" };
+const tones = {
+  accent: { text: "text-accent", chip: "bg-accent/15", bar: "before:bg-accent" },
+  bad: { text: "text-bad", chip: "bg-bad/15", bar: "before:bg-bad" },
+};
 
-function Notice(props: { tone: keyof typeof tones; text: ReactNode; below?: ReactNode; children?: ReactNode }) {
+/** Every notice says what it is about (icon + label) before what it says: with several at once they are told apart
+ *  by the label and the colour bar, not by reading each line. */
+function Notice(props: { tone: keyof typeof tones; icon: LucideIcon; label: string; text: ReactNode; below?: ReactNode; children?: ReactNode }) {
+  const t = tones[props.tone];
   return (
-    <div className="panel text-[13px]">
+    <div className={`panel relative overflow-hidden text-[13px] before:absolute before:inset-y-0 before:left-0 before:w-1 ${t.bar}`}>
       <div className="flex min-h-12 items-center gap-3 px-5 py-2">
-        <span className={`min-w-0 flex-1 truncate ${tones[props.tone]}`}>{props.text}</span>
+        <span className={`inline-flex shrink-0 items-center gap-2 text-[11px] font-medium uppercase tracking-wider ${t.text}`}>
+          <span className={`inline-flex size-6 items-center justify-center rounded-full ${t.chip}`}>
+            <props.icon size={14} />
+          </span>
+          <span className="w-28 truncate">{props.label}</span>
+        </span>
+        <span className="min-w-0 flex-1 truncate text-fg">{props.text}</span>
         {props.children}
       </div>
       {props.below}
