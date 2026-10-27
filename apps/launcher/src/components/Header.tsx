@@ -39,20 +39,20 @@ export function Header() {
         ))}
       </nav>
       <div data-tauri-drag-region className="h-full flex-1" />
-      <div className="flex items-center gap-2 rounded-full bg-surface p-1">
+      <div className="flex items-center gap-1 rounded-full bg-surface p-1">
         <Inbox />
         <Launch />
-        <div className="flex items-center gap-1">
-          <WinButton label="Свернуть" onClick={() => win?.minimize()}>
-            <Minus size={14} />
-          </WinButton>
-          <WinButton label="Развернуть" onClick={() => win?.toggleMaximize()}>
-            <Square size={11} />
-          </WinButton>
-          <WinButton label="Закрыть" danger onClick={() => win?.close()}>
-            <X size={15} />
-          </WinButton>
-        </div>
+      </div>
+      <div className="flex items-center gap-1">
+        <WinButton label="Свернуть" onClick={() => win?.minimize()}>
+          <Minus size={14} />
+        </WinButton>
+        <WinButton label="Развернуть" onClick={() => win?.toggleMaximize()}>
+          <Square size={11} />
+        </WinButton>
+        <WinButton label="Закрыть" danger onClick={() => win?.close()}>
+          <X size={15} />
+        </WinButton>
       </div>
     </header>
   );
