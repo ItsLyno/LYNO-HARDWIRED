@@ -67,13 +67,13 @@ export function Settings() {
     <div className="mx-auto max-w-5xl space-y-6">
       <PageTitle>Настройки</PageTitle>
       <div className="flex items-start gap-8">
-        <nav className="sticky top-4 w-48 shrink-0 space-y-1">
+        <nav className="sticky top-4 flex w-48 shrink-0 flex-col gap-0.5 rounded-3xl bg-surface p-1">
           {TABS.map(([id, label, Icon]) => (
             <button
               key={id}
               onClick={() => setTab(id)}
               aria-current={tab === id}
-              className={`flex h-9 w-full items-center gap-2.5 rounded-full px-4 text-left text-[13px] transition-colors ${
+              className={`flex h-8 w-full items-center gap-2.5 rounded-full px-4 text-left text-[13px] transition-colors ${
                 tab === id ? "bg-raised text-fg ring-1 ring-neon/50" : "text-muted hover:bg-raised hover:text-fg"
               }`}
             >
