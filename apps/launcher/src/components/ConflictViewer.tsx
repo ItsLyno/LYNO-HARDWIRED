@@ -354,8 +354,10 @@ function archiveLadder(mod: ArchiveConflicts, data: Conflicts, rank: (folder: st
   return { rows: [...rows.values()].sort(order), edges };
 }
 
-const STEP = 48;
-const GUTTER = 120;
+const STEP = 42;
+const GUTTER = 64;
+/** Vertical gap between the ends of arcs meeting at one row. */
+const PORT = 6;
 
 /** The mod among the ones it shares files with, top to bottom in the order that decides; arcs lead to whose copy the game gets. */
 function Ladder({
@@ -373,6 +375,14 @@ function Ladder({
   const [picked, setPicked] = useState<string | null>(null);
   const index = new Map(rows.map((r, i) => [r.key, i] as const));
   const y = (key: string) => index.get(key)! * STEP + STEP / 2;
+  // Arcs meeting at a row end side by side, ordered by where they come from, so they don't cross there.
+  const ends = new Map<string, number>();
+  for (const r of rows) {
+    const touching = edges.filter((e) => e.loser === r.key || e.winner === r.key);
+    const from = (e: Edge) => index.get(e.loser === r.key ? e.winner : e.loser)!;
+    touching.sort((p, q) => from(p) - from(q)).forEach((e, k) => ends.set(`${r.key}|${e.loser}>${e.winner}`, (k - (touching.length - 1) / 2) * PORT));
+  }
+  const end = (row: string, e: Edge) => y(row) + ends.get(`${row}|${e.loser}>${e.winner}`)!;
   const max = Math.max(...edges.map((e) => e.items.length), 1);
   const mine = (key: string) => rows[index.get(key)!].folder === self;
   const shared = (r: Row) => edges.filter((e) => e.loser === r.key || e.winner === r.key);
@@ -397,14 +407,21 @@ function Ladder({
       <div className="relative mt-4" style={{ height: rows.length * STEP }}>
         <svg aria-hidden="true" width={GUTTER} height={rows.length * STEP} className="absolute top-0 left-0 overflow-visible">
           {edges.map((e) => {
-            const [y1, y2] = [y(e.loser), y(e.winner)];
-            const bulge = Math.min(16 + (Math.abs(y1 - y2) / STEP) * 16, GUTTER - 12);
+            const [y1, y2] = [end(e.loser, e), end(e.winner, e)];
+            const x = GUTTER - 6;
+            const bulge = Math.min(10 + (Math.abs(y1 - y2) / STEP) * 10, x - 4);
             const lit = !picked || e.loser === picked || e.winner === picked;
-            const tone = mine(e.winner) ? "neon" : "warn";
             return (
-              <g key={`${e.loser}>${e.winner}`} className={`${tone === "neon" ? "fill-neon stroke-neon" : "fill-warn stroke-warn"} ${lit ? "opacity-80" : "opacity-15"}`}>
-                <path d={`M${GUTTER},${y1} C${GUTTER - bulge},${y1} ${GUTTER - bulge},${y2} ${GUTTER},${y2}`} fill="none" strokeWidth={1.5 + 6 * Math.sqrt(e.items.length / max)} />
-                <polygon points={`${GUTTER + 2},${y2} ${GUTTER - 10},${y2 - 6} ${GUTTER - 10},${y2 + 6}`} stroke="none" />
+              <g key={`${e.loser}>${e.winner}`} className={`${mine(e.winner) ? "fill-neon stroke-neon" : "fill-warn stroke-warn"} ${lit ? "opacity-70" : "opacity-15"} transition-opacity`}>
+                {/* The line stops short of the head, which ends at the row. */}
+                <path
+                  d={`M${x},${y1} C${x - bulge},${y1} ${x - bulge},${y2} ${x - 5},${y2}`}
+                  fill="none"
+                  strokeLinecap="round"
+                  strokeWidth={1.25 + 2.25 * Math.sqrt(e.items.length / max)}
+                />
+                <circle cx={x} cy={y1} r={2} stroke="none" />
+                <polygon points={`${x + 1},${y2} ${x - 6},${y2 - 3.5} ${x - 6},${y2 + 3.5}`} stroke="none" />
               </g>
             );
           })}
@@ -415,39 +432,41 @@ function Ladder({
             const [t, g] = [takes(r), gives(r)];
             const [up, down] = [step(i, -1), step(i, 1)];
             return (
-              <div
-                key={r.key}
-                style={{ height: STEP }}
-                className={`flex items-center gap-1 rounded-md pr-1 ${me ? "bg-neon/10 ring-1 ring-neon/50" : r.key === picked ? "bg-raised" : ""}`}
-              >
-                <button
-                  onClick={() => !me && setPicked(r.key === picked ? null : r.key)}
-                  disabled={me}
-                  className={`flex h-full min-w-0 flex-1 items-center gap-4 rounded-md px-3 text-left ${me ? "cursor-default" : "hover:bg-raised/60"}`}
+              <div key={r.key} style={{ height: STEP }} className="py-[3px]">
+                <div
+                  className={`flex h-full items-center gap-1 rounded-lg pr-1 transition-colors ${
+                    me ? "bg-neon/10 ring-1 ring-neon/40" : r.key === picked ? "bg-raised ring-1 ring-line" : "bg-raised/40"
+                  }`}
                 >
-                  <span className="w-8 shrink-0 font-mono text-[11px] text-faint tabular-nums">{archives && !move ? i + 1 : `#${number(r.folder)}`}</span>
-                  {archives && <span className={`w-96 shrink-0 truncate font-mono text-[12px] ${me ? "text-fg" : "text-fg/80"}`}>{r.archive}</span>}
-                  <span className={`min-w-0 flex-1 truncate text-[13px] ${me ? "font-semibold text-fg" : archives ? "text-muted" : "text-fg/85"}`}>
-                    {me ? (archives ? "этот мод" : title(r.folder)) : title(r.folder)}
-                  </span>
-                  <span className="shrink-0 text-right text-[12px] tabular-nums">
-                    {r.note ? (
-                      <span className={r.note.tone}>{r.note.text}</span>
-                    ) : (
-                      <>
-                        {t > 0 && <span className="text-warn">забирает {t}</span>}
-                        {t > 0 && g > 0 && <span className="text-faint"> · </span>}
-                        {g > 0 && <span className="text-neon">уступает {g}</span>}
-                      </>
-                    )}
-                  </span>
-                </button>
-                {move && (
-                  <span className="flex w-16 shrink-0 justify-end">
-                    <MoveButton dir="up" target={up} locked={move.locked} title={title} onMove={(after) => void move.run(r.folder, after)} />
-                    <MoveButton dir="down" target={down} locked={move.locked} title={title} onMove={(after) => void move.run(r.folder, after)} />
-                  </span>
-                )}
+                  <button
+                    onClick={() => !me && setPicked(r.key === picked ? null : r.key)}
+                    disabled={me}
+                    className={`flex h-full min-w-0 flex-1 items-center gap-3 rounded-lg px-3 text-left ${me ? "cursor-default" : "hover:bg-raised/70"}`}
+                  >
+                    <span className="w-8 shrink-0 font-mono text-[11px] text-faint tabular-nums">{archives && !move ? i + 1 : `#${number(r.folder)}`}</span>
+                    {archives && <span className={`w-80 shrink-0 truncate font-mono text-[12px] ${me ? "text-fg" : "text-fg/80"}`}>{r.archive}</span>}
+                    <span className={`min-w-0 flex-1 truncate text-[13px] ${me ? "font-semibold text-fg" : archives ? "text-muted" : "text-fg/85"}`}>
+                      {me ? (archives ? "этот мод" : title(r.folder)) : title(r.folder)}
+                    </span>
+                    <span className="shrink-0 text-right text-[12px] tabular-nums">
+                      {r.note ? (
+                        <span className={r.note.tone}>{r.note.text}</span>
+                      ) : (
+                        <>
+                          {t > 0 && <span className="text-warn">забирает {t}</span>}
+                          {t > 0 && g > 0 && <span className="text-faint"> · </span>}
+                          {g > 0 && <span className="text-neon">уступает {g}</span>}
+                        </>
+                      )}
+                    </span>
+                  </button>
+                  {move && (
+                    <span className="flex w-16 shrink-0 justify-end">
+                      <MoveButton dir="up" target={up} locked={move.locked} title={title} onMove={(after) => void move.run(r.folder, after)} />
+                      <MoveButton dir="down" target={down} locked={move.locked} title={title} onMove={(after) => void move.run(r.folder, after)} />
+                    </span>
+                  )}
+                </div>
               </div>
             );
           })}
