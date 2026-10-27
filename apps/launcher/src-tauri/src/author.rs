@@ -170,8 +170,8 @@ fn reverted_from(inst: &Instance) -> Option<String> {
 pub struct Versions {
     /// The instance went back from this published version.
     reverted_from: Option<String>,
-    /// Builds to go back to, newest first, without the installed one: released ones and ones only in beta.
-    /// Empty without a GitHub token.
+    /// Builds to go to, newest first, the installed one too (to undo changes since it): released ones and
+    /// ones only in beta. Empty without a GitHub token.
     builds: Vec<PublishedBuild>,
 }
 
@@ -181,13 +181,12 @@ pub async fn author_versions(app: AppHandle) -> CmdResult<Versions> {
     let inst = Instance::new(&settings.instance_dir);
     let reverted_from = reverted_from(&inst);
     let Some(token) = secrets::get(Secret::GithubToken) else { return Ok(Versions { reverted_from, builds: vec![] }) };
-    let installed = installed_manifest(&inst).map(|m| m.build_version);
     let repo = settings.author_repo.clone();
     let builds = tauri::async_runtime::spawn_blocking(move || GitHub::new(&repo, &token).author_builds())
         .await
         .map_err(err)?
         .map_err(|e| format!("Не удалось прочитать историю выпусков: {e}"))?;
-    Ok(Versions { reverted_from, builds: builds.into_iter().filter(|b| Some(&b.version) != installed.as_ref()).collect() })
+    Ok(Versions { reverted_from, builds })
 }
 
 /// Installs an earlier published build into the instance like an update, to
@@ -195,8 +194,10 @@ pub async fn author_versions(app: AppHandle) -> CmdResult<Versions> {
 /// have go under LYNO USER MODS. Players stay on the published build until the
 /// author releases a new version from here; nothing is packed for it, every
 /// package is in the older releases. Going back to the published build undoes it.
+/// The installed build itself undoes the changes since it; `edited` are mods
+/// verify found changed, they get the build's files again.
 #[tauri::command]
-pub async fn author_revert(app: AppHandle, commit: String, beta: bool) -> CmdResult<()> {
+pub async fn author_revert(app: AppHandle, commit: String, beta: bool, edited: Vec<String>) -> CmdResult<()> {
     let (settings, published) = {
         let state = app.state::<AppState>();
         let settings = ready(&state)?;
@@ -214,7 +215,8 @@ pub async fn author_revert(app: AppHandle, commit: String, beta: bool) -> CmdRes
         .map_err(err)?
         .map_err(|e| format!("Не удалось загрузить эту версию: {e}"))?;
     let manifest = Manifest::from_json(&text).map_err(|e| format!("Эту версию лаунчер прочитать не может: {e}"))?;
-    log::info!("author goes back from build {} to {}", published.build_version, manifest.build_version);
+    log::info!("author goes back from build {} to {}, edited mods: {edited:?}", published.build_version, manifest.build_version);
+    lyno_core::install::mark_for_reset(&Instance::new(&settings.instance_dir), &edited).map_err(err)?;
     let (to, from) = (manifest.build_version.clone(), published.build_version);
     crate::commands::spawn_update(app, manifest, settings, move |inst| {
         let path = revert_marker(inst);
