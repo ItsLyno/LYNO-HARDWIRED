@@ -256,7 +256,13 @@ export interface BuiltRelease {
   gameVersion: string;
   notes: string[];
   /** New or changed packages. Empty when `restored`. */
-  repacked: { name: string; changed: boolean; size: number }[];
+  repacked: {
+    name: string;
+    changed: boolean;
+    size: number;
+    /** Against the published package; null for a new mod, the base, or a mod without a file record. */
+    files: { changed: Files; added: Files; missing: Files; settings: Files } | null;
+  }[];
   uploadSize: number;
   mods: number;
   warnings: string[];

@@ -210,6 +210,7 @@ let authorCancelled = false;
 
 async function simulateBuild(version: string, gameVersion: string, notes: string[]) {
   authorCancelled = false;
+  const none = { count: 0, sample: [] };
   const names = mods.flatMap((m) => (m.kind === "mod" ? [m.name] : []));
   const total = names.length + 1;
   for (const [i, name] of ["base (MO2, профиль)", ...names].entries()) {
@@ -223,9 +224,15 @@ async function simulateBuild(version: string, gameVersion: string, notes: string
     gameVersion,
     notes,
     repacked: [
-      { name: "ArchiveXL", changed: true, size: 2 * MB },
-      { name: "Nova LUT", changed: true, size: 180 * MB },
-      { name: "Kiroshi Night Vision", changed: false, size: 14 * MB },
+      {
+        name: "ArchiveXL", changed: true, size: 2 * MB,
+        files: { changed: none, added: none, missing: none, settings: { count: 1, sample: ["red4ext/plugins/ArchiveXL/config.json"] } },
+      },
+      {
+        name: "Nova LUT", changed: true, size: 180 * MB,
+        files: { changed: { count: 2, sample: ["archive/pc/mod/NovaLUT.archive", "archive/pc/mod/NovaLUT.xl"] }, added: none, missing: none, settings: none },
+      },
+      { name: "Kiroshi Night Vision", changed: false, size: 14 * MB, files: null },
     ],
     uploadSize: 196 * MB,
     mods: names.length,

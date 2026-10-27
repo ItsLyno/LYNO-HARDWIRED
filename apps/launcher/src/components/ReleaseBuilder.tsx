@@ -1,9 +1,10 @@
 import { CircleCheck, Hammer, ListPlus, Rocket, TriangleAlert } from "lucide-react";
 import { useEffect, useState } from "react";
-import { api, type BuildInfo, type Pending, type VerifyReport } from "../api";
+import { api, type BuildInfo, type BuiltRelease, type Files, type Pending, type VerifyReport } from "../api";
 import { formatBytes, plural } from "../format";
 import { useApp } from "../store";
 import { Button } from "./Button";
+import { list } from "./Integrity";
 import { UpdateProgress } from "./UpdateProgress";
 
 /** "1.3.2" → "1.3.3"; empty when the last part isn't a number. */
@@ -87,22 +88,37 @@ export function ReleaseBuilder({ canPublish, pending }: { canPublish: boolean; p
 
         {built.repacked.length > 0 && (
           <ul className="divide-y divide-line/60 overflow-hidden rounded-xl bg-bg/60">
-            {built.repacked.map((r) => (
-              <li key={r.name} className="flex items-baseline gap-3 px-4 py-2 text-[13px]">
-                <span className="min-w-0 flex-1 truncate">{r.name === "base" ? "Mod Organizer 2 и профиль" : r.name}</span>
-                <span className={r.changed ? "text-muted" : "text-accent"}>{r.changed ? "изменён" : "новый"}</span>
-                <span className="w-20 text-right font-mono text-xs text-muted tabular-nums">{formatBytes(r.size)}</span>
-              </li>
-            ))}
+            {built.repacked.map((r) => {
+              const settingsOnly =
+                r.files && r.files.changed.count + r.files.added.count + r.files.missing.count === 0;
+              return (
+                <li key={r.name} className="px-4 py-2 text-[13px]">
+                  <div className="flex items-baseline gap-3">
+                    <span className="min-w-0 flex-1 truncate">{r.name === "base" ? "Mod Organizer 2 и профиль" : r.name}</span>
+                    <span className={settingsOnly ? "text-warn" : r.changed ? "text-muted" : "text-accent"}>
+                      {settingsOnly ? "только настройки" : r.changed ? "изменён" : "новый"}
+                    </span>
+                    <span className="w-20 text-right font-mono text-xs text-muted tabular-nums">{formatBytes(r.size)}</span>
+                  </div>
+                  {r.files &&
+                    fileLines(r.files).map((line) => (
+                      <span key={line} className="block break-words text-muted">
+                        {line}
+                      </span>
+                    ))}
+                </li>
+              );
+            })}
           </ul>
         )}
         {!built.restored && built.repacked.length === 0 && (
           <div className="text-[13px] text-muted">Все моды взяты из прошлых версий: изменится только список модов и описание.</div>
         )}
-        {built.repacked.length > 0 && (
+        {built.repacked.some((r) => r.changed) && (
           <p className="text-[13px] text-faint">
-            Если здесь мод, который вы не трогали, значит в нём изменился файл (обычно настройки). Посмотрите «Файлы модов»
-            выше, прежде чем публиковать.
+            «Только настройки» обычно значит, что игра переписала конфиг мода. Если не хотите отдавать его игрокам, верните
+            опубликованную версию в меню мода на странице модов и соберите заново. Где файлов не видно, их покажет «Файлы
+            модов» выше.
           </p>
         )}
 
@@ -189,6 +205,17 @@ export function ReleaseBuilder({ canPublish, pending }: { canPublish: boolean; p
       </p>
     </div>
   );
+}
+
+function fileLines(f: NonNullable<BuiltRelease["repacked"][number]["files"]>): string[] {
+  const count = (files: Files, verb: string) =>
+    files.count > 0 ? [`${verb} ${files.count} ${plural(files.count, "файл", "файла", "файлов")}: ${list(files)}`] : [];
+  return [
+    ...count(f.changed, "Изменено"),
+    ...count(f.added, "Добавлено"),
+    ...count(f.missing, "Удалено"),
+    ...(f.settings.count > 0 ? [`Настройки уйдут игрокам: ${list(f.settings)}`] : []),
+  ];
 }
 
 function Warnings({ items }: { items: string[] }) {

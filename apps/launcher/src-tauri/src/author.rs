@@ -65,6 +65,7 @@ struct RepackedRow {
     /// False: a new mod.
     changed: bool,
     size: u64,
+    files: Option<lyno_core::publish::FileChanges>,
 }
 
 #[derive(Serialize)]
@@ -400,7 +401,7 @@ fn run_build(app: &AppHandle, inst: &Instance, opts: &BuildOptions, notes: &[Str
         repacked: output
             .repacked
             .iter()
-            .map(|r| RepackedRow { name: r.name.clone(), changed: r.changed, size: output.upload_size(&r.name) })
+            .map(|r| RepackedRow { name: r.name.clone(), changed: r.changed, size: output.upload_size(&r.name), files: r.files.clone() })
             .collect(),
         upload_size: output.assets.iter().map(|a| a.size).sum(),
         mods: output.manifest.mod_specs().count(),
