@@ -209,6 +209,38 @@ fn preflight_warns_before_packing() {
     assert_eq!(built.warnings, warnings);
 }
 
+/// A changed mod in the build lists which files differ from the published
+/// package, settings apart: a mod the author didn't touch is usually a config
+/// the game rewrote. The file records come with publishing (`adopt` of `out/`).
+#[test]
+fn repacked_mods_list_their_changed_files() {
+    let tmp = tempfile::tempdir().unwrap();
+    let author = tmp.path().join("author");
+    let out = tmp.path().join("out");
+    author_instance(&author);
+    let m1 = build(&author, &options("1.0.0", "http://x", &out, None), &mut |_| ModInfo::default(), &mut |_| {}).unwrap().manifest;
+    adopt(&Instance::new(&author), &m1, Some(&out)).unwrap();
+
+    let am = "mods/Archive Mod/bin/x64/plugins/cyber_engine_tweaks/mods/am";
+    write(&author, "mods/Archive Mod/archive/pc/mod/a.archive", &noise(200_000, 3));
+    write(&author, "mods/Archive Mod/archive/pc/mod/b.archive", b"new");
+    std::fs::remove_file(author.join(format!("{am}/presets.json"))).unwrap();
+    write(&author, &format!("{am}/settings.json"), b"author v2");
+    write(&author, &format!("{am}/new.ini"), b"a new setting ships too");
+    write(&author, "mods/CET/bin/x64/plugins/cyber_engine_tweaks/bindings.json", b"{\"overlay\": \"F2\"}");
+    let out2 = build(&author, &options("1.1.0", "http://x", &out, Some(m1)), &mut |_| ModInfo::default(), &mut |_| {}).unwrap();
+
+    let files = |name: &str| out2.repacked.iter().find(|r| r.name == name).unwrap().files.clone().unwrap();
+    let am = files("Archive Mod");
+    assert_eq!(am.changed.sample, ["archive/pc/mod/a.archive"]);
+    assert_eq!(am.added.sample, ["archive/pc/mod/b.archive"]);
+    assert_eq!(am.missing.sample, ["bin/x64/plugins/cyber_engine_tweaks/mods/am/presets.json"]);
+    assert_eq!(am.settings.sample, ["bin/x64/plugins/cyber_engine_tweaks/mods/am/settings.json", "bin/x64/plugins/cyber_engine_tweaks/mods/am/new.ini"]);
+    let cet = files("CET");
+    assert!(cet.changed.is_empty() && cet.added.is_empty() && cet.missing.is_empty(), "{cet:?}");
+    assert_eq!(cet.settings.sample, ["bin/x64/plugins/cyber_engine_tweaks/bindings.json"]);
+}
+
 /// The player removes optional build mods, in the launcher or in MO2: updates
 /// leave them out until the player brings them back. Core mods stay.
 #[test]

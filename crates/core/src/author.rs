@@ -224,8 +224,16 @@ pub fn adopt(inst: &Instance, manifest: &Manifest, out_dir: Option<&Path>) -> Re
     for id in old.mods.keys().filter(|id| !mods.contains_key(*id)) {
         files::remove(inst, id)?;
     }
-    // Records of edited mods name the old package and are ignored from now on;
-    // the next integrity check records them again from the folders.
+    // Packages packed by this build left their file records in `out_dir`. Records
+    // of other edited mods name the old package and are ignored from now on; the
+    // next integrity check records them again from the folders.
+    for (id, m) in &mods {
+        let path = out_dir.map(|out| crate::publish::file_record_path(out, id, &m.hash));
+        let record = path.and_then(|p| std::fs::read_to_string(p).ok()).and_then(|t| serde_json::from_str::<files::FileList>(&t).ok());
+        if let Some(record) = record.filter(|r| r.id == *id && r.package == m.hash) {
+            files::save(inst, &record)?;
+        }
+    }
     let record = LastUpdate {
         from: old.build_version.clone(),
         to: manifest.build_version.clone(),

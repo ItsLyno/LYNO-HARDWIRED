@@ -91,7 +91,7 @@ pub struct Files {
 }
 
 impl Files {
-    fn of(paths: Vec<String>) -> Self {
+    pub(crate) fn of(paths: Vec<String>) -> Self {
         Self { count: paths.len(), sample: paths.into_iter().take(LISTED_FILES).collect() }
     }
 
@@ -185,17 +185,17 @@ fn settings_shadows<'a>(inst: &Instance, paths: impl Iterator<Item = &'a str>) -
 }
 
 #[derive(Default)]
-struct Diff {
-    missing: Vec<String>,
-    changed: Vec<String>,
-    added: Vec<String>,
+pub(crate) struct Diff {
+    pub missing: Vec<String>,
+    pub changed: Vec<String>,
+    pub added: Vec<String>,
     /// Changed settings files: not damage.
-    settings: Vec<String>,
+    pub settings: Vec<String>,
 }
 
 /// A new settings file in a mod folder is ignored like a changed one: some
 /// mods write their config next to themselves when it is first saved.
-fn compare(record: &FileList, current: &[(FileEntry, String)]) -> Diff {
+pub(crate) fn compare(record: &FileList, current: &[(FileEntry, String)]) -> Diff {
     let mut diff = Diff::default();
     let now: BTreeMap<&str, &str> = current.iter().map(|(f, h)| (f.path.as_str(), h.as_str())).collect();
     // Records of packages built before a file counted as generated still list it.

@@ -8,6 +8,7 @@ use std::sync::{Arc, Mutex};
 use serde::{Deserialize, Serialize};
 
 use crate::download::Downloader;
+use crate::files::{self, FileList};
 use crate::hash_cache::HashCache;
 use crate::manifest::{ChangelogEntry, Manifest, ModEntry, ModSpec, NexusRef, Package, Part, SCHEMA_VERSION};
 use crate::meta::ModMeta;
@@ -16,6 +17,7 @@ use crate::modlist::{Entry, EntryState, ModList};
 use crate::package::{self, PackOptions, PackedPart};
 use crate::plan::USER_SEPARATOR;
 use crate::tree::FileEntry;
+use crate::verify::Files;
 use crate::{rules, tree};
 use crate::{Error, Result};
 
@@ -99,6 +101,40 @@ pub struct Repacked {
     pub name: String,
     /// False: not in the previous manifest at all.
     pub changed: bool,
+    /// Against the file record of the installed package ([`crate::files`]);
+    /// `None` for a new mod, the base, or a mod without a current record.
+    pub files: Option<FileChanges>,
+}
+
+/// Files of a changed mod against the published package. Paths relative to the mod folder.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FileChanges {
+    pub changed: Files,
+    pub added: Files,
+    pub missing: Files,
+    /// Settings files changed or added: every player gets them as the defaults.
+    pub settings: Files,
+}
+
+/// Unlike a player's, a new settings file of the author's is a change: it ships.
+fn file_changes(record: &FileList, current: &[(FileEntry, String)]) -> FileChanges {
+    let mut diff = crate::verify::compare(record, current);
+    let new_settings = current.iter().map(|(f, _)| &f.path).filter(|p| rules::is_settings(p) && !record.files.contains_key(*p));
+    diff.settings.extend(new_settings.cloned());
+    FileChanges {
+        changed: Files::of(diff.changed),
+        added: Files::of(diff.added),
+        missing: Files::of(diff.missing),
+        settings: Files::of(diff.settings),
+    }
+}
+
+/// File record of a package packed into `out`, taken from the hashes packing
+/// computed: once the build is published, [`crate::author::adopt`] makes it the
+/// installed record, so the next build can tell which files changed.
+pub(crate) fn file_record_path(out: &Path, id: &str, hash: &str) -> PathBuf {
+    out.join(format!("{id}-{}.files.json", &hash[..16]))
 }
 
 pub fn build(
@@ -112,7 +148,7 @@ pub fn build(
     let metas = inst.scan_mods()?;
     let mut warnings = preflight(root, &opts.profile, &opts.game_version, &opts.out_dir)?;
     let cache = if opts.hash_cache { HashCache::load(root.join(".lyno").join("pack-cache.json")) } else { HashCache::disabled() };
-    let mut packer = Packer { opts, cache, assets: Vec::new(), repacked: Vec::new() };
+    let mut packer = Packer { inst: &inst, opts, cache, assets: Vec::new(), repacked: Vec::new() };
     let (entries, _) = split_user_section(&list);
     let is_mod = |e: &&Entry| e.state != EntryState::Unmanaged && e.separator_title().is_none();
     let steps = 1 + entries.iter().filter(is_mod).count();
@@ -524,6 +560,7 @@ fn profile_warnings(dir: &Path) -> Vec<String> {
 /// - Packages finished by an interrupted run (`<name>.parts.json` next to the
 ///   parts) are picked up instead of packed again.
 struct Packer<'a> {
+    inst: &'a Instance,
     opts: &'a BuildOptions,
     cache: HashCache,
     assets: Vec<PackedPart>,
@@ -554,19 +591,20 @@ impl Packer<'_> {
         log: &mut dyn FnMut(&str),
     ) -> Result<Package> {
         let hashed: Vec<&FileEntry> = files.iter().filter(|f| rules::is_hashed(&f.path)).collect();
-        let mut known = self.cached_hash(prefix, &hashed);
+        let mut known = self.cached_hashes(prefix, &hashed);
         if known.is_none() && previous.is_some() {
             log(&format!("{step}: hashing {} MB", mb(&hashed)));
-            known = Some(self.read_hash(source, prefix, &hashed)?);
+            known = Some(self.read_hashes(source, prefix, &hashed)?);
         }
-        if let Some(hash) = &known {
+        if let Some(current) = &known {
+            let hash = tree::combine_pairs(current);
             if let Some(p) = previous.filter(|p| p.hash == hash.hash) {
                 return Ok(p.clone());
             }
-            if let Some(parts) = self.resume(&package_name(id, hash)) {
+            if let Some(parts) = self.resume(&package_name(id, &hash)) {
                 log(&format!("{step}: already packed by an earlier run"));
-                self.repacked.push(Repacked { name: name.to_owned(), changed: previous.is_some() });
-                return Ok(self.finish(hash, parts));
+                self.record_repacked(id, name, previous, &hash, current)?;
+                return Ok(self.finish(&hash, parts));
             }
         }
 
@@ -577,9 +615,9 @@ impl Packer<'_> {
         for (f, h) in files.iter().zip(&packed.file_hashes) {
             self.cache.insert(format!("{prefix}{}", f.path), f, h.clone());
         }
-        let hash = tree::combine(
-            files.iter().zip(&packed.file_hashes).filter(|(f, _)| rules::is_hashed(&f.path)).map(|(f, h)| (f, h.as_str())),
-        );
+        let current: Vec<(FileEntry, String)> =
+            files.iter().zip(packed.file_hashes).filter(|(f, _)| rules::is_hashed(&f.path)).map(|(f, h)| (f.clone(), h)).collect();
+        let hash = tree::combine_pairs(&current);
         let parts = rename_parts(out, packed.parts, &package_name(id, &hash))?;
         let records: Vec<PartRecord> = parts
             .iter()
@@ -588,17 +626,33 @@ impl Packer<'_> {
         let record_path = out.join(format!("{}.parts.json", package_name(id, &hash)));
         std::fs::write(&record_path, serde_json::to_string_pretty(&records)?).map_err(|e| Error::io(&record_path, e))?;
         self.cache.save_if_due()?;
-        self.repacked.push(Repacked { name: name.to_owned(), changed: previous.is_some() });
+        self.record_repacked(id, name, previous, &hash, &current)?;
         Ok(self.finish(&hash, parts))
     }
 
-    /// Tree hash from the cache alone, `None` if any file has to be read.
-    fn cached_hash(&self, prefix: &str, files: &[&FileEntry]) -> Option<tree::TreeHash> {
-        let hashes: Option<Vec<&str>> = files.iter().map(|f| self.cache.get(&format!("{prefix}{}", f.path), f)).collect();
-        Some(tree::combine(files.iter().copied().zip(hashes?)))
+    /// Writes the package's file record into `out` ([`file_record_path`]) and
+    /// tells what changed against the installed one.
+    fn record_repacked(
+        &mut self,
+        id: &str,
+        name: &str,
+        previous: Option<&Package>,
+        hash: &tree::TreeHash,
+        current: &[(FileEntry, String)],
+    ) -> Result<()> {
+        let path = file_record_path(&self.opts.out_dir, id, &hash.hash);
+        std::fs::write(&path, serde_json::to_string(&FileList::new(id, &hash.hash, current))?).map_err(|e| Error::io(&path, e))?;
+        let files = previous.and_then(|p| files::load(self.inst, id, &p.hash)).map(|record| file_changes(&record, current));
+        self.repacked.push(Repacked { name: name.to_owned(), changed: previous.is_some(), files });
+        Ok(())
     }
 
-    fn read_hash(&mut self, source: &dyn Fn(&str) -> PathBuf, prefix: &str, files: &[&FileEntry]) -> Result<tree::TreeHash> {
+    /// Per-file hashes from the cache alone, `None` if any file has to be read.
+    fn cached_hashes(&self, prefix: &str, files: &[&FileEntry]) -> Option<Vec<(FileEntry, String)>> {
+        files.iter().map(|f| Some(((*f).clone(), self.cache.get(&format!("{prefix}{}", f.path), f)?.to_owned()))).collect()
+    }
+
+    fn read_hashes(&mut self, source: &dyn Fn(&str) -> PathBuf, prefix: &str, files: &[&FileEntry]) -> Result<Vec<(FileEntry, String)>> {
         let mut hashes = Vec::with_capacity(files.len());
         for f in files {
             let key = format!("{prefix}{}", f.path);
@@ -610,10 +664,10 @@ impl Packer<'_> {
                     h
                 }
             };
-            hashes.push(h);
+            hashes.push(((*f).clone(), h));
         }
         self.cache.save_if_due()?;
-        Ok(tree::combine(files.iter().copied().zip(hashes.iter().map(String::as_str))))
+        Ok(hashes)
     }
 
     /// Parts of `name` left complete by an earlier run, if all are still there.
@@ -675,7 +729,8 @@ fn remove_stray_files(out: &Path, assets: &[PackedPart]) -> Result<()> {
     let Ok(entries) = std::fs::read_dir(out) else { return Ok(()) };
     for entry in entries.flatten() {
         let name = entry.file_name().to_string_lossy().into_owned();
-        let stray = match (is_part_file(&name), name.strip_suffix(".parts.json")) {
+        let record = name.strip_suffix(".parts.json").or_else(|| name.strip_suffix(".files.json"));
+        let stray = match (is_part_file(&name), record) {
             (true, _) => !keep.contains(name.as_str()),
             (false, Some(package)) => !packages.contains(package),
             (false, None) => false,
