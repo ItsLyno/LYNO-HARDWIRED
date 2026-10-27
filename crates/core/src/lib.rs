@@ -6,6 +6,7 @@
 
 pub mod archive;
 pub mod author;
+pub mod conflicts;
 pub mod diagnose;
 pub mod download;
 pub mod error;
