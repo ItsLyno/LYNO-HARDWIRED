@@ -75,7 +75,11 @@ updater reads. Launcher logs go through `log::` macros to `tauri-plugin-log`.
   New generated files from frameworks go into `rules.rs` with a test; so do new
   settings file types (`rules::is_settings`: not damage in verify, the player's kept on update and repair). Background
   in `docs/cyberpunk-mo2.md`.
-- **The manifest goes live last**: `release::publish` pushes `build/manifest.json`
+- **Channels**: `publish` goes to `build/manifest-beta.json`, `release::promote` copies it to
+  `build/manifest.json` (no upload, parts are re-checked). Players follow release unless `Settings::beta`;
+  author mode follows beta (`Settings::channel_url`). Only release commits are `Build <version>`
+  (`GitHub::published_builds`), beta ones are `Beta <version>`.
+- **The manifest goes live last**: `release::publish` pushes the beta manifest (`promote` the release one)
   only after every part answers over HTTP (front ends only implement `release::Host`); same for `launcher/latest.json` in
   `launcher-release.yml`.
 - **Reused packages keep URLs into older releases.** Old `build-*` releases must
