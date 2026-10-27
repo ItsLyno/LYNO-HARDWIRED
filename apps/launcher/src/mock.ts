@@ -691,8 +691,7 @@ export const mock = {
   },
   authorVersions: async (): Promise<Versions> => {
     await delay(200);
-    const builds = publishedBuilds.filter((b) => b.version !== status.installedVersion);
-    return { revertedFrom, builds };
+    return { revertedFrom, builds: publishedBuilds };
   },
   authorRevert: async (commit: string) => {
     if (status.gameRunning || status.mo2Running) throw new Error("Закройте игру и Mod Organizer 2 перед откатом");

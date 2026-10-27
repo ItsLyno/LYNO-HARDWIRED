@@ -305,11 +305,12 @@ export const useApp = create<AppStore>((set, get) => ({
       set({ progress: null, error: String(e) });
     }
   },
-  // Going back to an earlier build installs it like an update.
+  // Going to a build installs it like an update; mods the last check found edited get its files again.
   startRevert: async (commit, beta) => {
+    const edited = get().verifyReport?.damaged.flatMap((d) => (d.id === null ? [] : [d.id])) ?? [];
     set({ progress: noProgress });
     try {
-      await api.authorRevert(commit, beta);
+      await api.authorRevert(commit, beta, edited);
       set({ verifyReport: null });
       await get().refreshStatus();
     } catch (e) {

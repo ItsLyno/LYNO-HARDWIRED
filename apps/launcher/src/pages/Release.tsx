@@ -88,7 +88,7 @@ export function Release() {
           Папка возвращена к версии {installed}, игроки пока остаются на {revertedFrom}.
           <div className="mt-1 text-muted">
             Проверьте игру и выпустите новую версию ниже: она вернёт игроков к {installed}. Моды из неё возьмутся из старых
-            релизов, загружать почти нечего. Передумали — верните папку к {revertedFrom} в разделе «Прошлые версии».
+            релизов, загружать почти нечего. Передумали — верните папку к {revertedFrom} в разделе «Версии сборки».
           </div>
         </div>
       )}
@@ -193,12 +193,13 @@ export function Release() {
         <ChannelPromote canPublish={canPublish} />
       </Section>
 
-      <Section title="Прошлые версии">
+      <Section title="Версии сборки">
         <div className="space-y-3 px-5 pb-5">
           <p className="text-[13px] text-muted">
-            Если выпуск оказался плохим, верните папку к прошлой версии: лаунчер поставит её как обновление. Моды, которых в
-            ней нет, уйдут под LYNO USER MODS, моды сборки получат её файлы. Игроки ничего не заметят, пока вы не выпустите
-            новую версию.
+            Если выпуск оказался плохим, верните папку к прошлой версии: лаунчер поставит её как обновление. Установленная
+            версия {installed} отменяет ваши изменения с неё. Моды сборки встанут как в выбранной версии: её файлы, порядок,
+            включённые и выключенные, удалённые вернутся. Моды, которых в ней нет, уйдут под LYNO USER MODS. Игроки ничего
+            не заметят, пока вы не выпустите новую версию.
           </p>
           {!canPublish ? (
             <span className="text-[13px] text-muted">Нужен токен GitHub: история выпусков читается через него.</span>
@@ -207,7 +208,7 @@ export function Release() {
           ) : !versions ? (
             <span className="text-[13px] text-muted">Загрузка…</span>
           ) : !revertBuild ? (
-            <span className="text-[13px] text-muted">Других опубликованных версий нет</span>
+            <span className="text-[13px] text-muted">Опубликованных версий нет</span>
           ) : (
             <div className="flex flex-wrap items-center gap-3">
               <select
@@ -221,6 +222,7 @@ export function Release() {
                 {versions.builds.map((b) => (
                   <option key={b.commit} value={b.commit}>
                     {b.version}
+                    {b.version === installed ? " (установлена)" : ""}
                     {b.version === revertedFrom ? " (опубликована)" : ""}
                     {b.beta ? " (бета)" : ""}
                   </option>
@@ -229,10 +231,9 @@ export function Release() {
               {confirmRevert ? (
                 <>
                   <div className="basis-full text-[13px] text-warn">
-                    Моды, которые есть и в {revertBuild.version}, получат его файлы: правки в них, не вошедшие в выпуск, пропадут.
                     {edited.length > 0
-                      ? ` Изменены сейчас: ${edited.join(", ")}.`
-                      : " Что изменено, покажет «Проверка файлов» выше; сохраните эти папки заранее."}
+                      ? `Изменённые моды получат файлы ${revertBuild.version}, правки в них пропадут: ${edited.join(", ")}.`
+                      : `Правки в файлах лаунчер видит только после «Проверки файлов» выше. Без неё они останутся в модах, которые в ${revertBuild.version} те же, а в остальных пропадут.`}
                   </div>
                   <Button variant="primary" onClick={() => void startRevert(revertBuild.commit, revertBuild.beta)}>
                     <History size={15} />

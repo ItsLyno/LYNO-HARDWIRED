@@ -336,7 +336,7 @@ export interface PublishedBuild {
 export interface Versions {
   /** The instance went back from this published version: the next release brings players back too. */
   revertedFrom: string | null;
-  /** Earlier builds to go back to, newest first, without the installed one. Empty without a GitHub token. */
+  /** Builds to go to, newest first, the installed one too: it undoes the changes since it. Empty without a GitHub token. */
   builds: PublishedBuild[];
 }
 
@@ -656,7 +656,7 @@ export const api = isTauri()
       switchBuild: (commit: string) => invoke<void>("switch_build", { commit }),
       authorVersions: () => invoke<Versions>("author_versions"),
       /** Installs an earlier build into the instance, as an update: `update-progress`, then `update-finished`. */
-      authorRevert: (commit: string, beta: boolean) => invoke<void>("author_revert", { commit, beta }),
+      authorRevert: (commit: string, beta: boolean, edited: string[]) => invoke<void>("author_revert", { commit, beta, edited }),
       /** What the build would warn about from the mod list alone, before hours of packing. */
       authorPreflight: (gameVersion: string) => invoke<string[]>("author_preflight", { gameVersion }),
       authorBuild: (version: string, gameVersion: string, notes: string[]) =>
