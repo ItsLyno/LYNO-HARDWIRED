@@ -22,6 +22,7 @@ import type {
   Pending,
   Versions,
   HistoryRow,
+  ModConflicts,
   RunReport,
   Secret,
   Settings,
@@ -42,6 +43,8 @@ import type {
   Executable,
   FileDropHandlers,
 } from "./api";
+// Read only inside calls, after api.ts (which imports this file) has run.
+import { OVERWRITE } from "./api";
 
 const GB = 1024 ** 3;
 const MB = 1024 ** 2;
@@ -733,6 +736,18 @@ export const mock = {
   modlistRestore: async (_id: number) => {
     if (status.gameRunning || status.mo2Running) throw new Error("Закройте игру и Mod Organizer 2, чтобы менять моды");
     await delay(300);
+  },
+  modConflicts: async (): Promise<ModConflicts[]> => {
+    await delay(400);
+    const lut = ["engine/config/platform/pc/rendering.ini", "r6/config/settings/platform/pc/options.json"];
+    const textures = Array.from({ length: 14 }, (_, i) => `archive/pc/mod/basegame_texture_${String(i + 1).padStart(2, "0")}.archive`);
+    return [
+      { modFolder: "Nova LUT", wins: [], loses: [{ modFolder: "Ultra Plus", files: [lut[0]] }], files: 6, lost: 1 },
+      { modFolder: "Ultra Plus", wins: [{ modFolder: "Nova LUT", files: [lut[0]] }], loses: [{ modFolder: OVERWRITE, files: [lut[1]] }], files: 9, lost: 1 },
+      { modFolder: "Darker Nights", wins: [], loses: [{ modFolder: "Better Lightning", files: textures }], files: 14, lost: 14 },
+      { modFolder: "Better Lightning", wins: [{ modFolder: "Darker Nights", files: textures }], loses: [], files: 20, lost: 0 },
+      { modFolder: OVERWRITE, wins: [{ modFolder: "Ultra Plus", files: [lut[1]] }], loses: [], files: 3, lost: 0 },
+    ];
   },
   lastRun: async (): Promise<RunReport | null> => ({
     scriptsFailed: true,

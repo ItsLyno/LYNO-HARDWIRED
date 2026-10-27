@@ -54,6 +54,26 @@ export interface GameMismatch {
   newer: boolean | null;
 }
 
+/** An enabled mod's files other mods ship too (`conflicts::scan`). */
+export interface ModConflicts {
+  /** Folder under mods/, or OVERWRITE. */
+  modFolder: string;
+  /** Its files the game gets though lower mods have them, by the mod they hide; nearest first. */
+  wins: Overlap[];
+  /** Its files a higher mod hides, by the mod whose file the game gets; nearest first. */
+  loses: Overlap[];
+  files: number;
+  lost: number;
+}
+
+export interface Overlap {
+  modFolder: string;
+  files: string[];
+}
+
+/** `conflicts::OVERWRITE`: MO2's overwrite/, above every mod. */
+export const OVERWRITE = "<overwrite>";
+
 /** Errors the frameworks logged in the game's last run. */
 export interface RunReport {
   /** redscript didn't compile: no script mod worked. */
@@ -599,6 +619,8 @@ export const api = isTauri()
       stopGame: () => invoke<void>("stop_game"),
       /** Once the game has closed: errors in its logs; null when none or no run was seen. */
       lastRun: () => invoke<RunReport | null>("last_run"),
+      /** Enabled mods sharing files, lowest priority first, overwrite last. */
+      modConflicts: () => invoke<ModConflicts[]>("mod_conflicts"),
       modlistHistory: () => invoke<HistoryRow[]>("modlist_history"),
       /** Order and on/off of the snapshot back into the profile's list; needs MO2 closed. */
       modlistRestore: (id: number) => invoke<void>("modlist_restore", { id }),

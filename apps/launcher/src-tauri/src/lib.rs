@@ -108,6 +108,7 @@ pub fn run() {
             commands::remove_build_mod,
             commands::restore_build_mod,
             commands::last_run,
+            commands::mod_conflicts,
             commands::modlist_history,
             commands::modlist_restore,
             author::author_metadata,

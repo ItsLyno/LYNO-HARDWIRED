@@ -1,8 +1,9 @@
-import { ChevronRight, ExternalLink, Power, PowerOff, FolderOpen, Lock, MoreHorizontal, Pencil, RefreshCw, Search, Trash2, X, type LucideIcon, TriangleAlert, Undo2, ArrowUp, Plus, RotateCw, CircleArrowUp, Wrench, Palette, Eraser, PackagePlus, SeparatorHorizontal, ScrollText, History, Anchor, Info, Link2, UserRound } from "lucide-react";
+import { ChevronRight, ExternalLink, Power, PowerOff, FolderOpen, Lock, MoreHorizontal, Pencil, RefreshCw, Search, Trash2, X, type LucideIcon, TriangleAlert, Undo2, ArrowUp, Plus, RotateCw, CircleArrowUp, Wrench, Palette, Eraser, PackagePlus, SeparatorHorizontal, ScrollText, History, Anchor, Info, Link2, UserRound, Layers } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from "react";
-import { api, type ModRow, type Need, type UserRow } from "../api";
+import { api, OVERWRITE, type ModRow, type Need, type UserRow } from "../api";
 import { Button } from "../components/Button";
 import { Chip } from "../components/Chip";
+import { ConflictViewer } from "../components/ConflictViewer";
 import { LogViewer } from "../components/LogViewer";
 import { ModMetadataEditor } from "../components/ModMetadataEditor";
 import { ModlistHistory } from "../components/ModlistHistory";
@@ -42,7 +43,7 @@ type Target = {
 type Menu = { target: Target; x: number; y: number };
 /** `after`: where a new separator goes. */
 /** `many`: every selected row a delete goes to. */
-type Dialog = { kind: "metadata" | "delete" | "reinstall" | "rollback" | "rename" | "color" | "separator" | "toMod" | "clear" | "logs"; target: Target; after?: string | null; many?: Target[] };
+type Dialog = { kind: "metadata" | "delete" | "reinstall" | "rollback" | "rename" | "color" | "separator" | "toMod" | "clear" | "logs" | "conflicts"; target: Target; after?: string | null; many?: Target[] };
 
 /** MO2's folder of the separator above the player's own mods (`plan::USER_SEPARATOR`). */
 const USER_SEPARATOR = "LYNO USER MODS_separator";
@@ -393,6 +394,7 @@ export function Mods() {
             items={[
               { label: "Перечитать с диска", hint: "F5", icon: RotateCw, disabled: reloading, onClick: () => void reload() },
               { label: "История списка", icon: History, title: "Вернуть порядок и включённость модов, как было раньше", onClick: () => setHistory(true) },
+              { label: "Конфликты файлов", icon: Layers, title: "Какие моды закрывают файлы других и чьи файлы в игре", onClick: () => setDialog({ kind: "conflicts", target: overwriteTarget }) },
               {
                 label: "Проверить обновления на Nexus",
                 icon: CircleArrowUp,
@@ -637,7 +639,9 @@ export function Mods() {
         />
       )}
       {history && <ModlistHistory locked={locked} lockReason={lockReason} onClose={() => setHistory(false)} onRestored={reload} />}
-      {dialog?.kind === "metadata" ? <ModMetadataEditor folder={dialog.target.folder} locked={locked} onClose={() => setDialog(null)} onSaved={reload} /> : dialog?.kind === "logs" ? <LogViewer onClose={() => setDialog(null)} /> : dialog && <ModDialog dialog={dialog} onClose={() => setDialog(null)} />}
+      {dialog?.kind === "metadata" ? <ModMetadataEditor folder={dialog.target.folder} locked={locked} onClose={() => setDialog(null)} onSaved={reload} /> : dialog?.kind === "logs" ? <LogViewer onClose={() => setDialog(null)} /> : dialog?.kind === "conflicts" ? (
+        <ConflictViewer initial={dialog.target.kind === "overwrite" ? OVERWRITE : dialog.target.kind === "mod" ? dialog.target.folder : undefined} onClose={() => setDialog(null)} />
+      ) : dialog && <ModDialog dialog={dialog} onClose={() => setDialog(null)} />}
     </div>
   );
 }
@@ -821,6 +825,7 @@ function ModMenu(props: {
   ] : t.kind === "overwrite" ? [
     ...(!author && activeInstance(settings)?.build ? [{ label: "Настройки и переопределения", icon: Wrench, disabled: props.locked, title: lock, onClick: () => { setPage("settings"); void verify(); } }] : []),
     { label: "Логи игры", icon: ScrollText, onClick: dialog("logs") },
+    { label: "Конфликты файлов", icon: Layers, onClick: dialog("conflicts") },
     { label: "Открыть в проводнике", icon: FolderOpen, onClick: () => run(() => api.openFolder("overwrite")) },
     null,
     { label: "Сделать модом", icon: PackagePlus, disabled: props.locked, title: lock, onClick: dialog("toMod") },
@@ -840,6 +845,7 @@ function ModMenu(props: {
       title: t.nexusUrl ?? "У мода нет страницы на Nexus",
       onClick: () => run(() => api.openUrl(t.nexusUrl!)),
     },
+    { label: "Конфликты файлов", icon: Layers, disabled: !t.installed, title: t.installed ? undefined : "Мод ещё не установлен", onClick: dialog("conflicts") },
     null,
     {
       label: "Переустановить",
@@ -1035,7 +1041,7 @@ function ModDialog({ dialog, onClose }: { dialog: Dialog; onClose: () => void })
     />
   );
 
-  const view: Record<Exclude<Dialog["kind"], "logs" | "metadata">, { title: string; body: ReactNode; confirm: string; danger?: boolean; ok: () => void }> = {
+  const view: Record<Exclude<Dialog["kind"], "logs" | "metadata" | "conflicts">, { title: string; body: ReactNode; confirm: string; danger?: boolean; ok: () => void }> = {
     delete: t.kind === "separator" ? {
       title: "Удалить разделитель?",
       body: <p>Моды под ним останутся на своих местах.</p>,
@@ -1168,7 +1174,7 @@ function ModDialog({ dialog, onClose }: { dialog: Dialog; onClose: () => void })
       },
     };
   }
-  const v = view[dialog.kind as Exclude<Dialog["kind"], "logs" | "metadata">];
+  const v = view[dialog.kind as Exclude<Dialog["kind"], "logs" | "metadata" | "conflicts">];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-8" role="dialog" aria-modal="true" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>

@@ -3,6 +3,7 @@ use std::process::Command;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
+use lyno_core::conflicts;
 use lyno_core::diagnose;
 use lyno_core::download::{Downloader, PartEvent};
 use lyno_core::game::{self, GameInstall};
@@ -1299,6 +1300,14 @@ pub async fn last_run(app: AppHandle) -> CmdResult<Option<diagnose::RunReport>> 
     let report = tauri::async_runtime::spawn_blocking(move || diagnose::last_run(&inst, &profile, since)).await.map_err(err)?;
     log::info!("last run: scripts failed {}, {} problem(s)", report.scripts_failed, report.problems.len());
     Ok(Some(report).filter(|r| !r.is_empty()))
+}
+
+/// Files enabled mods share, by whose the game gets; walks every mod folder, so off the main thread.
+#[tauri::command]
+pub async fn mod_conflicts(app: AppHandle) -> CmdResult<Vec<conflicts::ModConflicts>> {
+    let inst = Instance::new(&app.state::<AppState>().settings.lock().unwrap().instance_dir);
+    let list = ModList::load(&inst.modlist_path(&profile(&inst))).map_err(err)?;
+    tauri::async_runtime::spawn_blocking(move || conflicts::scan(&inst, &list)).await.map_err(err)?.map_err(err)
 }
 
 #[tauri::command]
