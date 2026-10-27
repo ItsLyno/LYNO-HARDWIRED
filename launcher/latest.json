@@ -1,11 +1,11 @@
 {
-  "version": "0.11.0",
-  "notes": "Установка архива спрашивает имя мода, как в MO2: второй вариант мода встаёт рядом, а не поверх. Панель загрузок показывает скорость, даты и что осталось установить. Значки в списке модов с подсказками, редкие действия собраны в одно меню. Для автора сборки: проверка перед упаковкой, изменённые файлы в обзоре выпуска, откат к прошлой версии.",
-  "pub_date": "2026-10-27T10:22:50Z",
+  "version": "0.12.0",
+  "notes": "Новое окно «Конфликты модов» (меню страницы «Моды» или правый клик по моду): видно, какой мод чьи файлы закрывает и что в итоге попадает в игру, а также конфликты ресурсов внутри .archive разных модов с учётом порядка загрузки архивов. Моды, которые целиком закрыты другими и ничего не меняют, помечены.",
+  "pub_date": "2026-10-27T11:06:31Z",
   "platforms": {
     "windows-x86_64": {
-      "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/launcher-v0.11.0/LYNO-HARDWIRED_0.11.0_x64-setup.exe",
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUejR0VmZ4WmllZlBMQnhJY1RrSk5XUmppbVNEeG9rNG5wbkpUREZaTEdLblcvUSs4MVV4Y1BueGV6N2U2a1RmVmRqYkYvRGVKMkJiLzNIelpEdW9HbTBEYjVQWmU0ekF3PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkzMDk2NTY5CWZpbGU6TFlOTyBIQVJEV0lSRURfMC4xMS4wX3g2NC1zZXR1cC5leGUJdmVyc2lvbjowLjExLjAKdWdIOG5YQy8rTFdKTVo2dVZoeWxYczcxVEp3ZXZnQmluMFNzWVJPNC9MZkgreHMrakdnQ3k1bks1T3hETzczOUNhMzUzaGp2Z1MwUXNEaitBaUhCQ0E9PQo="
+      "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/launcher-v0.12.0/LYNO-HARDWIRED_0.12.0_x64-setup.exe",
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUejR0VmZ4WmllZkxlMDRmVXU2ZWtuNDNUdmdTSzdnWlMzSlB1bmN6VVVnN2xNMVBJQVBuMkZJeTBuaU1oTVlBMzhOYnl5a2dvdDJ1bERIeEs4cS9ZZDZuNDA2WnpHbndFPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkzMDk5MTkxCWZpbGU6TFlOTyBIQVJEV0lSRURfMC4xMi4wX3g2NC1zZXR1cC5leGUJdmVyc2lvbjowLjEyLjAKbGVnOHdxSEh1TTRHMk0vajRhRnNOU1BkR2ppZzlPNHoxZ0pETWRDSWlRVFUwTkZYb2l3UWdlR0JXaUpqcENsb2dBTmdobUdXaTN0Slk2bENIUHZ5Q0E9PQo="
     }
   }
 }
