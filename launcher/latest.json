@@ -1,11 +1,11 @@
 {
-  "version": "1.1.1",
-  "notes": "Режим автора: откат к установленной версии сборки, при смене версии моды включаются и выключаются как в ней, удалённые и изменённые моды сборки возвращаются.",
-  "pub_date": "2026-10-27T17:13:41Z",
+  "version": "1.2.0",
+  "notes": "Профиль Coop для кооператива (NightCoop): в настройках → «Профиль» появляется карта Coop. В ней включены только моды автора сборки, свои моды выключены и список не меняется, чтобы у всех игроков был один и тот же набор.",
+  "pub_date": "2026-10-27T20:04:56Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUejR0VmZ4WmllZkVXamEzcitJbmFsdVZoUktrc1Q0Ym9xbHUyQWtSNGs1NGNlU1BmclBSZTd1U2dRa0ZyWkdLMXlOcVB2amg4N1l2R2VsQXoxaFBqZk1IWFl0UTliWEFRPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkzMTIxMjIxCWZpbGU6TFlOTyBIQVJEV0lSRURfMS4xLjFfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjEuMS4xCkd4allLdWpUTHI1dzV4NWt3NHRCVzU2VUpSVDJ4cGpVdy96UjNHZUFIeDJhMWU1UWVJUk5LT0RXamk4M3crT1VUbVQ2NmxhbFdPcUIybDA0NktobkR3PT0K",
-      "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/launcher-v1.1.1/LYNO-HARDWIRED_1.1.1_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUejR0VmZ4WmllZkYrN0VDdm1MNng2Ny9BaEdoQWhNcVBKVm9tK0FTNm16MWw2U0M2NllENHdyaWJBR2xnRzhRMktlcm14T0JRdjRnb2hnNDRUWSs4RTRQVWhybW5nQkFjPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkzMTMxNDk2CWZpbGU6TFlOTyBIQVJEV0lSRURfMS4yLjBfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjEuMi4wCnp0bFZvcjRXRE80MEpSTzdwRUhxMlBHQkd1VUpLeGdpU0JqTUZDNm5sQkh0VFJML3JBL1h1eE9MQ08vY0xDTWh6VlZjcHRhR1ZjWEx5L0lEMlg1bURBPT0K",
+      "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/launcher-v1.2.0/LYNO-HARDWIRED_1.2.0_x64-setup.exe"
     }
   }
 }
