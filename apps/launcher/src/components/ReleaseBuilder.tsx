@@ -1,6 +1,6 @@
-import { CircleCheck, Hammer, Rocket, TriangleAlert } from "lucide-react";
+import { CircleCheck, Hammer, ListPlus, Rocket, TriangleAlert } from "lucide-react";
 import { useEffect, useState } from "react";
-import { api } from "../api";
+import { api, type BuildInfo, type Pending, type VerifyReport } from "../api";
 import { formatBytes, plural } from "../format";
 import { useApp } from "../store";
 import { Button } from "./Button";
@@ -12,9 +12,26 @@ function nextVersion(v: string | null): string {
   return m ? `${m[1]}${Number(m[2]) + 1}` : "";
 }
 
+/**
+ * Players read the notes: mods by title, only what they notice. Edited files are known once
+ * "Файлы модов" has been checked.
+ */
+function draftNotes(pending: Pending, report: VerifyReport | null, mods: BuildInfo["mods"]): string[] {
+  const title = (folder: string, id?: string) => {
+    const row = mods.find((m) => m.kind === "mod" && (id ? m.id === id : m.name === folder));
+    return row?.kind === "mod" ? (row.title ?? row.name) : folder;
+  };
+  const updated = (report?.damaged ?? []).flatMap((d) => (d.id && d.problem.kind !== "missingFolder" ? [title(d.folder, d.id)] : []));
+  return [
+    ...pending.added.map((f) => `Добавлен ${f}`),
+    ...updated.map((t) => `Обновлён ${t}`),
+    ...pending.removed.map((f) => `Удалён ${title(f)}`),
+  ];
+}
+
 /** Build form → packing progress → review → publish progress. */
-export function ReleaseBuilder({ canPublish }: { canPublish: boolean }) {
-  const { status, build, authorRun, built, published, refreshBuilt, startAuthorJob } = useApp();
+export function ReleaseBuilder({ canPublish, pending }: { canPublish: boolean; pending: Pending | null }) {
+  const { status, build, verifyReport, authorRun, built, published, refreshBuilt, startAuthorJob } = useApp();
   const installed = status?.installedVersion ?? null;
   const [form, setForm] = useState({ version: nextVersion(installed), gameVersion: build?.gameVersion ?? "", notes: "" });
   const [editing, setEditing] = useState(false);
@@ -23,13 +40,13 @@ export function ReleaseBuilder({ canPublish }: { canPublish: boolean }) {
   useEffect(() => {
     void refreshBuilt();
   }, [refreshBuilt]);
-  // Re-checked as the game version is typed: it is compared with the game's exe.
+  // Re-checked as the game version is typed (it is compared with the game's exe) and with the mod list.
   useEffect(() => {
     const timer = setTimeout(() => {
       api.authorPreflight(form.gameVersion).then(setPreflight, () => setPreflight([]));
     }, 400);
     return () => clearTimeout(timer);
-  }, [form.gameVersion]);
+  }, [form.gameVersion, pending]);
   useEffect(() => {
     setForm((f) => ({ ...f, gameVersion: f.gameVersion || build?.gameVersion || "" }));
   }, [build?.gameVersion]);
@@ -116,6 +133,7 @@ export function ReleaseBuilder({ canPublish }: { canPublish: boolean }) {
   }
 
   const notes = form.notes.split("\n").map((n) => n.trim()).filter(Boolean);
+  const draft = pending ? draftNotes(pending, verifyReport, build?.mods ?? []).filter((n) => !notes.includes(n)) : [];
   const submit = () => {
     setEditing(false);
     void startAuthorJob("build", () => api.authorBuild(form.version, form.gameVersion, notes));
@@ -148,6 +166,12 @@ export function ReleaseBuilder({ canPublish }: { canPublish: boolean }) {
           className="w-full rounded-2xl bg-raised px-4 py-2.5 text-[13px] outline-none focus:ring-1 focus:ring-neon/50"
         />
       </Labeled>
+      {draft.length > 0 && (
+        <Button variant="ghost" className="-mt-2" onClick={() => setForm({ ...form, notes: [...notes, ...draft].join("\n") })}>
+          <ListPlus size={15} />
+          Добавить из изменений: {draft.length}
+        </Button>
+      )}
       <Warnings items={preflight} />
       <div className="flex items-center gap-3">
         <Button variant="primary" onClick={submit} disabled={!form.version.trim() || !form.gameVersion.trim()}>

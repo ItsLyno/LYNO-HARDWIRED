@@ -164,7 +164,7 @@ export function Release() {
       <Section title="Новая версия">
         <div className="px-5 pb-5">
           {/* A new installed version (accepted or just published) starts a fresh form: next version, no notes. */}
-          <ReleaseBuilder key={installed} canPublish={canPublish} />
+          <ReleaseBuilder key={installed} canPublish={canPublish} pending={pending} />
         </div>
       </Section>
 
