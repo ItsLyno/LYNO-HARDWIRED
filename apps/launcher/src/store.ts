@@ -123,14 +123,14 @@ interface AppStore {
   setRootJob: (id: number | null) => void;
   refreshDownloads: () => Promise<void>;
   refreshUserMods: () => Promise<void>;
-  /** Archives that would go over an installed mod, waiting for the player's yes (first one asked). */
-  replaceAsks: ReplaceAsk[];
-  /** A file name in MO2's downloads or a path from Explorer. Over an installed mod only after `answerReplace`. */
+  /** Archives waiting for the player to name the mod (first one asked). */
+  installAsks: InstallAsk[];
+  /** A file name in MO2's downloads or a path from Explorer, installed once `answerInstall` names it. */
   installArchive: (file: string, after: string | null) => Promise<void>;
   /** Runs an `instance*` call, then reloads everything that belongs to the instance. */
   switchInstance: (op: () => Promise<void>) => Promise<boolean>;
-  /** `name`: install it as a separate mod of that name, the installed one stays. */
-  answerReplace: (answer: "cancel" | "replace" | { name: string }) => void;
+  /** The mod's folder name; the installed mod's own goes over it. `null`: cancelled. */
+  answerInstall: (name: string | null) => void;
   clearError: () => void;
 }
 
@@ -185,7 +185,7 @@ export const useApp = create<AppStore>((set, get) => ({
   drag: null,
   overwrite: null,
   fileOver: null,
-  replaceAsks: [],
+  installAsks: [],
   runReport: null,
   launchedAt: null,
   dismissRunReport: (forget) => {
@@ -443,10 +443,11 @@ export const useApp = create<AppStore>((set, get) => ({
     set({ userMods, overwrite });
   },
   installArchive: async (file, after) => {
-    // Unknown target (unreadable archive, no build): the install itself reports why.
+    // As in MO2, every install asks for the mod's name first. Unknown target (unreadable archive, no build, a core
+    // build mod): nothing to ask, the install itself reports why.
     const target = await api.archiveTarget(file).catch(() => null);
-    if (target?.replaces) {
-      set({ replaceAsks: [...get().replaceAsks, { file, after, target }] });
+    if (target) {
+      set({ installAsks: [...get().installAsks, { file, after, target }] });
       return;
     }
     try {
@@ -455,12 +456,13 @@ export const useApp = create<AppStore>((set, get) => ({
       set({ error: String(e) });
     }
   },
-  answerReplace: (answer) => {
-    const [ask, ...rest] = get().replaceAsks;
-    set({ replaceAsks: rest });
-    if (!ask || answer === "cancel") return;
-    const name = answer === "replace" ? null : answer.name;
-    void api.installArchive(ask.file, ask.after, name).catch((e) => set({ error: String(e) }));
+  answerInstall: (name) => {
+    const [ask, ...rest] = get().installAsks;
+    set({ installAsks: rest });
+    if (!ask || name === null) return;
+    // The installed mod's own name keeps the archive's target: it goes over that mod.
+    const named = name === ask.target.replaces ? null : name;
+    void api.installArchive(ask.file, ask.after, named).catch((e) => set({ error: String(e) }));
   },
   switchInstance: async (op) => {
     try {
@@ -500,7 +502,7 @@ export function activeInstance(settings: Settings | null): InstanceEntry | null 
   return settings?.instances.find((i) => i.dir === settings.instanceDir) ?? null;
 }
 
-export interface ReplaceAsk {
+export interface InstallAsk {
   file: string;
   after: string | null;
   target: ArchiveTarget;

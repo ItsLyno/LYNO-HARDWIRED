@@ -8,7 +8,7 @@ import { PageTitle } from "./components/PageTitle";
 import { FomodWizard } from "./components/FomodWizard";
 import { GameRunning } from "./components/GameRunning";
 import { Footer } from "./components/Footer";
-import { ReplaceConfirm } from "./components/ReplaceConfirm";
+import { InstallDialog } from "./components/InstallDialog";
 import { RootPicker } from "./components/RootPicker";
 import { Header } from "./components/Header";
 import { Mods } from "./pages/Mods";
@@ -108,7 +108,7 @@ export default function App() {
         <PageView />
         {fomodJob !== null && <FomodWizard key={fomodJob} jobId={fomodJob} onClose={() => setFomodJob(null)} />}
         {rootJob !== null && <RootPicker key={rootJob} jobId={rootJob} onClose={() => setRootJob(null)} />}
-        <ReplaceConfirm />
+        <InstallDialog />
         {(error || notice) && (
           <div
             role="alert"

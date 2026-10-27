@@ -615,9 +615,7 @@ fn work(app: &AppHandle) {
                 let _ = app.emit("nexus-changed", ());
                 JobState::Done { outcome }
             }
-            Ok(Err(BuildMod(folder))) => JobState::Failed {
-                error: format!("«{folder}» — основа сборки: от него зависят другие моды, поэтому его версию задаёт сборка"),
-            },
+            Ok(Err(BuildMod(folder))) => JobState::Failed { error: build_mod_error(&folder) },
             Err(lyno_core::Error::Cancelled) => JobState::Cancelled,
             Err(e) => {
                 log::error!("job {} ({:?}): {e}", job.id, job.title);
@@ -661,6 +659,10 @@ fn job_needs(app: &AppHandle, id: u64) -> Vec<Need> {
         log::warn!("requirements of {game}/{mod_id}: {e}");
         Vec::new()
     })
+}
+
+fn build_mod_error(folder: &str) -> String {
+    format!("«{folder}» — основа сборки: от него зависят другие моды, поэтому его версию задаёт сборка")
 }
 
 fn job_error(e: &lyno_core::Error) -> String {
@@ -909,11 +911,12 @@ pub async fn archive_target(app: AppHandle, file: String) -> CmdResult<ArchiveTa
     tauri::async_runtime::spawn_blocking(move || {
         let archive = archive_path(&inst, &file)?;
         let download = mod_install::download_for(&archive);
-        // A player's core build mod: the install itself says why it can't go there.
+        // A player's core build mod: no name to ask for, not even a separate one beside it.
         let (replaces, build) = match mod_install::target_for(&inst, &profile, &download, author, installed_manifest(&inst).as_ref(), None).map_err(err)? {
             Ok(Target::Replace(folder)) => (Some(folder), false),
             Ok(Target::Own { folder, .. }) => (Some(folder), true),
-            _ => (None, false),
+            Ok(Target::New { .. }) => (None, false),
+            Err(BuildMod(folder)) => return Err(build_mod_error(&folder)),
         };
         let installed_version = replaces
             .as_ref()
