@@ -232,11 +232,72 @@ pub fn target_modlist(manifest: &Manifest, state: &State, current: &ModList) -> 
     ModList { entries }
 }
 
+/// The list of the Coop profile: the build's mods as the author has them on in Coop
+/// ([`ModSpec::coop`]), the player's switches ignored, and every other folder of `mods/` off, so
+/// nothing of the player's loads. NightCoop only compares mod sets, it can't make them equal:
+/// the launcher does, by writing this before each Coop start. Game DLC entries (`*`) carry over.
+/// `on_disk`: the folders of `mods/`, which MO2 would otherwise add to a profile that lacks them.
+pub fn coop_modlist(manifest: &Manifest, state: &State, current: &ModList, on_disk: &[String]) -> ModList {
+    let mut build = Vec::new();
+    for e in &manifest.mods {
+        match e {
+            ModEntry::Separator { title, .. } => build.push(Entry::separator(title)),
+            ModEntry::Mod(m) => {
+                let Some(installed) = state.mods.get(&m.id) else { continue };
+                build.push(if m.coop == Some(true) { Entry::enabled(&installed.folder) } else { Entry::disabled(&installed.folder) });
+            }
+        }
+    }
+    let in_build: HashSet<&str> = build.iter().map(|e| e.name.as_str()).collect();
+    let mut entries: Vec<Entry> = current.entries.iter().filter(|e| e.state == EntryState::Unmanaged).cloned().collect();
+    let mut others: Vec<&str> = current.entries.iter().filter(|e| e.state != EntryState::Unmanaged).map(|e| e.name.as_str()).chain(on_disk.iter().map(String::as_str)).collect();
+    let mut seen = HashSet::new();
+    others.retain(|n| !in_build.contains(n) && seen.insert(*n));
+    entries.extend(others.into_iter().map(Entry::disabled));
+    entries.extend(build);
+    ModList { entries }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::manifest::tests::{manifest, spec};
     use crate::state::InstalledMod;
+
+    #[test]
+    fn coop_list_is_the_authors_set_and_nothing_of_the_players() {
+        let on = |id: &str, coop| ModSpec { coop: Some(coop), ..spec(id, "h") };
+        let m = manifest(vec![
+            ModEntry::Separator { title: "Core".into(), color: None },
+            ModEntry::Mod(on("cet", true)),
+            ModEntry::Mod(on("extra", false)),
+            ModEntry::Mod(on("new", true)),
+        ]);
+        let st = state(Some("base"), &[("cet", "cet folder", "h"), ("extra", "extra folder", "h")]);
+        let current = ModList {
+            entries: vec![
+                Entry { name: "DLC: EP1".into(), state: EntryState::Unmanaged },
+                Entry::enabled("Mine"),
+                Entry::disabled("cet folder"),
+                Entry::enabled("extra folder"),
+                Entry::separator(USER_SEPARATOR),
+            ],
+        };
+        let list = coop_modlist(&m, &st, &current, &["Mine".into(), "Stray".into()]);
+        assert_eq!(
+            list.entries,
+            [
+                Entry { name: "DLC: EP1".into(), state: EntryState::Unmanaged },
+                Entry::disabled("Mine"),
+                Entry::disabled(Entry::separator(USER_SEPARATOR).name),
+                Entry::disabled("Stray"),
+                Entry::separator("Core"),
+                Entry::enabled("cet folder"),
+                Entry::disabled("extra folder"),
+            ],
+            "player's switches are ignored, a mod not installed has no entry, strays are off"
+        );
+    }
 
     fn state(base: Option<&str>, mods: &[(&str, &str, &str)]) -> State {
         State {
