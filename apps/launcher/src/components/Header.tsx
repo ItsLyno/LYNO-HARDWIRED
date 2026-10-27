@@ -39,10 +39,10 @@ export function Header() {
         ))}
       </nav>
       <div data-tauri-drag-region className="h-full flex-1" />
-      <div className="flex items-center rounded-full bg-surface p-1">
+      <div className="flex items-center gap-1 rounded-full bg-surface p-1">
         <Inbox />
+        <Launch />
       </div>
-      <Launch />
       <div className="flex items-center gap-1">
         <WinButton label="Свернуть" onClick={() => win?.minimize()}>
           <Minus size={14} />
