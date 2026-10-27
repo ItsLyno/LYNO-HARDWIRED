@@ -8,7 +8,8 @@ import { Changelog } from "./Changelog";
 import { RunProblems } from "./RunProblems";
 import { UpdateProgress } from "./UpdateProgress";
 
-/** What needs the player's attention, and only that: a healthy setup shows nothing. */
+/** What needs the player's attention, and only that: a healthy setup shows nothing. Most urgent first: what stops
+ *  the game, then what may break it, then updates, then what is only worth knowing. */
 export function Notices() {
   const { status, build, progress, settings, launcherUpdate, runReport, dismissRunReport, setPage, run, startUpdate } = useApp();
   const [problems, setProblems] = useState(false);
@@ -43,9 +44,8 @@ export function Notices() {
         </Notice>
       )}
       {status?.gameMismatch && <GameMismatchNotice m={status.gameMismatch} />}
-      {isBuild && build?.lastUpdate && build.lastUpdate.ownCopies.length > 0 && !settings?.authorMode && <OwnCopiesNotice update={build.lastUpdate} />}
       {runReport && (
-        <Notice tone={runReport.scriptsFailed ? "bad" : "accent"} icon={Bug} label="Последний запуск" text={runSummary(runReport)}>
+        <Notice tone={runReport.scriptsFailed ? "bad" : "warn"} icon={Bug} label="Последний запуск" text={runSummary(runReport)}>
           <Button className="h-8 text-[13px]" onClick={() => setProblems(true)}>
             Подробнее
           </Button>
@@ -100,7 +100,7 @@ export function Notices() {
         </Notice>
       )}
       {launcherUpdate && (
-        <Notice tone="accent" icon={Rocket} label="Лаунчер" text={`Доступен лаунчер ${launcherUpdate.version}`}>
+        <Notice tone="neon" icon={Rocket} label="Лаунчер" text={`Доступен лаунчер ${launcherUpdate.version}`}>
           <Button
             className="h-8 text-[13px]"
             onClick={installLauncher}
@@ -112,6 +112,7 @@ export function Notices() {
           </Button>
         </Notice>
       )}
+      {isBuild && build?.lastUpdate && build.lastUpdate.ownCopies.length > 0 && !settings?.authorMode && <OwnCopiesNotice update={build.lastUpdate} />}
     </div>
   );
 }
@@ -129,7 +130,7 @@ function GameMismatchNotice({ m }: { m: GameMismatch }) {
         : `Сборка сделана для патча ${m.expected}, а у вас ${yours}`;
   return (
     <Notice
-      tone="bad"
+      tone="warn"
       icon={TriangleAlert}
       label="Версия игры"
       text={text}
@@ -195,7 +196,7 @@ function OwnCopiesNotice({ update }: { update: LastUpdate }) {
   const n = update.ownCopies.length;
   return (
     <Notice
-      tone="accent"
+      tone="info"
       icon={Copy}
       label="Ваши моды"
       text={
@@ -255,18 +256,22 @@ function runSummary(r: RunReport): string {
   return `В последнем запуске моды записали ${n} ${plural(n, "ошибку", "ошибки", "ошибок")}${named}`;
 }
 
+/** One colour per kind of notice, so a glance at the list says what is broken, what is risky and what is merely new. */
 const tones = {
-  accent: { text: "text-accent", chip: "bg-accent/15", bar: "before:bg-accent" },
-  bad: { text: "text-bad", chip: "bg-bad/15", bar: "before:bg-bad" },
+  bad: { text: "text-bad", chip: "bg-bad/15", bar: "before:bg-bad", tint: "from-bad/10" },
+  warn: { text: "text-warn", chip: "bg-warn/15", bar: "before:bg-warn", tint: "from-warn/10" },
+  accent: { text: "text-accent", chip: "bg-accent/15", bar: "before:bg-accent", tint: "from-accent/10" },
+  neon: { text: "text-neon", chip: "bg-neon/15", bar: "before:bg-neon", tint: "from-neon/10" },
+  info: { text: "text-muted", chip: "bg-raised", bar: "before:bg-faint", tint: "from-raised/60" },
 };
 
 /** Every notice says what it is about (icon + label) before what it says: with several at once they are told apart
- *  by the label and the colour bar, not by reading each line. */
+ *  by the label and the colour, not by reading each line. */
 function Notice(props: { tone: keyof typeof tones; icon: LucideIcon; label: string; text: ReactNode; below?: ReactNode; children?: ReactNode }) {
   const t = tones[props.tone];
   return (
     <div className={`panel relative overflow-hidden text-[13px] before:absolute before:inset-y-0 before:left-0 before:w-1 ${t.bar}`}>
-      <div className="flex min-h-12 items-center gap-3 px-5 py-2">
+      <div className={`flex min-h-12 items-center gap-3 bg-linear-to-r ${t.tint} to-transparent to-60% px-5 py-2`}>
         <span className={`inline-flex shrink-0 items-center gap-2 text-[11px] font-medium uppercase tracking-wider ${t.text}`}>
           <span className={`inline-flex size-6 items-center justify-center rounded-full ${t.chip}`}>
             <props.icon size={14} />
