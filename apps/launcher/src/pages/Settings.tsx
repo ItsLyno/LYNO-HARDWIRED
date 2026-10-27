@@ -207,9 +207,6 @@ export function Settings() {
           </div>
         </Field>
       </div>
-      <p className="pt-4 font-mono text-[11px] text-faint">
-        LYNO//HARDWIRED · Моды принадлежат их авторам.
-      </p>
       {!settings?.authorMode && <AuthorUnlock repo={settings?.authorRepo ?? ""} onEnabled={authorEnabled} />}
         </>
       )}
