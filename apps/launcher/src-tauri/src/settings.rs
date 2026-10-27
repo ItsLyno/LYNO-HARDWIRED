@@ -113,6 +113,16 @@ impl Settings {
         }
     }
 
+    /// `channel_url`, then the release manifest: before the first beta there is no `manifest-beta.json`,
+    /// and the release build is what is published then.
+    pub fn channel_urls(&self) -> Vec<String> {
+        let mut urls = vec![self.channel_url()];
+        if urls[0] != self.manifest_url {
+            urls.push(self.manifest_url.clone());
+        }
+        urls
+    }
+
     /// The active instance is the build's.
     pub fn build(&self) -> bool {
         self.active().is_some_and(|i| i.build)
@@ -147,5 +157,11 @@ mod tests {
         s.beta = true;
         s.manifest_url = "http://localhost/custom".into();
         assert_eq!(s.channel_url(), "http://localhost/custom", "a custom URL has no channels");
+        assert_eq!(s.channel_urls(), ["http://localhost/custom"]);
+        s.manifest_url = DEFAULT_MANIFEST_URL.into();
+        assert_eq!(s.channel_urls(), [beta, DEFAULT_MANIFEST_URL.to_owned()], "beta falls back to the release manifest");
+        s.author_mode = false;
+        s.beta = false;
+        assert_eq!(s.channel_urls(), [DEFAULT_MANIFEST_URL]);
     }
 }

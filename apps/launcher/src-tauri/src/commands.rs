@@ -356,10 +356,18 @@ pub async fn fetch_build(app: AppHandle) -> CmdResult<Option<BuildInfo>> {
         *state.manifest.lock().unwrap() = None;
         return Ok(None);
     }
-    let url = settings.channel_url();
+    let urls = settings.channel_urls();
     let remote = tauri::async_runtime::spawn_blocking(move || {
-        let text = Downloader::new().get_text(&url)?;
-        Manifest::from_json(&text)
+        let dl = Downloader::new();
+        let (last, rest) = urls.split_last().expect("channel_urls is never empty");
+        // Only a missing manifest falls through to the next channel (no beta published yet).
+        for url in rest {
+            match dl.get_text(url) {
+                Err(lyno_core::Error::Download(e)) if e.contains("HTTP 404") => log::info!("no manifest at {url}, trying the release one"),
+                other => return Manifest::from_json(&other?),
+            }
+        }
+        Manifest::from_json(&dl.get_text(last)?)
     })
     .await
     .map_err(err)?;
