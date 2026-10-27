@@ -338,9 +338,10 @@ export function Mods() {
       <div className="flex items-end justify-between gap-6">
         <PageTitle
           sub={
-            build
+            (build
               ? `${all.length} ${plural(all.length, "мод", "мода", "модов")} · сборка ${build.latestVersion}`
-              : `${userModCount} ${plural(userModCount, "мод", "мода", "модов")} · Mod Organizer 2`
+              : `${userModCount} ${plural(userModCount, "мод", "мода", "модов")} · Mod Organizer 2`) +
+            (status?.coopActive ? " · профиль Coop: набор автора, не меняется" : "")
           }
         >
           Моды

@@ -292,8 +292,9 @@ function BackgroundSettings() {
 }
 
 function Profiles() {
-  const { settings, switchInstance, progress } = useApp();
+  const { settings, status, switchInstance, progress } = useApp();
   const instances = settings?.instances ?? [];
+  const coop = !!status?.coopActive;
   return (
     <section className="space-y-3">
       <div>
@@ -303,13 +304,14 @@ function Profiles() {
         </p>
       </div>
       <div className="grid grid-cols-2 gap-3">
-        {instances.map((i) => {
-          const active = i.dir === settings?.instanceDir;
-          return (
+        {instances.flatMap((i) => {
+          const here = i.dir === settings?.instanceDir;
+          const active = here && !(i.build && coop);
+          const card = (
             <button
               key={i.dir}
               disabled={active || !!progress}
-              onClick={() => switchInstance(() => api.instanceSelect(i.dir))}
+              onClick={() => switchInstance(async () => (here ? api.setCoop(false) : api.instanceSelect(i.dir)))}
               className={`panel flex flex-col items-start gap-1 px-5 py-4 text-left transition-colors ${
                 active ? "ring-1 ring-neon" : "hover:bg-raised/60 disabled:opacity-60"
               }`}
@@ -332,6 +334,36 @@ function Profiles() {
               </span>
             </button>
           );
+          // Coop is a second profile of the build's own folder, not a copy of it.
+          const coopCard =
+            here && i.build && status?.coopAvailable ? (
+              <button
+                key={`${i.dir}#coop`}
+                disabled={coop || !!progress}
+                onClick={() => switchInstance(() => api.setCoop(true))}
+                className={`panel flex flex-col items-start gap-1 px-5 py-4 text-left transition-colors ${
+                  coop ? "ring-1 ring-neon" : "hover:bg-raised/60 disabled:opacity-60"
+                }`}
+              >
+                <span className="flex w-full items-center gap-2">
+                  <span className="truncate text-sm font-medium">{i.name} Coop</span>
+                  <span className="rounded-full bg-raised px-2 py-0.5 text-[11px] text-muted">кооператив</span>
+                  <span className="flex-1" />
+                  {coop ? (
+                    <span className="flex items-center gap-1 text-[12px] text-neon">
+                      <Check size={13} />
+                      Активный
+                    </span>
+                  ) : (
+                    <span className="text-[12px] text-muted">Переключиться</span>
+                  )}
+                </span>
+                <span className="block w-full text-[12px] text-faint">
+                  Только моды автора, как у всех игроков. Свои моды в этом профиле выключены, список не меняется.
+                </span>
+              </button>
+            ) : null;
+          return coopCard ? [card, coopCard] : [card];
         })}
       </div>
       <div className="panel">

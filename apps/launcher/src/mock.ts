@@ -166,6 +166,8 @@ let status: Status = {
   mo2Running: false,
   gamePatch: "2.31",
   gameMismatch: null,
+  coopAvailable: true,
+  coopActive: false,
   updating: false,
 };
 
@@ -991,6 +993,9 @@ export const mock = {
     throw new Error(`Архива мода «${folder}» нет в загрузках Mod Organizer 2: скачайте мод заново и перетащите его в список`);
   },
   instanceSelect: async (dir: string) => useInstance(settings.instances.find((i) => i.dir === dir)!),
+  setCoop: async (active: boolean) => {
+    status = { ...status, coopActive: active };
+  },
   instanceAdd: async (dir: string) => useInstance({ name: dir.split("\\").pop() ?? dir, dir, build: false }),
   instanceAddBuild: async () => useInstance({ name: "LYNO//HARDWIRED", dir: BUILD_DIR, build: true }),
   startMo2Setup: async () => {

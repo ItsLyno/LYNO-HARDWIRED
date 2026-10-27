@@ -47,6 +47,10 @@ export interface Status {
   gamePatch: string | null;
   /** The installed build was made for another patch. */
   gameMismatch: GameMismatch | null;
+  /** The installed build has a Coop mod set: the author's, the same for every player. */
+  coopAvailable: boolean;
+  /** Coop is the active profile: the list and the game start work with it, and the list is not changed. */
+  coopActive: boolean;
 }
 
 export interface GameMismatch {
@@ -746,6 +750,8 @@ export const api = isTauri()
       /** From the archive in MO2's downloads, as a queued job; a player's build mod is repaired instead (`startRepair`). */
       reinstallMod: (folder: string) => invoke<number>("reinstall_mod", { folder }),
       instanceSelect: (dir: string) => invoke<void>("instance_select", { dir }),
+      /** The build's own profile or Coop (the author's mod set, made from the manifest). MO2 and the game closed. */
+      setCoop: (active: boolean) => invoke<void>("set_coop", { active }),
       /** The player's portable MO2 for Cyberpunk. */
       instanceAdd: (dir: string) => invoke<void>("instance_add", { dir }),
       /** Switches to the build's instance; installing it is `startUpdate`. */
