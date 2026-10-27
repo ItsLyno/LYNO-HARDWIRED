@@ -7,6 +7,7 @@ use lyno_core::conflicts;
 use lyno_core::diagnose;
 use lyno_core::download::{Downloader, PartEvent};
 use lyno_core::game::{self, GameInstall};
+use lyno_core::github::{GitHub, PublishedBuild};
 use lyno_core::history;
 use lyno_core::install::{self, Installer};
 use lyno_core::manifest::{ChangelogEntry, Manifest, ModEntry};
@@ -528,6 +529,48 @@ pub fn start_update(app: AppHandle) -> CmdResult<()> {
     if state.verify.lock().unwrap().is_some() {
         return Err("Дождитесь окончания проверки файлов".into());
     }
+    spawn_update(app, manifest, settings, |_| Ok(()))
+}
+
+/// Earlier released builds a player can switch to, newest first, without the
+/// installed one. Read from the public history of the manifest: no token needed.
+#[tauri::command]
+pub async fn build_versions(app: AppHandle) -> CmdResult<Vec<PublishedBuild>> {
+    let state = app.state::<AppState>();
+    let settings = state.settings.lock().unwrap().clone();
+    let installed = installed_manifest(&Instance::new(&settings.instance_dir)).map(|m| m.build_version);
+    let builds = tauri::async_runtime::spawn_blocking(move || GitHub::new(&settings.author_repo, "").published_builds())
+        .await
+        .map_err(err)?
+        .map_err(|e| format!("Не удалось прочитать историю выпусков: {e}"))?;
+    Ok(builds.into_iter().filter(|b| Some(&b.version) != installed.as_ref()).collect())
+}
+
+/// Installs an earlier released build like an update: its mods get that build's
+/// packages (downloaded again unless cached), mods it doesn't have are removed.
+/// Back to the fresh one is the usual update.
+#[tauri::command]
+pub async fn switch_build(app: AppHandle, commit: String) -> CmdResult<()> {
+    let settings = app.state::<AppState>().settings.lock().unwrap().clone();
+    if !settings.build() {
+        return Err(NOT_BUILD.into());
+    }
+    if settings.author_mode {
+        return Err(AUTHOR_MODE_NO_UPDATE.into());
+    }
+    if running_processes() != (false, false) {
+        return Err("Закройте игру и Mod Organizer 2 перед сменой версии".into());
+    }
+    if app.state::<AppState>().verify.lock().unwrap().is_some() {
+        return Err("Дождитесь окончания проверки файлов".into());
+    }
+    let repo = settings.author_repo.clone();
+    let text = tauri::async_runtime::spawn_blocking(move || GitHub::new(&repo, "").manifest_at(&commit))
+        .await
+        .map_err(err)?
+        .map_err(|e| format!("Не удалось загрузить эту версию: {e}"))?;
+    let manifest = Manifest::from_json(&text).map_err(|e| format!("Эту версию лаунчер прочитать не может: {e}"))?;
+    log::info!("player switches to build {}", manifest.build_version);
     spawn_update(app, manifest, settings, |_| Ok(()))
 }
 

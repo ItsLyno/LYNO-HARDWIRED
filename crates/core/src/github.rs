@@ -137,9 +137,9 @@ impl GitHub {
             "DELETE" => self.agent.delete(url),
             _ => unreachable!("{method} has a body"),
         };
-        req.header("Authorization", &format!("Bearer {}", self.token))
-            .header("Accept", "application/vnd.github+json")
-            .header("X-GitHub-Api-Version", "2022-11-28")
+        // Without a token (a player reading the public history) GitHub would answer 401 to an empty bearer.
+        let req = if self.token.is_empty() { req } else { req.header("Authorization", &format!("Bearer {}", self.token)) };
+        req.header("Accept", "application/vnd.github+json").header("X-GitHub-Api-Version", "2022-11-28")
     }
 
     /// API call relative to the API root; status and body text.
