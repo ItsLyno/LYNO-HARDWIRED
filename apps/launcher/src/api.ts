@@ -71,6 +71,36 @@ export interface Overlap {
   files: string[];
 }
 
+export interface Conflicts {
+  /** Mods with any conflict, lowest priority first, OVERWRITE last. */
+  mods: string[];
+  files: ModConflicts[];
+  archives: ArchiveConflicts[];
+  /** How the game orders archive/pc/mod/*.archive: the first loaded wins a resource. */
+  archiveOrder: "alphabetical" | "mo2" | "mo2Reversed";
+}
+
+/** A mod's .archive files replacing the same resources as other mods' archives. */
+export interface ArchiveConflicts {
+  modFolder: string;
+  /** Resources the game takes from this mod's archive. */
+  wins: ArchiveOverlap[];
+  /** Resources of this mod's archive the game takes from the other one. */
+  loses: ArchiveOverlap[];
+  /** Its archives losing every resource. */
+  dead: string[];
+}
+
+export interface ArchiveOverlap {
+  /** This mod's archive file name. */
+  archive: string;
+  modFolder: string;
+  /** The other mod's archive file name. */
+  other: string;
+  /** Path hashes, decimal (archives keep no names). */
+  resources: string[];
+}
+
 /** `conflicts::OVERWRITE`: MO2's overwrite/, above every mod. */
 export const OVERWRITE = "<overwrite>";
 
@@ -619,8 +649,8 @@ export const api = isTauri()
       stopGame: () => invoke<void>("stop_game"),
       /** Once the game has closed: errors in its logs; null when none or no run was seen. */
       lastRun: () => invoke<RunReport | null>("last_run"),
-      /** Enabled mods sharing files, lowest priority first, overwrite last. */
-      modConflicts: () => invoke<ModConflicts[]>("mod_conflicts"),
+      /** Enabled mods sharing files (lowest priority first, overwrite last) and archive resources. */
+      modConflicts: () => invoke<Conflicts>("mod_conflicts"),
       modlistHistory: () => invoke<HistoryRow[]>("modlist_history"),
       /** Order and on/off of the snapshot back into the profile's list; needs MO2 closed. */
       modlistRestore: (id: number) => invoke<void>("modlist_restore", { id }),

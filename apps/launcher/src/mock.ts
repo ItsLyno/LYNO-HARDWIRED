@@ -22,7 +22,7 @@ import type {
   Pending,
   Versions,
   HistoryRow,
-  ModConflicts,
+  Conflicts,
   RunReport,
   Secret,
   Settings,
@@ -737,17 +737,32 @@ export const mock = {
     if (status.gameRunning || status.mo2Running) throw new Error("Закройте игру и Mod Organizer 2, чтобы менять моды");
     await delay(300);
   },
-  modConflicts: async (): Promise<ModConflicts[]> => {
+  modConflicts: async (): Promise<Conflicts> => {
     await delay(400);
     const lut = ["engine/config/platform/pc/rendering.ini", "r6/config/settings/platform/pc/options.json"];
     const textures = Array.from({ length: 14 }, (_, i) => `archive/pc/mod/basegame_texture_${String(i + 1).padStart(2, "0")}.archive`);
-    return [
-      { modFolder: "Nova LUT", wins: [], loses: [{ modFolder: "Ultra Plus", files: [lut[0]] }], files: 6, lost: 1 },
-      { modFolder: "Ultra Plus", wins: [{ modFolder: "Nova LUT", files: [lut[0]] }], loses: [{ modFolder: OVERWRITE, files: [lut[1]] }], files: 9, lost: 1 },
-      { modFolder: "Darker Nights", wins: [], loses: [{ modFolder: "Better Lightning", files: textures }], files: 14, lost: 14 },
-      { modFolder: "Better Lightning", wins: [{ modFolder: "Darker Nights", files: textures }], loses: [], files: 20, lost: 0 },
-      { modFolder: OVERWRITE, wins: [{ modFolder: "Ultra Plus", files: [lut[1]] }], loses: [], files: 3, lost: 0 },
-    ];
+    const meshes = ["1408862094723558931", "2716335517390158802", "5520916358128847003", "9071245503367161188"];
+    return {
+      mods: ["Nova LUT", "Ultra Plus", "Immersive Rippers", "Appearance Menu Mod", "Darker Nights", "Better Lightning", OVERWRITE],
+      files: [
+        { modFolder: "Nova LUT", wins: [], loses: [{ modFolder: "Ultra Plus", files: [lut[0]] }], files: 6, lost: 1 },
+        { modFolder: "Ultra Plus", wins: [{ modFolder: "Nova LUT", files: [lut[0]] }], loses: [{ modFolder: OVERWRITE, files: [lut[1]] }], files: 9, lost: 1 },
+        { modFolder: "Darker Nights", wins: [], loses: [{ modFolder: "Better Lightning", files: textures }], files: 14, lost: 14 },
+        { modFolder: "Better Lightning", wins: [{ modFolder: "Darker Nights", files: textures }], loses: [], files: 20, lost: 0 },
+        { modFolder: OVERWRITE, wins: [{ modFolder: "Ultra Plus", files: [lut[1]] }], loses: [], files: 3, lost: 0 },
+      ],
+      archives: [
+        { modFolder: "Immersive Rippers", wins: [], loses: [{ archive: "immersive_rippers.archive", modFolder: "Appearance Menu Mod", other: "#AMM_Props.archive", resources: meshes.slice(0, 3) }], dead: [] },
+        {
+          modFolder: "Appearance Menu Mod",
+          wins: [{ archive: "#AMM_Props.archive", modFolder: "Immersive Rippers", other: "immersive_rippers.archive", resources: meshes.slice(0, 3) }, { archive: "#AMM_Props.archive", modFolder: "Ultra Plus", other: "ultra_plus_lods.archive", resources: [meshes[3]] }],
+          loses: [],
+          dead: [],
+        },
+        { modFolder: "Ultra Plus", wins: [], loses: [{ archive: "ultra_plus_lods.archive", modFolder: "Appearance Menu Mod", other: "#AMM_Props.archive", resources: [meshes[3]] }], dead: ["ultra_plus_lods.archive"] },
+      ],
+      archiveOrder: "alphabetical",
+    };
   },
   lastRun: async (): Promise<RunReport | null> => ({
     scriptsFailed: true,

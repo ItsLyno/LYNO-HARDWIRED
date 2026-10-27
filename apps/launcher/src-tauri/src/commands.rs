@@ -1302,9 +1302,9 @@ pub async fn last_run(app: AppHandle) -> CmdResult<Option<diagnose::RunReport>> 
     Ok(Some(report).filter(|r| !r.is_empty()))
 }
 
-/// Files enabled mods share, by whose the game gets; walks every mod folder, so off the main thread.
+/// Files and archive resources enabled mods share, by whose the game gets; walks every mod folder, so off the main thread.
 #[tauri::command]
-pub async fn mod_conflicts(app: AppHandle) -> CmdResult<Vec<conflicts::ModConflicts>> {
+pub async fn mod_conflicts(app: AppHandle) -> CmdResult<conflicts::Conflicts> {
     let inst = Instance::new(&app.state::<AppState>().settings.lock().unwrap().instance_dir);
     let list = ModList::load(&inst.modlist_path(&profile(&inst))).map_err(err)?;
     tauri::async_runtime::spawn_blocking(move || conflicts::scan(&inst, &list)).await.map_err(err)?.map_err(err)

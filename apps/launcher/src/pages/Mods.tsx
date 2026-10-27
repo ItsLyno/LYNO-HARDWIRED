@@ -107,6 +107,7 @@ export function Mods() {
   const [current, setCurrent] = useState<string | null>(null);
   const [dialog, setDialog] = useState<Dialog | null>(null);
   const [history, setHistory] = useState(false);
+  const [allConflicts, setAllConflicts] = useState(false);
   // Typing anywhere on the page searches, as in Explorer: a letter outside a text field goes to the search box.
   // Space stays the list's switch, the rest of the keys their own.
   const searchRef = useRef<HTMLInputElement>(null);
@@ -394,7 +395,7 @@ export function Mods() {
             items={[
               { label: "Перечитать с диска", hint: "F5", icon: RotateCw, disabled: reloading, onClick: () => void reload() },
               { label: "История списка", icon: History, title: "Вернуть порядок и включённость модов, как было раньше", onClick: () => setHistory(true) },
-              { label: "Конфликты файлов", icon: Layers, title: "Какие моды закрывают файлы других и чьи файлы в игре", onClick: () => setDialog({ kind: "conflicts", target: overwriteTarget }) },
+              { label: "Конфликты модов", icon: Layers, title: "Какие моды заменяют файлы и ресурсы друг друга и что попадает в игру", onClick: () => setAllConflicts(true) },
               {
                 label: "Проверить обновления на Nexus",
                 icon: CircleArrowUp,
@@ -638,9 +639,10 @@ export function Mods() {
           onClose={() => setMenu(null)}
         />
       )}
+      {allConflicts && <ConflictViewer priority={priority} onClose={() => setAllConflicts(false)} />}
       {history && <ModlistHistory locked={locked} lockReason={lockReason} onClose={() => setHistory(false)} onRestored={reload} />}
       {dialog?.kind === "metadata" ? <ModMetadataEditor folder={dialog.target.folder} locked={locked} onClose={() => setDialog(null)} onSaved={reload} /> : dialog?.kind === "logs" ? <LogViewer onClose={() => setDialog(null)} /> : dialog?.kind === "conflicts" ? (
-        <ConflictViewer initial={dialog.target.kind === "overwrite" ? OVERWRITE : dialog.target.kind === "mod" ? dialog.target.folder : undefined} onClose={() => setDialog(null)} />
+        <ConflictViewer priority={priority} initial={dialog.target.kind === "overwrite" ? OVERWRITE : dialog.target.folder} onClose={() => setDialog(null)} />
       ) : dialog && <ModDialog dialog={dialog} onClose={() => setDialog(null)} />}
     </div>
   );
@@ -825,7 +827,7 @@ function ModMenu(props: {
   ] : t.kind === "overwrite" ? [
     ...(!author && activeInstance(settings)?.build ? [{ label: "Настройки и переопределения", icon: Wrench, disabled: props.locked, title: lock, onClick: () => { setPage("settings"); void verify(); } }] : []),
     { label: "Логи игры", icon: ScrollText, onClick: dialog("logs") },
-    { label: "Конфликты файлов", icon: Layers, onClick: dialog("conflicts") },
+    { label: "Конфликты", icon: Layers, onClick: dialog("conflicts") },
     { label: "Открыть в проводнике", icon: FolderOpen, onClick: () => run(() => api.openFolder("overwrite")) },
     null,
     { label: "Сделать модом", icon: PackagePlus, disabled: props.locked, title: lock, onClick: dialog("toMod") },
@@ -845,7 +847,7 @@ function ModMenu(props: {
       title: t.nexusUrl ?? "У мода нет страницы на Nexus",
       onClick: () => run(() => api.openUrl(t.nexusUrl!)),
     },
-    { label: "Конфликты файлов", icon: Layers, disabled: !t.installed, title: t.installed ? undefined : "Мод ещё не установлен", onClick: dialog("conflicts") },
+    { label: "Конфликты", icon: Layers, disabled: !t.installed, title: t.installed ? undefined : "Мод ещё не установлен", onClick: dialog("conflicts") },
     null,
     {
       label: "Переустановить",
