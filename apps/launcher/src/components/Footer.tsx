@@ -1,9 +1,11 @@
-import { Check, ChevronUp, Download, FolderOpen, Loader2, Plus, Trash2, X } from "lucide-react";
+import { Check, ChevronUp, Download, FolderOpen, Loader2, Package, Plus, Rocket, Trash2, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { api, type DownloadItem, type NexusJob, type RateLimit } from "../api";
-import { formatBytes } from "../format";
+import { api, type BuildInfo, type DownloadItem, type NexusJob, type RateLimit } from "../api";
+import { downloadLabel, formatBytes, plural } from "../format";
+import { Button } from "./Button";
+import { Changelog } from "./Changelog";
 import { pressToDrag } from "./DragGhost";
-import { isJobActive, useApp } from "../store";
+import { activeInstance, isJobActive, isRepairOnly, useApp } from "../store";
 
 // A floating rounded badge: the footer itself has no bar, the pills hover over the page.
 const PILL = "flex h-8 items-center rounded-full border border-line/60 bg-surface shadow-lg shadow-black/30 backdrop-blur";
@@ -13,6 +15,7 @@ export function Footer() {
   return (
     <footer className="relative flex h-12 shrink-0 items-center gap-3 px-4 text-xs">
       <Downloads />
+      <Updates />
       <div className="flex-1" />
       <Limits />
     </footer>
@@ -275,6 +278,110 @@ function DownloadRow({ item, onDragStart }: { item: DownloadItem; onDragStart: (
         {item.installed ? <Check size={13} /> : <Plus size={14} />}
       </button>
     </li>
+  );
+}
+
+/** A new build or launcher: one badge each. Playing doesn't wait for either. The build's opens what it brings
+ *  (gigabytes: worth a look first), the launcher's installs at once. */
+function Updates() {
+  const { status, build, progress, settings, launcherUpdate, run } = useApp();
+  const [installing, setInstalling] = useState(false);
+  const busy = !!progress || !!status?.updating;
+  const isBuild = !!activeInstance(settings)?.build;
+  const b = isBuild && build && build.online && !build.upToDate && !settings?.authorMode && !progress ? build : null;
+  // The installer closes the launcher and starts the new version, so there is no "done" state.
+  const installLauncher = () =>
+    run(async () => {
+      setInstalling(true);
+      try {
+        await api.installLauncherUpdate();
+      } finally {
+        setInstalling(false);
+      }
+    });
+  const pill = `${PILL} gap-2 px-3 text-fg transition-colors hover:bg-raised disabled:cursor-not-allowed disabled:text-faint`;
+  return (
+    <>
+      {b && <BuildUpdate b={b} busy={busy} />}
+      {launcherUpdate && (
+        <button
+          className={pill}
+          disabled={installing || busy}
+          title={busy ? "Дождитесь окончания обновления сборки" : (launcherUpdate.notes ?? undefined)}
+          onClick={installLauncher}
+        >
+          {installing ? <Loader2 size={13} className="animate-spin text-neon" /> : <Rocket size={13} className="text-neon" />}
+          {installing ? "Загрузка лаунчера…" : `Обновить лаунчер до ${launcherUpdate.version}`}
+        </button>
+      )}
+    </>
+  );
+}
+
+function BuildUpdate({ b, busy }: { b: BuildInfo; busy: boolean }) {
+  const { setPage, startUpdate } = useApp();
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: PointerEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const esc = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    window.addEventListener("pointerdown", close);
+    window.addEventListener("keydown", esc);
+    return () => {
+      window.removeEventListener("pointerdown", close);
+      window.removeEventListener("keydown", esc);
+    };
+  }, [open]);
+  // Newest first: what came after the installed version is what the update brings.
+  const at = b.changelog.findIndex((e) => e.version === b.installedVersion);
+  const upcoming = at === -1 ? b.changelog : b.changelog.slice(0, at);
+  const label = isRepairOnly(b) ? "Восстановить сборку" : b.installedVersion ? `Сборка ${b.latestVersion}` : "Установить сборку";
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen(!open)}
+        aria-expanded={open}
+        className={`${PILL} gap-2 px-3 transition-colors ${open ? "bg-raised text-fg" : "text-fg hover:bg-raised"}`}
+      >
+        <Package size={13} className="text-accent" />
+        {label}
+        <span className="font-mono text-muted tabular-nums">{formatBytes(Math.max(0, b.downloadSize - b.downloaded))}</span>
+        <ChevronUp size={12} className={`transition-transform ${open ? "" : "rotate-180"}`} />
+      </button>
+      {open && (
+        <div className="panel absolute bottom-11 left-0 z-40 flex max-h-[60vh] w-[420px] flex-col overflow-hidden bg-surface text-[13px] shadow-2xl">
+          <div className="flex items-center gap-3 border-b border-line px-4 py-3">
+            <div className="min-w-0 flex-1">
+              <div className="font-medium">{label}</div>
+              <div className="text-xs text-muted">
+                {b.changes} {plural(b.changes, "изменение", "изменения", "изменений")} · {downloadLabel(b)}
+              </div>
+            </div>
+            <Button
+              className="h-8 text-[13px]"
+              disabled={busy}
+              onClick={() => {
+                setOpen(false);
+                setPage("mods");
+                void startUpdate();
+              }}
+            >
+              <Download size={14} />
+              {isRepairOnly(b) ? "Восстановить" : b.installedVersion ? "Обновить" : "Установить"}
+            </Button>
+          </div>
+          {upcoming.length > 0 && (
+            <div className="min-h-0 overflow-y-auto px-4 py-3">
+              <Changelog entries={upcoming} installed={b.installedVersion} />
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 

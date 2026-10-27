@@ -1,22 +1,19 @@
-import { Bell, Bug, ChevronDown, Copy, Download, Loader2, Package, Rocket, X, type LucideIcon } from "lucide-react";
+import { Bell, Bug, ChevronDown, Copy, X, type LucideIcon } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { api, type LastUpdate, type OwnCopy, type RunReport } from "../api";
-import { downloadLabel, plural } from "../format";
-import { activeInstance, isRepairOnly, useApp } from "../store";
+import { plural } from "../format";
+import { activeInstance, useApp } from "../store";
 import { Button } from "./Button";
-import { Changelog } from "./Changelog";
 import { RunProblems } from "./RunProblems";
 
 const OWN_COPIES_SEEN = "lyno.ownCopiesSeen";
 
-/** Everything that can wait for the player to look: updates, the last run's errors, what an update did to their
- *  mods. Kept behind a bell so the mod list stays clear; what stops the game is on the page itself (`Notices`). */
+/** What can wait for the player to look: the last run's errors, what an update did to their mods. Kept behind a
+ *  bell so the mod list stays clear; what stops the game is on the page (`Notices`), updates are footer badges. */
 export function Inbox() {
-  const { status, build, progress, settings, launcherUpdate, runReport, dismissRunReport, setPage, run, startUpdate } = useApp();
+  const { build, settings, runReport, dismissRunReport } = useApp();
   const [open, setOpen] = useState(false);
   const [problems, setProblems] = useState(false);
-  const [changelog, setChangelog] = useState(false);
-  const [installing, setInstalling] = useState(false);
   const [ownSeen, setOwnSeen] = useState<string | null>(() => {
     try {
       return localStorage.getItem(OWN_COPIES_SEEN);
@@ -38,14 +35,9 @@ export function Inbox() {
   }, [open]);
 
   const isBuild = !!activeInstance(settings)?.build;
-  const busy = !!progress || !!status?.updating;
-  const buildUpdate = isBuild && build && build.online && !build.upToDate && !settings?.authorMode && !progress ? build : null;
-  // Newest first: what came after the installed version is what the update brings.
-  const at = build ? build.changelog.findIndex((e) => e.version === build.installedVersion) : -1;
-  const upcoming = !build ? [] : at === -1 ? build.changelog : build.changelog.slice(0, at);
   const last = build?.lastUpdate;
   const own = isBuild && last && last.ownCopies.length > 0 && !settings?.authorMode && ownSeen !== last.to ? last : null;
-  const count = [runReport, buildUpdate, launcherUpdate, own].filter(Boolean).length;
+  const count = [runReport, own].filter(Boolean).length;
 
   const dismissOwn = (to: string) => {
     try {
@@ -55,16 +47,6 @@ export function Inbox() {
     }
     setOwnSeen(to);
   };
-  // The installer closes the launcher and starts the new version, so there is no "done" state.
-  const installLauncher = () =>
-    run(async () => {
-      setInstalling(true);
-      try {
-        await api.installLauncherUpdate();
-      } finally {
-        setInstalling(false);
-      }
-    });
 
   return (
     <>
@@ -107,59 +89,6 @@ export function Inbox() {
                     }}
                   >
                     Подробнее
-                  </Button>
-                </Item>
-              )}
-              {buildUpdate && (
-                <Item
-                  tone="text-accent"
-                  icon={Package}
-                  title={
-                    isRepairOnly(buildUpdate)
-                      ? "Файлы сборки повреждены"
-                      : buildUpdate.installedVersion
-                        ? `Сборка ${buildUpdate.latestVersion}`
-                        : "Сборка не установлена"
-                  }
-                  text={`${buildUpdate.changes} ${plural(buildUpdate.changes, "изменение", "изменения", "изменений")} · ${downloadLabel(buildUpdate)}`}
-                  below={
-                    changelog && (
-                      <div className="mt-3 max-h-64 overflow-y-auto border-t border-line/60 pt-3">
-                        <Changelog entries={upcoming} installed={buildUpdate.installedVersion} />
-                      </div>
-                    )
-                  }
-                >
-                  <Button
-                    className="h-8 text-[13px]"
-                    disabled={busy}
-                    onClick={() => {
-                      setOpen(false);
-                      setPage("mods");
-                      void startUpdate();
-                    }}
-                  >
-                    <Download size={14} />
-                    {isRepairOnly(buildUpdate) ? "Восстановить" : "Обновить"}
-                  </Button>
-                  {upcoming.length > 0 && (
-                    <Button variant="ghost" className="h-8 text-[13px]" onClick={() => setChangelog(!changelog)} aria-expanded={changelog}>
-                      Что нового
-                      <ChevronDown size={14} className={`transition-transform ${changelog ? "rotate-180" : ""}`} />
-                    </Button>
-                  )}
-                </Item>
-              )}
-              {launcherUpdate && (
-                <Item tone="text-neon" icon={Rocket} title={`Лаунчер ${launcherUpdate.version}`} text="Установщик закроет лаунчер и запустит новую версию">
-                  <Button
-                    className="h-8 text-[13px]"
-                    onClick={installLauncher}
-                    disabled={installing || busy}
-                    title={busy ? "Дождитесь окончания обновления сборки" : (launcherUpdate.notes ?? undefined)}
-                  >
-                    {installing ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
-                    {installing ? "Загрузка…" : "Обновить"}
                   </Button>
                 </Item>
               )}
