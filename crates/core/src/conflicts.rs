@@ -31,6 +31,8 @@ const ARCHIVE_DIR: &str = "archive/pc/mod/";
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Conflicts {
+    /// Mods with any conflict, lowest priority first, [`OVERWRITE`] last.
+    pub mods: Vec<String>,
     pub files: Vec<ModConflicts>,
     pub archives: Vec<ArchiveConflicts>,
     pub archive_order: ArchiveOrder,
@@ -124,11 +126,11 @@ pub fn scan(inst: &Instance, list: &ModList) -> Result<Conflicts> {
         }
     }
     let archive_order = archive_order(inst);
-    Ok(Conflicts {
-        archives: archive_conflicts(&sources, &owners, archive_order),
-        files: file_conflicts(&sources, &owners, &counts),
-        archive_order,
-    })
+    let archives = archive_conflicts(&sources, &owners, archive_order);
+    let files = file_conflicts(&sources, &owners, &counts);
+    let has = |name: &str| files.iter().any(|m| m.mod_folder == name) || archives.iter().any(|m| m.mod_folder == name);
+    let mods = sources.iter().map(|(name, _)| name).filter(|name| has(name)).cloned().collect();
+    Ok(Conflicts { mods, files, archives, archive_order })
 }
 
 fn file_conflicts(sources: &[(String, PathBuf)], owners: &HashMap<String, (String, Vec<usize>)>, counts: &[usize]) -> Vec<ModConflicts> {
@@ -438,6 +440,7 @@ mod tests {
         let alpha = c.archives.iter().find(|m| m.mod_folder == "Alpha").unwrap();
         assert_eq!(alpha.dead, ["z_main.archive"]);
         assert_eq!(alpha.loses.len(), 3);
+        assert_eq!(c.mods, ["Zeta", "Old", "Alpha", "Fix", "Upper"], "Old by its hidden file");
 
         // The plugin's list: lowest MO2 priority first and winning.
         let ini = "[Plugins]\r\nCyberpunk%202077%20Support%20Plugin\\enforce_archive_load_order=true\r\n";
