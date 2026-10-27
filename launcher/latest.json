@@ -1,11 +1,11 @@
 {
-  "version": "0.10.0",
-  "notes": "Фон лаунчера: картинка или GIF (по умолчанию пиксель-арт), затемнение, размытие, свой файл — в Настройках.",
-  "pub_date": "2026-10-26T11:29:26Z",
+  "version": "0.11.0",
+  "notes": "Установка архива спрашивает имя мода, как в MO2: второй вариант мода встаёт рядом, а не поверх. Панель загрузок показывает скорость, даты и что осталось установить. Значки в списке модов с подсказками, редкие действия собраны в одно меню. Для автора сборки: проверка перед упаковкой, изменённые файлы в обзоре выпуска, откат к прошлой версии.",
+  "pub_date": "2026-10-27T10:22:50Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUejR0VmZ4WmllZkhKZnpQbEpHWjBON1hZRTVqRVUxMVdxNDVxV21IY2Y4bXpyZnFEbVNuU0FQTFk1NHcvZ0lyTzNabEFKdDNMVlZWYVM3MnRPekVSbXRzcU5LSzhmZGdRPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkzMDE0MTY2CWZpbGU6TFlOTyBIQVJEV0lSRURfMC4xMC4wX3g2NC1zZXR1cC5leGUJdmVyc2lvbjowLjEwLjAKdjA1YnN0ZHZhK2JvUWJPMkZ3YStVVDFqZ25PQWZScys2NDhvTzhvWmh6U3lSRlBGNVRtS3dYV0NPSnY5blhBR2tpRjBDamZ0dHRjMHZKREVwTXlnQXc9PQo=",
-      "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/launcher-v0.10.0/LYNO-HARDWIRED_0.10.0_x64-setup.exe"
+      "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/launcher-v0.11.0/LYNO-HARDWIRED_0.11.0_x64-setup.exe",
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUejR0VmZ4WmllZlBMQnhJY1RrSk5XUmppbVNEeG9rNG5wbkpUREZaTEdLblcvUSs4MVV4Y1BueGV6N2U2a1RmVmRqYkYvRGVKMkJiLzNIelpEdW9HbTBEYjVQWmU0ekF3PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkzMDk2NTY5CWZpbGU6TFlOTyBIQVJEV0lSRURfMC4xMS4wX3g2NC1zZXR1cC5leGUJdmVyc2lvbjowLjExLjAKdWdIOG5YQy8rTFdKTVo2dVZoeWxYczcxVEp3ZXZnQmluMFNzWVJPNC9MZkgreHMrakdnQ3k1bks1T3hETzczOUNhMzUzaGp2Z1MwUXNEaitBaUhCQ0E9PQo="
     }
   }
 }
