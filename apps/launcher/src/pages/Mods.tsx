@@ -220,6 +220,8 @@ export function Mods() {
   const dependencyReason = (id: string) => `Нужен включённым модам: ${requiredBy(id).map((m) => m.title ?? m.name).join(", ")}`;
   const switchable = (t: Target) => t.installed && !t.removed && (author || !t.id || (t.optional && requiredBy(t.id).length === 0));
   // The player's own, any in author mode; a player's optional build mod leaves the build (`remove_build_mod`).
+  // What moveUserMod moves: the player's own rows, the author's any.
+  const own = (folder: string) => author || (userMods ?? []).some((r) => r.kind === "mod" && r.name === folder);
   const deletable = (t: Target) => !t.id || author || (t.optional && t.installed && !t.removed && requiredBy(t.id).length === 0);
   const switchMany = (ts: Target[], enabled: boolean) =>
     void run(async () => {
@@ -636,10 +638,10 @@ export function Mods() {
           onClose={() => setMenu(null)}
         />
       )}
-      {allConflicts && <ConflictViewer priority={priority} onClose={() => setAllConflicts(false)} />}
+      {allConflicts && <ConflictViewer priority={priority} own={own} locked={locked ? lockReason : null} onMoved={reload} onClose={() => setAllConflicts(false)} />}
       {history && <ModlistHistory locked={locked} lockReason={lockReason} onClose={() => setHistory(false)} onRestored={reload} />}
       {dialog?.kind === "metadata" ? <ModMetadataEditor folder={dialog.target.folder} locked={locked} onClose={() => setDialog(null)} onSaved={reload} /> : dialog?.kind === "logs" ? <LogViewer onClose={() => setDialog(null)} /> : dialog?.kind === "conflicts" ? (
-        <ConflictViewer priority={priority} initial={dialog.target.kind === "overwrite" ? OVERWRITE : dialog.target.folder} onClose={() => setDialog(null)} />
+        <ConflictViewer priority={priority} own={own} locked={locked ? lockReason : null} onMoved={reload} initial={dialog.target.kind === "overwrite" ? OVERWRITE : dialog.target.folder} onClose={() => setDialog(null)} />
       ) : dialog && <ModDialog dialog={dialog} onClose={() => setDialog(null)} />}
     </div>
   );

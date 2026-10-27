@@ -1,5 +1,5 @@
-import { ArrowRight, Boxes, FileStack, Info, RefreshCw, Search, TriangleAlert, X } from "lucide-react";
-import { useEffect, useState, type ReactNode } from "react";
+import { ArrowRight, Boxes, ChevronDown, ChevronUp, FileStack, RefreshCw, Search, X } from "lucide-react";
+import { useEffect, useState } from "react";
 import { api, OVERWRITE, type ArchiveConflicts, type Conflicts, type ModConflicts } from "../api";
 import { plural } from "../format";
 import { useApp } from "../store";
@@ -13,24 +13,43 @@ const RESOURCES = ["ресурс", "ресурса", "ресурсов"] as cons
 const PREVIEW = 4;
 
 const FILE_RULE = "Если один и тот же файл есть в нескольких включённых модах, игра получает его из мода ниже в списке (с большим номером). Overwrite важнее всех модов.";
-const ARCHIVE_RULE: Record<Conflicts["archiveOrder"], string> = {
+/** What decides the ladder's order, said above it. */
+const ORDER_RULE: Record<"files" | Conflicts["archiveOrder"], string> = {
+  files: "Моды стоят как в списке. Файл игра берёт у того, кто ниже; Overwrite важнее всех.",
   alphabetical:
-    "Разные .archive могут заменять один и тот же ресурс (модель, текстуру). Архивы игра грузит по алфавиту имён файлов: сначала #, цифры и заглавные буквы, и ресурс берётся из архива, загруженного первым. Место мода в списке на это не влияет: важно только имя архива.",
-  mo2: "Разные .archive могут заменять один и тот же ресурс (модель, текстуру). Порядок архивов задаёт MO2 (enforce_archive_load_order): ресурс берётся из мода выше в списке, то есть наоборот, чем с обычными файлами.",
-  mo2Reversed:
-    "Разные .archive могут заменять один и тот же ресурс (модель, текстуру). Порядок архивов задаёт MO2 (enforce и reverse_archive_load_order): ресурс берётся из мода ниже в списке, как и с обычными файлами.",
+    "Архивы стоят в том порядке, в каком их грузит игра: по алфавиту имён, сначала #, цифры и заглавные. Ресурс берётся у того, кто выше. Место мода в списке тут не влияет, только имя архива.",
+  mo2: "Моды стоят как в списке. Порядок архивов задаёт MO2: ресурс берётся у того, кто выше.",
+  mo2Reversed: "Моды стоят как в списке. Порядок архивов задаёт MO2 (reverse): ресурс берётся у того, кто ниже.",
 };
 
 const sum = (xs: { length: number }[]) => xs.reduce((n, x) => n + x.length, 0);
 
 /**
  * What MO2's conflicts tab can't tell: for each file and archive resource several enabled mods have, whose the game gets.
- * Every pair is shown as loser → winner, so a mod hidden by a higher one never seems to "overwrite" a third.
+ * A mod's conflicts are a ladder in the order that decides it, so where to move a mod reads off its place.
  */
-export function ConflictViewer({ onClose, initial, priority }: { onClose: () => void; initial?: string; priority: Map<string, number> }) {
+export function ConflictViewer({
+  onClose,
+  initial,
+  priority,
+  own,
+  locked,
+  onMoved,
+}: {
+  onClose: () => void;
+  initial?: string;
+  priority: Map<string, number>;
+  /** Whether the launcher may move it: the player's own mods, any in author mode. */
+  own: (folder: string) => boolean;
+  /** Why nothing can move now. */
+  locked: string | null;
+  onMoved: () => Promise<void>;
+}) {
   const { build } = useApp();
   const [data, setData] = useState<Conflicts | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [moveError, setMoveError] = useState<string | null>(null);
+  const [moving, setMoving] = useState(false);
   const [current, setCurrent] = useState<string | null>(initial ?? null);
   const [tab, setTab] = useState<Tab>("files");
   const [filter, setFilter] = useState<Filter>("all");
@@ -79,6 +98,29 @@ export function ConflictViewer({ onClose, initial, priority }: { onClose: () => 
   const a = current ? archives.get(current) : undefined;
   const activeTab: Tab = tab === "files" ? (f || !a ? "files" : "archives") : a || !f ? "archives" : "files";
   const number = (folder: string) => (folder === OVERWRITE ? "OW" : priority.get(folder)?.toString() ?? "—");
+  const rank = (folder: string) => (folder === OVERWRITE ? Infinity : (priority.get(folder) ?? Infinity));
+  const at = new Map([...priority].map(([folder, n]) => [n, folder] as const));
+
+  const move: Move = {
+    allowed: (folder, past) => folder !== OVERWRITE && past !== OVERWRITE && own(folder) && own(past),
+    // ponytail: below the mod before `past`, so a separator between them is left under it; drag in the list to place it exactly.
+    before: (folder) => at.get(rank(folder) - 1) ?? null,
+    locked: locked ?? (moving ? "Перемещаю…" : null),
+    run: async (folder, after) => {
+      setMoving(true);
+      setMoveError(null);
+      try {
+        await api.moveUserMod(folder, after);
+        await onMoved();
+        await refresh();
+      } catch (e) {
+        setMoveError(String(e));
+      } finally {
+        setMoving(false);
+      }
+    },
+  };
+  const names = { title, number, onPick: pick };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-8" role="dialog" aria-modal="true" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
@@ -199,15 +241,22 @@ export function ConflictViewer({ onClose, initial, priority }: { onClose: () => 
                       Ресурсы архивов
                     </TabButton>
                   </div>
+                  {moveError && <p className="mt-4 text-[13px] text-bad">{moveError}</p>}
                   {activeTab === "files" && f ? (
-                    <FilesView key={current} mod={f} title={title} number={number} onPick={pick} />
+                    <Ladder key={`files|${current}`} {...fileLadder(f, rank)} self={current} rule={ORDER_RULE.files} unit={FILES} move={move} {...names} />
                   ) : a ? (
-                    <ArchivesView key={current} mod={a} title={title} number={number} onPick={pick} />
+                    <Ladder
+                      key={`archives|${current}`}
+                      {...archiveLadder(a, data, rank)}
+                      self={current}
+                      rule={ORDER_RULE[data.archiveOrder]}
+                      unit={RESOURCES}
+                      archives
+                      // Alphabetical: the archives' names decide, the list doesn't.
+                      move={data.archiveOrder === "alphabetical" ? null : move}
+                      {...names}
+                    />
                   ) : null}
-                  <div className="mt-8 flex gap-2.5 rounded-lg bg-raised/40 px-4 py-3 text-xs leading-5 text-muted">
-                    <Info size={14} className="mt-0.5 shrink-0 text-faint" />
-                    <span>{activeTab === "files" ? FILE_RULE : ARCHIVE_RULE[data.archiveOrder]}</span>
-                  </div>
                 </div>
               )}
             </div>
@@ -247,185 +296,192 @@ function TabButton(props: { active: boolean; disabled: boolean; onClick: () => v
 
 type Names = { title: (folder: string) => string; number: (folder: string) => string; onPick: (folder: string) => void };
 
-function FilesView({ mod, title, number, onPick }: { mod: ModConflicts } & Names) {
-  const inGame = mod.files - mod.lost;
-  const dead = mod.files > 0 && mod.lost === mod.files;
-  const self = { folder: mod.modFolder };
-  return (
-    <>
-      <p className="mt-4 text-xs text-muted">
-        В игре <span className={dead ? "text-bad" : "text-ok"}>{inGame}</span> из {mod.files} {plural(mod.files, ...FILES)} мода, закрыто другими модами:{" "}
-        <span className={mod.lost ? "text-warn" : undefined}>{mod.lost}</span>
-      </p>
-      <div className="mt-2 flex h-1.5 overflow-hidden rounded-full bg-raised" title={`В игре ${inGame} из ${mod.files}`}>
-        <div className="bg-ok/70" style={{ width: `${(inGame / Math.max(mod.files, 1)) * 100}%` }} />
-        <div className="bg-warn/70" style={{ width: `${(mod.lost / Math.max(mod.files, 1)) * 100}%` }} />
-      </div>
-      {dead && (
-        <Warning>
-          Все файлы мода закрыты модами ниже в списке: в игре он ничего не меняет. Опустите его ниже в списке, если он должен победить, или выключите.
-        </Warning>
-      )}
-      <Graph
-        key={mod.modFolder}
-        self={mod.modFolder}
-        beats={mod.wins.map((o) => ({ folder: o.modFolder, pairs: [{ loser: { folder: o.modFolder }, winner: self, items: o.files }] }))}
-        beaten={mod.loses.map((o) => ({ folder: o.modFolder, pairs: [{ loser: self, winner: { folder: o.modFolder }, items: o.files }] }))}
-        unit={FILES}
-        title={title}
-        number={number}
-        onPick={onPick}
-      />
-    </>
-  );
-}
-
-function ArchivesView({ mod, title, number, onPick }: { mod: ArchiveConflicts } & Names) {
-  const won = sum(mod.wins.map((o) => o.resources));
-  const lost = sum(mod.loses.map((o) => o.resources));
-  return (
-    <>
-      <p className="mt-4 text-xs text-muted">
-        Общих с другими модами ресурсов: в игре из этого мода <span className={won ? "text-ok" : undefined}>{won}</span>, закрыто{" "}
-        <span className={lost ? "text-warn" : undefined}>{lost}</span>
-      </p>
-      {mod.dead.length > 0 && (
-        <Warning>
-          {mod.dead.join(", ")}: все ресурсы {mod.dead.length === 1 ? "архива" : "архивов"} берутся из других модов, в игре {mod.dead.length === 1 ? "он ничего не меняет" : "они ничего не меняют"}.
-        </Warning>
-      )}
-      <Graph
-        key={mod.modFolder}
-        self={mod.modFolder}
-        beats={byMod(mod.wins.map((o) => ({ folder: o.modFolder, loser: { folder: o.modFolder, archive: o.other }, winner: { folder: mod.modFolder, archive: o.archive }, items: o.resources })))}
-        beaten={byMod(mod.loses.map((o) => ({ folder: o.modFolder, loser: { folder: mod.modFolder, archive: o.archive }, winner: { folder: o.modFolder, archive: o.other }, items: o.resources })))}
-        unit={RESOURCES}
-        title={title}
-        number={number}
-        onPick={onPick}
-      />
-      <p className="mt-4 text-xs text-faint">Архивы хранят не имена ресурсов, а хэши путей: по такому числу ресурс находится в WolvenKit.</p>
-    </>
-  );
-}
-
-function Warning({ children }: { children: ReactNode }) {
-  return (
-    <div className="mt-4 flex items-start gap-2 rounded-lg bg-bad/10 px-3 py-2.5 text-[13px] text-bad">
-      <TriangleAlert size={15} className="mt-0.5 shrink-0" />
-      <span>{children}</span>
-    </div>
-  );
-}
-
 type Side = { folder: string; archive?: string };
-type Pair = { loser: Side; winner: Side; items: string[] };
-/** Another mod and everything this one shares with it on one side of the graph. */
-type Link = { folder: string; pairs: Pair[] };
+/** A step of the ladder: a mod, or one archive of it. */
+type Row = Side & { key: string; note?: { text: string; tone: string } };
+/** Rows by key: the one whose copy is hidden and the one whose copy the game gets. */
+type Edge = { loser: string; winner: string; items: string[] };
+type Steps = { rows: Row[]; edges: Edge[] };
 
-const count = (l: Link) => sum(l.pairs.map((p) => p.items));
+/** Moving a mod in the list from the ladder; `after` as `moveUserMod` takes it. */
+type Move = {
+  allowed: (folder: string, past: string) => boolean;
+  before: (folder: string) => string | null;
+  locked: string | null;
+  run: (folder: string, after: string) => Promise<void>;
+};
 
-/** Archive overlaps come per pair of archives; the graph draws one node per mod. */
-function byMod(pairs: (Pair & { folder: string })[]): Link[] {
-  const out = new Map<string, Pair[]>();
-  for (const { folder, ...p } of pairs) out.set(folder, [...(out.get(folder) ?? []), p]);
-  return [...out].map(([folder, pairs]) => ({ folder, pairs }));
+function fileLadder(mod: ModConflicts, rank: (folder: string) => number): Steps {
+  const inGame = mod.files - mod.lost;
+  const self: Row = {
+    key: mod.modFolder,
+    folder: mod.modFolder,
+    note: { text: `в игре ${inGame} из ${mod.files}`, tone: inGame === 0 ? "text-bad" : mod.lost ? "text-warn" : "text-ok" },
+  };
+  const others = [...mod.wins, ...mod.loses].map((o): Row => ({ key: o.modFolder, folder: o.modFolder }));
+  return {
+    rows: [self, ...others].sort((x, y) => rank(x.folder) - rank(y.folder) || 0),
+    edges: [
+      ...mod.loses.map((o) => ({ loser: mod.modFolder, winner: o.modFolder, items: o.files })),
+      ...mod.wins.map((o) => ({ loser: o.modFolder, winner: mod.modFolder, items: o.files })),
+    ],
+  };
 }
 
-const ROW = 52;
-const NODE = 40;
-// Column edges in % of the width: losers | this mod | winners.
-const LEFT = 30;
-const MID = [38, 62];
-const RIGHT = 70;
+function archiveLadder(mod: ArchiveConflicts, data: Conflicts, rank: (folder: string) => number): Steps {
+  const rows = new Map<string, Row>();
+  const row = (folder: string, archive: string) => {
+    const key = `${folder}|${archive}`;
+    if (!rows.has(key)) rows.set(key, { key, folder, archive });
+    return key;
+  };
+  const edges = [
+    ...mod.loses.map((o) => ({ loser: row(mod.modFolder, o.archive), winner: row(o.modFolder, o.other), items: o.resources })),
+    ...mod.wins.map((o) => ({ loser: row(o.modFolder, o.other), winner: row(mod.modFolder, o.archive), items: o.resources })),
+  ];
+  for (const r of rows.values()) {
+    if (r.folder !== mod.modFolder) continue;
+    const lost = sum(edges.filter((e) => e.loser === r.key).map((e) => e.items));
+    r.note = mod.dead.includes(r.archive!)
+      ? { text: "не действует", tone: "text-bad" }
+      : lost
+        ? { text: `перекрыто ${lost}`, tone: "text-warn" }
+        : { text: "в игре", tone: "text-ok" };
+  }
+  const load = (r: Row) => data.archiveLoad.indexOf(r.archive!);
+  // Under the MO2 plugin the archives follow the list, so the ladder does too: a move reads the same as in the list.
+  const order = data.archiveOrder === "alphabetical" ? (x: Row, y: Row) => load(x) - load(y) : (x: Row, y: Row) => rank(x.folder) - rank(y.folder) || load(x) - load(y);
+  return { rows: [...rows.values()].sort(order), edges };
+}
 
-/**
- * The mod among the ones it shares files with, laid out as the game decides: copies flow to the right,
- * the rightmost is what the game gets. Nodes select a link; its files are listed under the graph.
- */
-function Graph({ self, beats, beaten, unit, title, number, onPick }: { self: string; beats: Link[]; beaten: Link[]; unit: readonly [string, string, string] } & Names) {
-  const [picked, setPicked] = useState<{ side: "beats" | "beaten"; folder: string } | null>(() =>
-    beaten[0] ? { side: "beaten", folder: beaten[0].folder } : beats[0] ? { side: "beats", folder: beats[0].folder } : null,
-  );
-  const height = Math.max(beats.length, beaten.length, 1) * ROW;
-  const ys = (n: number) => Array.from({ length: n }, (_, i) => (height - n * ROW) / 2 + i * ROW + ROW / 2);
-  const max = Math.max(...[...beats, ...beaten].map(count), 1);
-  const width = (l: Link) => 1.5 + 5 * Math.sqrt(count(l) / max);
-  const isPicked = (side: "beats" | "beaten", l: Link) => picked?.side === side && picked.folder === l.folder;
-  const selected = picked && (picked.side === "beats" ? beats : beaten).find((l) => l.folder === picked.folder);
-  const mid = height / 2;
-  const curve = (x1: number, y1: number, x2: number, y2: number) => `M${x1},${y1} C${(x1 + x2) / 2},${y1} ${(x1 + x2) / 2},${y2} ${x2},${y2}`;
+const STEP = 48;
+const GUTTER = 120;
 
-  const node = (side: "beats" | "beaten", l: Link, y: number) => {
-    const on = isPicked(side, l);
-    return (
-      <button
-        key={`${side}|${l.folder}`}
-        onClick={() => setPicked({ side, folder: l.folder })}
-        style={{ top: y - NODE / 2, height: NODE, width: `${LEFT}%`, ...(side === "beats" ? { left: 0 } : { left: `${RIGHT}%` }) }}
-        className={`absolute flex items-center gap-2 rounded-md px-3 text-left transition-colors ${side === "beaten" ? "bg-ok/10" : "bg-raised/60"} ${
-          on ? "ring-1 ring-neon" : "hover:ring-1 hover:ring-neon/40"
-        }`}
-      >
-        <span className="shrink-0 font-mono text-[11px] text-faint tabular-nums">#{number(l.folder)}</span>
-        <span className={`min-w-0 flex-1 truncate text-[13px] ${side === "beaten" ? "text-fg" : "text-muted"}`}>{title(l.folder)}</span>
-        <span className={`shrink-0 font-mono text-[11px] tabular-nums ${side === "beaten" ? "text-warn" : "text-ok"}`}>{count(l)}</span>
-      </button>
-    );
+/** The mod among the ones it shares files with, top to bottom in the order that decides; arcs lead to whose copy the game gets. */
+function Ladder({
+  self,
+  rows,
+  edges,
+  rule,
+  unit,
+  archives,
+  move,
+  title,
+  number,
+  onPick,
+}: Steps & { self: string; rule: string; unit: readonly [string, string, string]; archives?: boolean; move: Move | null } & Names) {
+  const [picked, setPicked] = useState<string | null>(null);
+  const index = new Map(rows.map((r, i) => [r.key, i] as const));
+  const y = (key: string) => index.get(key)! * STEP + STEP / 2;
+  const max = Math.max(...edges.map((e) => e.items.length), 1);
+  const mine = (key: string) => rows[index.get(key)!].folder === self;
+  const shared = (r: Row) => edges.filter((e) => e.loser === r.key || e.winner === r.key);
+  const takes = (r: Row) => sum(shared(r).filter((e) => e.winner === r.key).map((e) => e.items));
+  const gives = (r: Row) => sum(shared(r).filter((e) => e.loser === r.key).map((e) => e.items));
+  const side = (key: string): Side => rows[index.get(key)!];
+
+  // The nearest row of another mod that way, and the `after` that puts this one past it.
+  const step = (i: number, dir: -1 | 1) => {
+    if (!move) return null;
+    let j = i + dir;
+    while (rows[j] && rows[j].folder === rows[i].folder) j += dir;
+    const past = rows[j]?.folder;
+    if (!past || !move.allowed(rows[i].folder, past)) return null;
+    const after = dir === 1 ? past : move.before(past);
+    return after === null ? null : { past, after };
   };
 
   return (
     <>
-      <div className="mt-6 mb-2 flex text-[11px] font-semibold tracking-wide uppercase">
-        <span className="text-ok" style={{ width: `${LEFT}%` }}>
-          Он закрывает
-        </span>
-        <span className="text-center text-faint" style={{ marginLeft: `${MID[0] - LEFT}%`, width: `${MID[1] - MID[0]}%` }}>
-          →&nbsp;в игру попадает правый&nbsp;→
-        </span>
-        <span className="ml-auto text-right text-warn" style={{ width: `${100 - RIGHT}%` }}>
-          Закрывают его
-        </span>
-      </div>
-      <div className="relative" style={{ height }}>
-        <svg className="absolute inset-0 h-full w-full overflow-visible" viewBox={`0 0 100 ${height}`} preserveAspectRatio="none" aria-hidden>
-          {beats.map((l, i) => (
-            <path key={l.folder} d={curve(LEFT, ys(beats.length)[i], MID[0], mid)} fill="none" vectorEffect="non-scaling-stroke" strokeWidth={width(l)}
-              className={isPicked("beats", l) ? "stroke-neon" : "stroke-ok/35"} />
-          ))}
-          {beaten.map((l, i) => (
-            <path key={l.folder} d={curve(MID[1], mid, RIGHT, ys(beaten.length)[i])} fill="none" vectorEffect="non-scaling-stroke" strokeWidth={width(l)}
-              className={isPicked("beaten", l) ? "stroke-neon" : "stroke-warn/35"} />
-          ))}
+      <p className="mt-4 max-w-3xl text-[13px] leading-5 text-muted">{rule}</p>
+      <div className="relative mt-4" style={{ height: rows.length * STEP }}>
+        <svg aria-hidden="true" width={GUTTER} height={rows.length * STEP} className="absolute top-0 left-0 overflow-visible">
+          {edges.map((e) => {
+            const [y1, y2] = [y(e.loser), y(e.winner)];
+            const bulge = Math.min(16 + (Math.abs(y1 - y2) / STEP) * 16, GUTTER - 12);
+            const lit = !picked || e.loser === picked || e.winner === picked;
+            const tone = mine(e.winner) ? "neon" : "warn";
+            return (
+              <g key={`${e.loser}>${e.winner}`} className={`${tone === "neon" ? "fill-neon stroke-neon" : "fill-warn stroke-warn"} ${lit ? "opacity-80" : "opacity-15"}`}>
+                <path d={`M${GUTTER},${y1} C${GUTTER - bulge},${y1} ${GUTTER - bulge},${y2} ${GUTTER},${y2}`} fill="none" strokeWidth={1.5 + 6 * Math.sqrt(e.items.length / max)} />
+                <polygon points={`${GUTTER + 2},${y2} ${GUTTER - 10},${y2 - 6} ${GUTTER - 10},${y2 + 6}`} stroke="none" />
+              </g>
+            );
+          })}
         </svg>
-        {beats.map((l, i) => node("beats", l, ys(beats.length)[i]))}
-        <div
-          style={{ top: mid - NODE / 2 - 6, height: NODE + 12, left: `${MID[0]}%`, width: `${MID[1] - MID[0]}%` }}
-          className="absolute flex items-center gap-2 rounded-lg bg-raised px-3 ring-1 ring-line"
-        >
-          <span className="shrink-0 font-mono text-[11px] text-faint tabular-nums">#{number(self)}</span>
-          <span className="min-w-0 truncate text-[13px] font-semibold">{title(self)}</span>
+        <div className="absolute top-0 right-0" style={{ left: GUTTER }}>
+          {rows.map((r, i) => {
+            const me = r.folder === self;
+            const [t, g] = [takes(r), gives(r)];
+            const [up, down] = [step(i, -1), step(i, 1)];
+            return (
+              <div
+                key={r.key}
+                style={{ height: STEP }}
+                className={`flex items-center gap-1 rounded-md pr-1 ${me ? "bg-neon/10 ring-1 ring-neon/50" : r.key === picked ? "bg-raised" : ""}`}
+              >
+                <button
+                  onClick={() => !me && setPicked(r.key === picked ? null : r.key)}
+                  disabled={me}
+                  className={`flex h-full min-w-0 flex-1 items-center gap-4 rounded-md px-3 text-left ${me ? "cursor-default" : "hover:bg-raised/60"}`}
+                >
+                  <span className="w-8 shrink-0 font-mono text-[11px] text-faint tabular-nums">{archives && !move ? i + 1 : `#${number(r.folder)}`}</span>
+                  {archives && <span className={`w-96 shrink-0 truncate font-mono text-[12px] ${me ? "text-fg" : "text-fg/80"}`}>{r.archive}</span>}
+                  <span className={`min-w-0 flex-1 truncate text-[13px] ${me ? "font-semibold text-fg" : archives ? "text-muted" : "text-fg/85"}`}>
+                    {me ? (archives ? "этот мод" : title(r.folder)) : title(r.folder)}
+                  </span>
+                  <span className="shrink-0 text-right text-[12px] tabular-nums">
+                    {r.note ? (
+                      <span className={r.note.tone}>{r.note.text}</span>
+                    ) : (
+                      <>
+                        {t > 0 && <span className="text-warn">забирает {t}</span>}
+                        {t > 0 && g > 0 && <span className="text-faint"> · </span>}
+                        {g > 0 && <span className="text-neon">уступает {g}</span>}
+                      </>
+                    )}
+                  </span>
+                </button>
+                {move && (
+                  <span className="flex w-16 shrink-0 justify-end">
+                    <MoveButton dir="up" target={up} locked={move.locked} title={title} onMove={(after) => void move.run(r.folder, after)} />
+                    <MoveButton dir="down" target={down} locked={move.locked} title={title} onMove={(after) => void move.run(r.folder, after)} />
+                  </span>
+                )}
+              </div>
+            );
+          })}
         </div>
-        {beaten.map((l, i) => node("beaten", l, ys(beaten.length)[i]))}
       </div>
-      {selected && (
+      {picked ? (
         <div className="mt-6 space-y-2">
-          {selected.pairs.map((p) => (
-            <Duel
-              key={`${p.loser.archive}|${p.winner.archive}`}
-              loser={p.loser}
-              winner={p.winner}
-              self={p.winner.folder === self ? "winner" : "loser"}
-              items={p.items}
-              unit={unit}
-              title={title}
-              number={number}
-              onPick={onPick}
-            />
-          ))}
+          {edges
+            .filter((e) => (e.loser === picked || e.winner === picked) && (mine(e.loser) || mine(e.winner)))
+            .map((e) => (
+              <Duel key={`${e.loser}>${e.winner}`} loser={side(e.loser)} winner={side(e.winner)} self={mine(e.winner) ? "winner" : "loser"} items={e.items} unit={unit} title={title} number={number} onPick={onPick} />
+            ))}
+          {archives && <p className="text-xs text-faint">Архивы хранят не имена ресурсов, а хэши путей: по такому числу ресурс находится в WolvenKit.</p>}
         </div>
+      ) : (
+        <p className="mt-5 text-xs text-faint">Нажмите на строку, чтобы увидеть общие {archives ? "ресурсы" : "файлы"}.</p>
       )}
     </>
+  );
+}
+
+function MoveButton(props: { dir: "up" | "down"; target: { past: string; after: string } | null; locked: string | null; title: (folder: string) => string; onMove: (after: string) => void }) {
+  const Icon = props.dir === "up" ? ChevronUp : ChevronDown;
+  const hint = props.target && (props.locked ?? `${props.dir === "up" ? "Выше" : "Ниже"} «${props.title(props.target.past)}»`);
+  return (
+    <button
+      onClick={() => props.target && props.onMove(props.target.after)}
+      disabled={!props.target || !!props.locked}
+      title={hint ?? undefined}
+      aria-label={hint ?? (props.dir === "up" ? "Выше" : "Ниже")}
+      className={`inline-flex size-7 items-center justify-center rounded-full text-muted hover:bg-raised hover:text-fg disabled:text-faint/40 disabled:hover:bg-transparent ${props.target ? "" : "invisible"}`}
+    >
+      <Icon size={15} />
+    </button>
   );
 }
 

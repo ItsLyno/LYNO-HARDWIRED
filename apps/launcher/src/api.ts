@@ -82,6 +82,8 @@ export interface Conflicts {
   archives: ArchiveConflicts[];
   /** How the game orders archive/pc/mod/*.archive: the first loaded wins a resource. */
   archiveOrder: "alphabetical" | "mo2" | "mo2Reversed";
+  /** File names of the archives sharing any resource, in the order the game loads them. */
+  archiveLoad: string[];
 }
 
 /** A mod's .archive files replacing the same resources as other mods' archives. */

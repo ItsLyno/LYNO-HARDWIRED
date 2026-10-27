@@ -778,6 +778,7 @@ export const mock = {
         { modFolder: "Ultra Plus", wins: [], loses: [{ archive: "ultra_plus_lods.archive", modFolder: "Appearance Menu Mod", other: "#AMM_Props.archive", resources: [meshes[3]] }], dead: ["ultra_plus_lods.archive"] },
       ],
       archiveOrder: "alphabetical",
+      archiveLoad: ["#AMM_Props.archive", "immersive_rippers.archive", "ultra_plus_lods.archive"],
     };
   },
   lastRun: async (): Promise<RunReport | null> => ({
