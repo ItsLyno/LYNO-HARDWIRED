@@ -110,6 +110,20 @@ pub fn is_enabled(spec: &ModSpec, state: &State, current: &ModList) -> bool {
     spec.optional.then(chosen).flatten().unwrap_or(spec.enabled)
 }
 
+/// `current` with every installed build mod switched as `manifest` has it: the author
+/// going to another build wants that build's mod list, while [`is_enabled`] keeps
+/// the switches of the one installed.
+pub fn as_published(manifest: &Manifest, state: &State, current: &ModList) -> ModList {
+    let mut list = current.clone();
+    for spec in manifest.mod_specs() {
+        let Some(installed) = state.mods.get(&spec.id) else { continue };
+        if let Some(e) = list.entries.iter_mut().find(|e| e.name == installed.folder) {
+            e.state = if spec.enabled { EntryState::Enabled } else { EntryState::Disabled };
+        }
+    }
+    list
+}
+
 /// Effective enabled set after an update, including transitive hard dependencies.
 pub fn enabled_ids<'a>(manifest: &'a Manifest, state: &State, current: &ModList) -> HashSet<&'a str> {
     let mut enabled: HashSet<&str> = manifest.mod_specs().filter(|m| !is_removed(m, state) && is_enabled(m, state, current)).map(|m| m.id.as_str()).collect();
@@ -424,6 +438,15 @@ mod tests {
 
     fn optional(id: &str, hash: &str, enabled: bool) -> ModSpec {
         ModSpec { optional: true, enabled, ..spec(id, hash) }
+    }
+
+    #[test]
+    fn going_to_another_build_takes_its_switches() {
+        let m = manifest(vec![ModEntry::Mod(optional("hd", "h", true)), ModEntry::Mod(optional("lut", "l", false))]);
+        let st = state(Some("base"), &[("hd", "old hd", "old"), ("lut", "lut folder", "l")]);
+        let current = ModList { entries: vec![Entry::disabled("old hd"), Entry::enabled("lut folder"), Entry::disabled("Mine")] };
+        let p = plan(&m, &st, &as_published(&m, &st, &current));
+        assert_eq!(p.modlist.entries, [Entry::enabled("hd folder"), Entry::disabled("lut folder"), Entry::separator(USER_SEPARATOR), Entry::disabled("Mine")]);
     }
 
     #[test]

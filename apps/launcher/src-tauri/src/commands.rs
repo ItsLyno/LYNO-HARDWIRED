@@ -636,6 +636,16 @@ fn run_update(app: &AppHandle, manifest: &Manifest, settings: &Settings, cancel:
         None => "Перед установкой сборки".to_owned(),
     };
     snapshot(&inst, &manifest.profile, &label, false);
+    // The author's list is the build: going to another one switches its mods as that build has them.
+    // Saved, since the installer reads the list again after renaming a folder of theirs.
+    let current = match settings.author_mode {
+        true => {
+            let list = plan::as_published(manifest, &state, &current);
+            list.save(&inst.modlist_path(&manifest.profile))?;
+            list
+        }
+        false => current,
+    };
     let plan = plan::plan(manifest, &state, &current);
 
     let downloader = Downloader::new();

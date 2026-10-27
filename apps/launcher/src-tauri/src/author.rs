@@ -191,7 +191,7 @@ pub async fn author_versions(app: AppHandle) -> CmdResult<Versions> {
 }
 
 /// Installs an earlier published build into the instance like an update, to
-/// take back a bad release: build mods get that build's files, mods it doesn't
+/// take back a bad release: build mods get that build's files and switches, mods it doesn't
 /// have go under LYNO USER MODS. Players stay on the published build until the
 /// author releases a new version from here; nothing is packed for it, every
 /// package is in the older releases. Going back to the published build undoes it.
