@@ -400,16 +400,7 @@ export function Mods() {
                 label: "Проверить обновления на Nexus",
                 icon: CircleArrowUp,
                 disabled: !!nexusChecking || !nexus?.account,
-                title: nexus?.account ? undefined : "Войдите в Nexus Mods в настройках, чтобы проверять обновления",
-                onClick: () => void checkNexus(false),
-              },
-              {
-                label: "Проверить все моды на Nexus",
-                icon: CircleArrowUp,
-                disabled: !!nexusChecking || !nexus?.account,
-                title: nexus?.account
-                  ? "Спросить Nexus про каждый мод, а не только про те, у которых файлы менялись с прошлой проверки"
-                  : "Войдите в Nexus Mods в настройках, чтобы проверять обновления",
+                title: nexus?.account ? "Спросить Nexus про каждый мод сборки и списка" : "Войдите в Nexus Mods в настройках, чтобы проверять обновления",
                 onClick: () => void checkNexus(true),
               },
             ]}
