@@ -414,6 +414,8 @@ export const useApp = create<AppStore>((set, get) => ({
     const open = get().fomodJob === null && get().rootJob === null;
     if (job.state.kind === "choosing" && was !== "choosing" && open) set({ fomodJob: job.id });
     if (job.state.kind === "choosingRoot" && was !== "choosingRoot" && open) set({ rootJob: job.id });
+    // The downloads panel is usually closed: a failure says so itself, the panel keeps it until cleared.
+    if (job.state.kind === "failed" && was !== "failed") set({ error: `«${job.title ?? "Загрузка"}»: ${job.state.error}` });
     if (job.state.kind === "done" && was !== "done") {
       void get().refreshDownloads();
       void get().refreshUserMods();

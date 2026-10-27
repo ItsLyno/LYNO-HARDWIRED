@@ -403,6 +403,7 @@ let downloads: DownloadItem[] = [
   { fileName: "Better Lightning-15520-3-2-1735000000.7z", size: 12 * MB, modified: now() - 600, modName: "Better Lightning", fileTitle: "Main File", version: "3.2", modId: 15520, fileId: 96000, installed: true },
   { fileName: "Photo Mode Unlocker-2711-1-1-1734000000.zip", size: 2 * MB, modified: now() - 7200, modName: "Photo Mode Unlocker", fileTitle: "Main", version: "1.1", modId: 2711, fileId: 95000, installed: false },
   { fileName: "Weird Layout Pack.rar", size: 40 * MB, modified: now() - 90000, modName: "Weird Layout Pack", fileTitle: null, version: null, modId: 0, fileId: 0, installed: false },
+  { fileName: "Broken Archive.zip", size: 1 * MB, modified: now() - 99000, modName: "Broken Archive", fileTitle: null, version: null, modId: 0, fileId: 0, installed: false },
 ];
 let userMods: UserRow[] = [
   { kind: "mod", name: "Darker Nights", enabled: true, version: "1.4", nexusUrl: null, after: null, buildId: null },
@@ -460,6 +461,10 @@ async function simulateInstall(id: number, file: string, after: string | null) {
   }
   emitJob(id, { state: { kind: "installing" } });
   await delay(600);
+  if (file.startsWith("Broken")) {
+    emitJob(id, { state: { kind: "failed", error: "Не удалось прочитать архив: неожиданный конец файла" } });
+    return;
+  }
   const version = downloads.find((d) => d.fileName === file)?.version ?? null;
   const row: UserRow = { kind: "mod", name, enabled: true, version, nexusUrl: null, after: null, buildId: null };
   userMods = userMods.filter((r) => r.kind !== "mod" || r.name !== name);

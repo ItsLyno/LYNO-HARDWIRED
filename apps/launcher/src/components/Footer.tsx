@@ -1,4 +1,4 @@
-import { Check, ChevronUp, Download, FolderOpen, Loader2, Plus, Trash2 } from "lucide-react";
+import { Check, ChevronUp, Download, FolderOpen, Loader2, Plus, Trash2, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { api, type DownloadItem, type NexusJob, type RateLimit } from "../api";
 import { formatBytes } from "../format";
@@ -24,7 +24,14 @@ function Downloads() {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const active = nexusJobs.filter(isJobActive);
+  const failed = nexusJobs.filter((j) => j.state.kind === "failed");
   const asking = active.filter((j) => ["choosing", "choosingRoot"].includes(j.state.kind)).length;
+  // The backend forgets every finished job; done and cancelled ones aren't shown anyway.
+  const clearFailed = () =>
+    run(async () => {
+      await api.nexusClearJobs();
+      useApp.setState({ nexusJobs: useApp.getState().nexusJobs.filter(isJobActive) });
+    });
 
   useEffect(() => {
     if (!open) return;
@@ -55,6 +62,11 @@ function Downloads() {
             {active.length}
           </span>
         )}
+        {failed.length > 0 && (
+          <span className="rounded-full bg-bad/15 px-1.5 font-mono text-[10px] text-bad tabular-nums" title="Загрузки с ошибкой">
+            {failed.length}
+          </span>
+        )}
         <ChevronUp size={12} className={`transition-transform ${open ? "" : "rotate-180"}`} />
       </button>
       {open && (
@@ -65,6 +77,24 @@ function Downloads() {
                 <ActiveJob key={j.id} job={j} onOpen={() => setOpen(false)} />
               ))}
             </ul>
+          )}
+          {failed.length > 0 && (
+            <div className="border-b border-line">
+              <div className="flex h-9 items-center justify-between px-4">
+                <span className="label text-bad">Не удалось</span>
+                <button onClick={clearFailed} className="text-muted hover:text-fg">
+                  Скрыть
+                </button>
+              </div>
+              <ul className="divide-y divide-line/60">
+                {failed.map((j) => (
+                  <li key={j.id} className="px-4 py-2" title={j.state.kind === "failed" ? j.state.error : undefined}>
+                    <div className="truncate text-[13px]">{jobTitle(j)}</div>
+                    <div className="line-clamp-2 text-bad">{j.state.kind === "failed" && j.state.error}</div>
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
           <div className="flex h-9 shrink-0 items-center justify-between px-4">
             <span className="label" title="Перетащите загрузку в список модов, чтобы поставить её в нужное место. Архивы из проводника можно бросать прямо на окно.">
@@ -98,10 +128,14 @@ function Downloads() {
   );
 }
 
+function jobTitle(job: NexusJob): string {
+  return job.title ?? (job.modId ? `Мод ${job.modId}` : "Загрузка");
+}
+
 function ActiveJob({ job, onOpen }: { job: NexusJob; onOpen: () => void }) {
-  const { setFomodJob, setRootJob } = useApp();
+  const { setFomodJob, setRootJob, run } = useApp();
   const s = job.state;
-  const title = job.title ?? (job.modId ? `Мод ${job.modId}` : "Загрузка");
+  const title = jobTitle(job);
   const pct = s.kind === "downloading" && s.total > 0 ? (s.done / s.total) * 100 : null;
   const text: Record<string, string> = {
     queued: "в очереди",
@@ -119,8 +153,8 @@ function ActiveJob({ job, onOpen }: { job: NexusJob; onOpen: () => void }) {
     else if (s.kind === "choosingRoot") setRootJob(job.id);
   };
   return (
-    <li>
-      <button onClick={act} className="block w-full px-4 py-2 text-left hover:bg-raised/60">
+    <li className="flex items-center pr-2 hover:bg-raised/60">
+      <button onClick={act} className="block min-w-0 flex-1 py-2 pl-4 pr-2 text-left">
         <div className="flex items-center gap-2">
           <span className="min-w-0 flex-1 truncate text-[13px]">{title}</span>
           <span className={`shrink-0 ${s.kind.startsWith("choosing") ? "text-warn" : "text-muted"}`}>{text[s.kind] ?? ""}</span>
@@ -131,6 +165,17 @@ function ActiveJob({ job, onOpen }: { job: NexusJob; onOpen: () => void }) {
           </div>
         )}
       </button>
+      {/* Unpacking into the mod folder doesn't stop halfway; everything before it does. */}
+      {s.kind !== "installing" && (
+        <button
+          onClick={() => run(() => api.nexusCancelJob(job.id))}
+          className="flex size-6 shrink-0 items-center justify-center rounded-full text-muted hover:bg-bad/10 hover:text-bad"
+          title="Отменить"
+          aria-label="Отменить"
+        >
+          <X size={13} />
+        </button>
+      )}
     </li>
   );
 }
