@@ -1,12 +1,49 @@
 {
   "schema": 4,
   "name": "LYNO//HARDWIRED",
-  "buildVersion": "1.3.0",
+  "buildVersion": "1.4.0",
   "gameVersion": "2.5",
   "gameExe": "2.5",
   "mo2Version": "2.5.2",
   "profile": "LYNO",
   "changelog": [
+    {
+      "version": "1.4.0",
+      "date": "2026-11-17",
+      "notes": [
+        "Добавлен Black Lace Load Fix",
+        "Добавлен Conditional reload speed",
+        "Добавлен Curbside - Improved Vehicle Summoning",
+        "Добавлен Empty Quickhack Menu Fix",
+        "Добавлен Clampdown Meshuga Fix",
+        "Добавлен Torrent (Lightning with Physically Accurate Rain) - Torrent",
+        "Добавлен Impact FX - CinematicImpactFX Settings 0.8.4",
+        "Добавлен RainSoaked - Dynamic Rain and Water Wetness - RainSoaked",
+        "Добавлен Elyra - Hair CCXL - Atomiic Elyra Hair CCXL",
+        "Добавлен Pure Judy - Total Overhaul (Custom Body - Skin Textures - Hair and Makeup) - Mn0w's PureJudy AIO NoAbs",
+        "Добавлен Main Menu Backgrounds (Change Background - Make Your Own) - Main Menu Backgrounds V1.2.0",
+        "Добавлен Wardrobe UI Improvements - WardrobeUIImprovements 1.0.1",
+        "Добавлен Remove Mods (mod.io) Menu and Mod Verification popup - Remove Mods Menu",
+        "Добавлен MIME - Mouse Interactive Model Enhancement - MIME",
+        "Добавлен Game 2.5 Load Game Menu QoL",
+        "Добавлен Weapon Skin Icons",
+        "Добавлен Expanded Dual Wielding",
+        "Добавлен Restricted Hardware 0.9.1",
+        "Добавлен GoreRunner (Blood and Carnage Overhaul) - GoreRunner Performance",
+        "Добавлен Custom Third Person Executions - Custom-Third-Person-Executions",
+        "Добавлен Join Trauma Team - AV Rescue Shifts - TraumaTeam 1.3.1",
+        "Добавлен Street Vendors Unlocked 1.0.0",
+        "Добавлен Enhanced Vehicle System Russian Translation 17.9",
+        "Добавлен LYNO RU - Restricted Hardware",
+        "Добавлен VRAM-Fix",
+        "Удалён Vehicle Turret Core - VehicleTurretCore 1.0.0",
+        "Удалён Map Waypoint Bug Fixes",
+        "Удалён SFX Toggle (Mute Sounds and Combat Music)",
+        "Удалён Judy alternate body",
+        "Удалён GoreRunner",
+        "Удалён Enhanced Vehicle System RU"
+      ]
+    },
     {
       "version": "1.3.0",
       "date": "2026-10-29",
@@ -167,20 +204,20 @@
       "name": "Codeware",
       "enabled": true,
       "coop": true,
-      "version": "1.21.2",
+      "version": "1.21.4",
       "author": "psiberx",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 7780
       },
       "package": {
-        "hash": "4f3aca600440418f0eca125e0743651a5098620dc233cc1ca6f76600fe6bad18",
-        "size": 16028759,
+        "hash": "45b0ae175c85e3d1aefd173031ecf44f81abfd41577aa1e67703a53b97ef4adc",
+        "size": 32943318,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/codeware-4f3aca600440418f.tar.zst.001",
-            "size": 1693716,
-            "blake3": "67657f47f5d998ad0dfef84e3ca287fb0986fa2c1e112e4e75da24184101dc4b"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/codeware-45b0ae175c85e3d1.tar.zst.001",
+            "size": 2492867,
+            "blake3": "2433158554c7b103f356573edb6a9f3ef65bc396df85275388564949eaea4167"
           }
         ]
       }
@@ -191,20 +228,20 @@
       "name": "RED4ext",
       "enabled": true,
       "coop": true,
-      "version": "1.31",
+      "version": "1.31.1",
       "author": "WopsS",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 2380
       },
       "package": {
-        "hash": "a167c7cf53738ed2b16cb84ede910492fa24861e994038e0adf8b108d69de750",
-        "size": 1465896,
+        "hash": "030cdf242cb17ee2918456fa7daafa9d32e18c8b91d9e6b30e67ba7d8ef55ed2",
+        "size": 1468456,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.2/red4ext-a167c7cf53738ed2.tar.zst.001",
-            "size": 496119,
-            "blake3": "172bf858795efe7d28c8bc5513b3e8207a023a69a1211fc7dca71d83e9f5b3b0"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/red4ext-030cdf242cb17ee2.tar.zst.001",
+            "size": 498988,
+            "blake3": "dc15e8ca9450a037c1f671bb8549e5b08e72ddf81465f528b0933a6e67dcba4e"
           }
         ]
       }
@@ -239,20 +276,20 @@
       "name": "TweakXL",
       "enabled": true,
       "coop": true,
-      "version": "1.12",
+      "version": "1.12.2",
       "author": "psiberx",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 4197
       },
       "package": {
-        "hash": "063ef839a78dab1c877fff38442412cdd5c6167c5e887bc45b38f5efaf86af8d",
-        "size": 2137670,
+        "hash": "5bb4c40a46ddac0e54d9c808cbe72951b5a14ee25d6bf7bcd872f305b2aefc90",
+        "size": 2125382,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/tweakxl-063ef839a78dab1c.tar.zst.001",
-            "size": 980944,
-            "blake3": "fb82edb36396f1e0a310237300c50f22e60eac6fcc5c8af123bd4dff414a183f"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/tweakxl-5bb4c40a46ddac0e.tar.zst.001",
+            "size": 978573,
+            "blake3": "3cc0a9187108020cdf1c7f62eade2c305e8ef79867cc85f63f77ad6e11a029c3"
           }
         ]
       }
@@ -263,20 +300,20 @@
       "name": "ArchiveXL",
       "enabled": true,
       "coop": true,
-      "version": "1.28.6",
+      "version": "1.28.8",
       "author": "psiberx",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 4198
       },
       "package": {
-        "hash": "e5a60b2e8955ad644ccccc506df3acf982f25d2b845a7ea6b2798d2be5cb5ce4",
-        "size": 3561355,
+        "hash": "1cc591c5b4db9879e777f36d8bdec3a3b2d1e1caae1fdb15517e29220fb63447",
+        "size": 3569547,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/archivexl-e5a60b2e8955ad64.tar.zst.001",
-            "size": 892656,
-            "blake3": "dc4d5590250271051063b4c43f983c558f325cb818006fedefa7a7c1e2352844"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/archivexl-1cc591c5b4db9879.tar.zst.001",
+            "size": 896445,
+            "blake3": "3e1d210e20c7170905dc78839fa8379bad944e9b381cdc30995c3ce1c92c7719"
           }
         ]
       }
@@ -335,20 +372,20 @@
       "name": "Mod Settings",
       "enabled": true,
       "coop": true,
-      "version": "0.2.28",
+      "version": "0.2.30",
       "author": "Jack Humbert",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 4885
       },
       "package": {
-        "hash": "cba1df808b174b4acc6d6f5a6af75d5414055811e407c40b66c8194d6890b5e2",
-        "size": 1215940,
+        "hash": "3364c2b02d94b6216e531cb35d571439f22c56cf36dfb2b0b0e56919e09e184c",
+        "size": 1238265,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/mod-settings-cba1df808b174b4a.tar.zst.001",
-            "size": 412733,
-            "blake3": "d6b5e7ca5a54796afac205b34e662423026915bc5cba954d480d34303a925b98"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/mod-settings-3364c2b02d94b621.tar.zst.001",
+            "size": 419006,
+            "blake3": "4f59a416a636c62b2f825e8971a6bf91d46edbd07fe03413206a6f195173ecd6"
           }
         ]
       }
@@ -383,20 +420,20 @@
       "name": "Equipment-EX",
       "enabled": true,
       "coop": true,
-      "version": "1.2.10",
+      "version": "1.3.1",
       "author": "psiberx and DJ_Kovrik",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 6945
       },
       "package": {
-        "hash": "948de12cd6c69baf4082b2f13608d01a7e1500f34d9cfc4c80ed775389c52225",
-        "size": 275678,
+        "hash": "5bad66cc9a4147bb21f0608410d2d08da38c429030aa64cc64924f48e95140b5",
+        "size": 289585,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/equipment-ex-948de12cd6c69baf.tar.zst.001",
-            "size": 91107,
-            "blake3": "fbc608777d5dbb9a35af851a9016517493238dc10f8aa0e93210b40c03a35755"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/equipment-ex-5bad66cc9a4147bb.tar.zst.001",
+            "size": 71032,
+            "blake3": "d8c5b08fad2ea782d4387359bfb8fb8c7dd8c936f74233d7b0d496902b46b864"
           }
         ]
       }
@@ -431,20 +468,20 @@
       "name": "Cyberware-EX",
       "enabled": true,
       "coop": true,
-      "version": "1.6",
+      "version": "1.7",
       "author": "psiberx",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 9429
       },
       "package": {
-        "hash": "b27b89e15cdacd706100d1b298502ba428b87d67cd6d09d4b22610c648f2b246",
-        "size": 88956,
+        "hash": "7777d28fe8a3c4c86d3a4113f72edb9ccaa2980b6defb287d9cf2296165c9c27",
+        "size": 92481,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.2/cyberware-ex-b27b89e15cdacd70.tar.zst.001",
-            "size": 18977,
-            "blake3": "48fb99d1c379ca7a33deb143c3ca0b820b9302a695d3952083dd9acaced22c3f"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/cyberware-ex-7777d28fe8a3c4c8.tar.zst.001",
+            "size": 19551,
+            "blake3": "0d3293fbe0b15eb18e217bc7542657ce0dc61fe4e60eb392247a38571e4d8fc9"
           }
         ]
       }
@@ -455,20 +492,20 @@
       "name": "AudioXL",
       "enabled": true,
       "coop": true,
-      "version": "0.9.1",
+      "version": "0.9.4",
       "author": "DigitalVixen",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 33442
       },
       "package": {
-        "hash": "f4922a65ce4a8b1462b49c43facd84bfc9215efc548408333a14804437642879",
-        "size": 1098959,
+        "hash": "a58eafeec585d7db2b2f7a8431ec62bcc27d5b9fbd260dc77e2b23c93e8c2dde",
+        "size": 2093854,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/audioxl-f4922a65ce4a8b14.tar.zst.001",
-            "size": 447044,
-            "blake3": "e0f2c7b6936134347d10f5828f3c6a7006d9f6b73688b76e417e68c761631ea6"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/audioxl-a58eafeec585d7db.tar.zst.001",
+            "size": 541700,
+            "blake3": "b5cc90f07f5db5afd9d6961d001d27381b743fcee444cbead00e7c42b3e194b0"
           }
         ]
       }
@@ -485,20 +522,20 @@
       "enabled": true,
       "optional": true,
       "coop": true,
-      "version": "3.5.2",
+      "version": "3.5.3",
       "author": "DigitalVixen",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 30331
       },
       "package": {
-        "hash": "2c381f796f7d357aa97f090d2cb870a361f73f2b1e08798c4f21c0d4e49af4dc",
-        "size": 89038,
+        "hash": "5c6cc37c30a93b9ec1c8cfaac7d3bc58a5fd51aacd98ba0ddedd6842ffad93ce",
+        "size": 128625,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.1.0/calendar-2c381f796f7d357a.tar.zst.001",
-            "size": 14531,
-            "blake3": "09f11322373ba8947976b7e57f97aea3546a722e1315e525c17b2726f7d1b332"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/calendar-5c6cc37c30a93b9e.tar.zst.001",
+            "size": 15261,
+            "blake3": "3845b581afd077ed66636af53829ba6520ebe14135f9e3f8c7aa29b639374c2f"
           }
         ]
       }
@@ -535,46 +572,20 @@
       "enabled": true,
       "optional": true,
       "coop": true,
-      "version": "1.0.3",
+      "version": "1.1.1",
       "author": "GetTenSO",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 35521
       },
       "package": {
-        "hash": "6e8aebfb386b6104be3b44400d17f54d750412d538fd7397124d431841906aca",
-        "size": 44018403,
+        "hash": "6a32f226f434ef25d09e17cb77907759f17a206b81df284df886bad6b3a72b29",
+        "size": 44207174,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/gettenso-core-6e8aebfb386b6104.tar.zst.001",
-            "size": 43915082,
-            "blake3": "4f1878df48a579b48fdce3b642c1d4a39f9d690cc8ea24d54f2e159f81ecccd0"
-          }
-        ]
-      }
-    },
-    {
-      "kind": "mod",
-      "id": "vehicle-turret-core-vehicleturretcore-1-0-0",
-      "name": "Vehicle Turret Core - VehicleTurretCore 1.0.0",
-      "enabled": true,
-      "optional": true,
-      "coop": true,
-      "version": "1.0",
-      "author": "whatmynickname",
-      "title": "Vehicle Turret Core",
-      "nexus": {
-        "game": "cyberpunk2077",
-        "modId": 33979
-      },
-      "package": {
-        "hash": "e803845fa272ef7b42aa21c96f69ccf5d3de6ec5968f36a6ccde6d83cbc5ce48",
-        "size": 180097,
-        "parts": [
-          {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.7/vehicle-turret-core-vehicleturretcore-1-0-0-e803845fa272ef7b.tar.zst.001",
-            "size": 42749,
-            "blake3": "87320b60f277a78300b0b72d2cf3d29f90b77520adb21f90bd864ba770afece2"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/gettenso-core-6a32f226f434ef25.tar.zst.001",
+            "size": 44082499,
+            "blake3": "948c17cc94585dc104caa3c82303d138331dfcf03c1f09f15c978ae73392eda8"
           }
         ]
       }
@@ -651,6 +662,31 @@
             "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/cet-window-manager-2-1-1-ec7392eaaf585197.tar.zst.001",
             "size": 52701,
             "blake3": "f6422d3bbd8df47a6e870c8f3773a9cf941f07f5ef94064145dca155b5869d98"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "mod",
+      "id": "redwindows",
+      "name": "RedWindows",
+      "enabled": true,
+      "optional": true,
+      "coop": false,
+      "version": "2.5.1",
+      "author": "DigitalVixen",
+      "nexus": {
+        "game": "cyberpunk2077",
+        "modId": 32370
+      },
+      "package": {
+        "hash": "b2b646903c9bf82591468ad4aaf96cb5e1a6cc1602f19bcaeae315fef000d628",
+        "size": 638459,
+        "parts": [
+          {
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/redwindows-b2b646903c9bf825.tar.zst.001",
+            "size": 94155,
+            "blake3": "b8d2b0ab4f80a731de3bbe074ca353ad5eade0e64d7e53ba930b68515cd36365"
           }
         ]
       }
@@ -934,50 +970,25 @@
     },
     {
       "kind": "mod",
-      "id": "redwindows",
-      "name": "RedWindows",
-      "enabled": true,
-      "optional": true,
-      "coop": true,
-      "version": "2.4",
-      "author": "DigitalVixen",
-      "nexus": {
-        "game": "cyberpunk2077",
-        "modId": 32370
-      },
-      "package": {
-        "hash": "fa29d818c4c926cba7f1d364d9ae4736a685f48fdd491e87193c89f285373562",
-        "size": 504651,
-        "parts": [
-          {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.2/redwindows-fa29d818c4c926cb.tar.zst.001",
-            "size": 93278,
-            "blake3": "2143a0b2fb0c737c334109889ac449a25b62195fc9df83d5158ff3539f648043"
-          }
-        ]
-      }
-    },
-    {
-      "kind": "mod",
       "id": "redscript-configuration-framework",
       "name": "Redscript Configuration Framework",
       "enabled": true,
       "optional": true,
       "coop": true,
-      "version": "3.2",
+      "version": "3.2.3",
       "author": "DigitalVixen",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 30726
       },
       "package": {
-        "hash": "3d39c70eeab2655afc805629850ad4ecad725b1a74a73abf288f2a63093be8d9",
-        "size": 676987,
+        "hash": "535565bd85b46eb981609110e64a9bbc96956f36b87fefa7897719bd5b8a7690",
+        "size": 1085754,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/redscript-configuration-framework-3d39c70eeab2655a.tar.zst.001",
-            "size": 140909,
-            "blake3": "3f81b14d35bcc731c8e5e0229187d43c1bc311a3e0b20174f1dadc2d6804992f"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/redscript-configuration-framework-535565bd85b46eb9.tar.zst.001",
+            "size": 160728,
+            "blake3": "dba4fb1973e5b306d3f0b6a7d21f16ea5d9b5a3db61deea11f1a60b29f27e07a"
           }
         ]
       }
@@ -989,20 +1000,20 @@
       "enabled": true,
       "optional": true,
       "coop": true,
-      "version": "1.4.2",
+      "version": "1.5",
       "author": "DigitalVixen",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 31920
       },
       "package": {
-        "hash": "c4a10dba24bee6586eda7b240b6e3a20b12ab7214511526b5bda62bc502b406a",
-        "size": 202597,
+        "hash": "ee22448962a8112957a2784ff326962b29594b9af80952eab7ff314e00142ab1",
+        "size": 419427,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/redlogger-c4a10dba24bee658.tar.zst.001",
-            "size": 87594,
-            "blake3": "a5862230a219d6a610571814801337b898883672f7a073471776f83f7a6019cc"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/redlogger-ee22448962a81129.tar.zst.001",
+            "size": 108953,
+            "blake3": "b33c63c188e67984315d2e1018b0b610bfb2f1c7c8c5aa424e77f6959994cc59"
           }
         ]
       }
@@ -1014,20 +1025,20 @@
       "enabled": true,
       "optional": true,
       "coop": true,
-      "version": "0.3.1",
+      "version": "0.5",
       "author": "DigitalVixen",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 31919
       },
       "package": {
-        "hash": "aeeedc19d501c18241cd49a2e9b69106d3ab646ab8f01f805541bddb4a783a68",
-        "size": 962321,
+        "hash": "e05f66289671e99bab67b2c53c9755ece8f52a1f9c784f23424cfca56466e43b",
+        "size": 1937162,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.2/redimgretriever-aeeedc19d501c182.tar.zst.001",
-            "size": 439469,
-            "blake3": "02bccd7cf0147084cdcfd854540e6afe7a0ebb5d2f31b651c774dd0d3731943f"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/redimgretriever-e05f66289671e99b.tar.zst.001",
+            "size": 501982,
+            "blake3": "034b7190b0550a4d479a8e3e2a851e9f3f5f8bcd861f487eb6746c29db4b949b"
           }
         ]
       }
@@ -1039,20 +1050,20 @@
       "enabled": true,
       "optional": true,
       "coop": true,
-      "version": "0.14.1",
+      "version": "0.18",
       "author": "DigitalVixen",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 32312
       },
       "package": {
-        "hash": "9c142b6cc58f4215df3e257999245b869ac2d781d5caedf3590ba53ec55b4994",
-        "size": 5847906,
+        "hash": "20c4a87e4ff8a1ec6ddd90838673f77674df1c1068bd58f3aa55c6b60d24f24c",
+        "size": 7309942,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.2/redfunctions-9c142b6cc58f4215.tar.zst.001",
-            "size": 5358588,
-            "blake3": "84647da8e820d5790a8b296d2ff96b4431e2e14c62fcb0b480cee21cd9c81833"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/redfunctions-20c4a87e4ff8a1ec.tar.zst.001",
+            "size": 5675067,
+            "blake3": "a6be65796d144f88e4567d4219b05e538a3a1521bd3c05b0bdcec795da0e7c26"
           }
         ]
       }
@@ -1164,20 +1175,20 @@
       "enabled": true,
       "optional": true,
       "coop": true,
-      "version": "4.9.8",
+      "version": "4.9.14",
       "author": "DigitalVixen",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 28390
       },
       "package": {
-        "hash": "23954c465461ed5c1d309ad661e2656d258267a223f9717a254b148d7b926172",
-        "size": 10211541,
+        "hash": "8eacced88f5b1b9ba938b1127d7169d7e644427133eef1e5766c612d15c07ca9",
+        "size": 10628510,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/digitalvixen-core-23954c465461ed5c.tar.zst.001",
-            "size": 419602,
-            "blake3": "02cf0feb5350328309a16d65e21458a493532294ca069321b3fcb6cf452e62b5"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/digitalvixen-core-8eacced88f5b1b9b.tar.zst.001",
+            "size": 427458,
+            "blake3": "e74811f4a20d6a524277abab3c9f9c1d33d715b8f1578d647a7646fedbe76b86"
           }
         ]
       }
@@ -1361,23 +1372,23 @@
       "kind": "mod",
       "id": "immersive-night-city-fixes-core",
       "name": "Immersive Night City Fixes - CORE",
-      "enabled": false,
+      "enabled": true,
       "optional": true,
       "coop": true,
-      "version": "1.4",
+      "version": "1.5",
       "author": "DBK",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 27040
       },
       "package": {
-        "hash": "eb265c7d1e6b799d81b927c5db977e5230441ebc8cb1630258602397cfc11ce9",
-        "size": 30529105,
+        "hash": "ee84944ef333c5fd8c86c25fd136c7222ab3d3335bb30dfc102b96b2c77cd6d5",
+        "size": 14263889,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/immersive-night-city-fixes-core-eb265c7d1e6b799d.tar.zst.001",
-            "size": 30492038,
-            "blake3": "0424e4df97737ff87cc3585c1a47c4138db606125d099d41f3a137a69098879a"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/immersive-night-city-fixes-core-ee84944ef333c5fd.tar.zst.001",
+            "size": 14246339,
+            "blake3": "b7b094368c2cc59f04d27a40b1bb21f3ca424c885c69a59657c0e3874a7943ec"
           }
         ]
       }
@@ -1391,23 +1402,23 @@
       "kind": "mod",
       "id": "immersive-night-city-fixes",
       "name": "Immersive Night City Fixes",
-      "enabled": false,
+      "enabled": true,
       "optional": true,
       "coop": true,
-      "version": "0.35",
+      "version": "0.37",
       "author": "DBK",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 20588
       },
       "package": {
-        "hash": "5863731088c35c188eba626b290d52ee2be72bc29e2e53a958994e1cf8623301",
-        "size": 1979962,
+        "hash": "30971d355591d7d0d25cc974615742f7b766d880f4e905914626ea3cb56d0a7a",
+        "size": 2065194,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.1.0/immersive-night-city-fixes-5863731088c35c18.tar.zst.001",
-            "size": 334923,
-            "blake3": "a3a35e78973b5bf1a49d9f7a5583bd5e3587f8fee157114d7a016bd49ddaffa4"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/immersive-night-city-fixes-30971d355591d7d0.tar.zst.001",
+            "size": 351846,
+            "blake3": "262a0cc04267eedc63d2bcb5c4ec4bd976366025fd2f096bed55569eecae762e"
           }
         ]
       }
@@ -1419,20 +1430,20 @@
       "enabled": true,
       "optional": true,
       "coop": true,
-      "version": "v10.1.0.9",
+      "version": "v10.1.0.11",
       "author": "SammiLucia",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 10490
       },
       "package": {
-        "hash": "c1707438658f1220fc34f940ec9182d22a76502b5f32e41d2c09f61130596088",
-        "size": 7090477,
+        "hash": "bbf0fc969261e8c024d3b3cb785cbe0d98dae3f21ec1016813a24cdf6acdeb9f",
+        "size": 12322426,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/ultra-plus-physically-accurate-path-tracing-c1707438658f1220.tar.zst.001",
-            "size": 4659020,
-            "blake3": "cbf4d84a2bfb4c1d6906908fc67662aac8d13b7ddcf14f06e0f4c1e16ed28e22"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/ultra-plus-physically-accurate-path-tracing-bbf0fc969261e8c0.tar.zst.001",
+            "size": 7641332,
+            "blake3": "de1e8a982810bb386b481b292aa5f376bc8208c537719f2e9c0e691d45bb6200"
           }
         ]
       }
@@ -1444,20 +1455,20 @@
       "enabled": true,
       "optional": true,
       "coop": true,
-      "version": "1.5",
+      "version": "1.6",
       "author": "Akiway",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 34403
       },
       "package": {
-        "hash": "e9902ec5b50c8736393330ac74b17079d80d2d041d3134f3430cece19c53ab84",
-        "size": 4995357,
+        "hash": "9f830c54082223b4ce9aa9f6b74a931ae3d9c886f22cdb201a52b0c7612051eb",
+        "size": 6498407,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.2/advanced-crash-reporter-e9902ec5b50c8736.tar.zst.001",
-            "size": 3941586,
-            "blake3": "1ddc39b1b708cc54ee2764308b923f93ffe89e2e676099763875252f4d26c167"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/advanced-crash-reporter-9f830c54082223b4.tar.zst.001",
+            "size": 5414155,
+            "blake3": "01798ad2f2f77cb543c28da9979899ed5c5657590c9b58b411e0c20066de28d9"
           }
         ]
       }
@@ -1567,23 +1578,23 @@
       "kind": "mod",
       "id": "decals-flickering-fix",
       "name": "Decals Flickering Fix",
-      "enabled": false,
+      "enabled": true,
       "optional": true,
       "coop": false,
-      "version": "0.12",
+      "version": "0.3",
       "author": "sosuinepsixuyu",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 16579
       },
       "package": {
-        "hash": "44a27d53dabf70ba4ca891a7f84cd0206b9a5af6fb5a561fee9d442dc871293f",
-        "size": 1287,
+        "hash": "4864b0254626e6793f2972611c3b07c835b367fd83fc7e6b1b0d2490d397606e",
+        "size": 1099,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/decals-flickering-fix-44a27d53dabf70ba.tar.zst.001",
-            "size": 1240,
-            "blake3": "472f36aca145aec3b86de47adef9647a593450dc8b3dffebc2722a8df17dd330"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/decals-flickering-fix-4864b0254626e679.tar.zst.001",
+            "size": 1244,
+            "blake3": "24bc5ffb4a4d7adf0f079a4973b1f802f7bbf09a7b96a84fe8c5f6be657a42eb"
           }
         ]
       }
@@ -1746,20 +1757,21 @@
       "enabled": true,
       "optional": true,
       "coop": true,
-      "version": "0.11",
+      "version": "0.15",
       "author": "sosuinepsixuyu",
+      "title": "NPC Actions Fixes",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 16720
       },
       "package": {
-        "hash": "a68fd52ab6267446674994fdbf524b0065bbf88d6e3aa80489bafc02a4f30474",
-        "size": 2594,
+        "hash": "79043438442780db83c0dd18334ff8b4be114609959c031583cfe753bcd123d2",
+        "size": 5624,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.6/npc-actions-stutter-fix-a68fd52ab6267446.tar.zst.001",
-            "size": 1732,
-            "blake3": "b0577e70ae362bd0c80e2fcf66253cd97bcbc1b553a919d9c36f8858e4127c29"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/npc-actions-stutter-fix-79043438442780db.tar.zst.001",
+            "size": 2233,
+            "blake3": "1ef7f02a07e4d5fb33249f906ddef969dc2fdbf248825198fb05acc98b8ac8d4"
           }
         ]
       }
@@ -1801,20 +1813,123 @@
       "enabled": true,
       "optional": true,
       "coop": true,
-      "version": "1.1",
+      "version": "1.2",
       "author": "SDH0",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 35121
       },
       "package": {
-        "hash": "bd7a263860c5e2b56d8d19285c3c40ec0e6341ce5d769d92dec40d0ff4f62288",
-        "size": 10818392,
+        "hash": "f9cca51eb33b9fad9a11e5be4617a353cfd29594781e25b7d8cfcb66abfe32a4",
+        "size": 9962328,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.1.0/vehicle-destruction-mesh-fix-bd7a263860c5e2b5.tar.zst.001",
-            "size": 10798068,
-            "blake3": "ef4978e596ce5e79395351e77c904c6c7a42a1c97a83257068bf0ad64b2763a1"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/vehicle-destruction-mesh-fix-f9cca51eb33b9fad.tar.zst.001",
+            "size": 9949957,
+            "blake3": "ee4ebd0ab1c9c1bf99215ae1a147691ed56a9a59df2f2867f3a4140f56f411e5"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "mod",
+      "id": "black-lace-load-fix",
+      "name": "Black Lace Load Fix",
+      "enabled": true,
+      "optional": true,
+      "coop": false,
+      "version": "1",
+      "author": "0nlyQ",
+      "nexus": {
+        "game": "cyberpunk2077",
+        "modId": 37404
+      },
+      "package": {
+        "hash": "2aa088fbe9890a925b332bdd982e2afa7ede85366592a33f9128edcf405fa855",
+        "size": 2310020,
+        "parts": [
+          {
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/black-lace-load-fix-2aa088fbe9890a92.tar.zst.001",
+            "size": 472978,
+            "blake3": "0a44ba3002577fcf581627949300ec282243849a77805616c79488e21368d972"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "mod",
+      "id": "conditional-reload-speed",
+      "name": "Conditional reload speed",
+      "enabled": true,
+      "optional": true,
+      "coop": false,
+      "version": "1.0.1",
+      "author": "Emil8000",
+      "title": "Conditional reload speed fix for 2.5",
+      "nexus": {
+        "game": "cyberpunk2077",
+        "modId": 37385
+      },
+      "package": {
+        "hash": "c22448ecb1352b78a67d65086848598cf6c031ecee7b39b132a47f2e1379c89e",
+        "size": 1301,
+        "parts": [
+          {
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/conditional-reload-speed-c22448ecb1352b78.tar.zst.001",
+            "size": 797,
+            "blake3": "1a2d59d15efcbdb3b640ac8a144d06f9f95da205a84d088211395705fd6a396c"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "mod",
+      "id": "curbside-improved-vehicle-summoning",
+      "name": "Curbside - Improved Vehicle Summoning",
+      "enabled": true,
+      "optional": true,
+      "coop": false,
+      "version": "1.0.1",
+      "author": "RucaLT",
+      "title": "Curbside - Improved Vehicle Summoning for 2.5",
+      "nexus": {
+        "game": "cyberpunk2077",
+        "modId": 35922
+      },
+      "package": {
+        "hash": "37c20cd6405cde3f2c51117cfce0941e83c6df876204e627697e2ac432422c9c",
+        "size": 47252,
+        "parts": [
+          {
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/curbside-improved-vehicle-summoning-37c20cd6405cde3f.tar.zst.001",
+            "size": 13644,
+            "blake3": "574ad99315dca6b85bce03bdf2c47c70f88910bcc38fddc727087bcfd1f8ac7d"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "mod",
+      "id": "empty-quickhack-menu-fix",
+      "name": "Empty Quickhack Menu Fix",
+      "enabled": true,
+      "optional": true,
+      "coop": false,
+      "version": "1.1",
+      "author": "1browniee",
+      "title": "Empty Quickhack Menu Fix for 2.5",
+      "nexus": {
+        "game": "cyberpunk2077",
+        "modId": 36114
+      },
+      "package": {
+        "hash": "f646b0dc8fa247dadfacdcae67c5f4386d5a03a99b3f10c6bf70b62770ae981f",
+        "size": 4017,
+        "parts": [
+          {
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/empty-quickhack-menu-fix-f646b0dc8fa247da.tar.zst.001",
+            "size": 1678,
+            "blake3": "990d46251c025d9effaa2c515a3bc5c734a7c2ca209d74bf05c52010d1bbd34d"
           }
         ]
       }
@@ -1872,25 +1987,25 @@
     },
     {
       "kind": "mod",
-      "id": "map-waypoint-bug-fixes",
-      "name": "Map Waypoint Bug Fixes",
-      "enabled": false,
+      "id": "clampdown-meshuga-fix",
+      "name": "Clampdown Meshuga Fix",
+      "enabled": true,
       "optional": true,
-      "coop": true,
-      "version": "1.1",
-      "author": "Spuddeh",
+      "coop": false,
+      "version": "0.1",
+      "author": "lud1337",
       "nexus": {
         "game": "cyberpunk2077",
-        "modId": 32175
+        "modId": 36284
       },
       "package": {
-        "hash": "5c0978c1a87541aa8b5173210c2bed89f84ae4c9a62ea2fdeda88e79542902b9",
-        "size": 337428,
+        "hash": "1dae50727207b87d8156cd5ae818b512e0d5ddc5e122fdf24c10eb4c63065a1d",
+        "size": 2643,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.1.0/map-waypoint-bug-fixes-5c0978c1a87541aa.tar.zst.001",
-            "size": 91326,
-            "blake3": "a847788fb733d7d55f1a8a71a40c4b2950fd36b82924ad79d633295d60022cfa"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/clampdown-meshuga-fix-1dae50727207b87d.tar.zst.001",
+            "size": 1438,
+            "blake3": "58292dc3a1092fb1a21eca6eb324f3a9ce05be5ac2df78c97e58ebd6d5a8e4a9"
           }
         ]
       }
@@ -1902,7 +2017,7 @@
       "enabled": true,
       "optional": true,
       "coop": true,
-      "version": "1.2",
+      "version": "1.2.1",
       "author": "Spuddeh",
       "title": "Radioport Fixes - Dropouts and Misc Fixes",
       "nexus": {
@@ -1910,13 +2025,13 @@
         "modId": 33838
       },
       "package": {
-        "hash": "3c4d0728dbc9cc6b3519c4cb538e03d023d0c2ed0838865e5641b9fcf0fcdb0a",
+        "hash": "f405c9ee2d5d59e9b0598ec81e3ea9e1d3eb4a591e31fd08c49d9a904dab0e7c",
         "size": 20924,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.1.0/radioport-dropout-fix-3c4d0728dbc9cc6b.tar.zst.001",
-            "size": 11167,
-            "blake3": "a65620de746258a29ce8d6d2e06ae8a8ad9fe15c50f9ee771b25a059a4308e43"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/radioport-dropout-fix-f405c9ee2d5d59e9.tar.zst.001",
+            "size": 11290,
+            "blake3": "0dcbdc7918230abc928bb43eab9b83038995d45af0dc7131d3fdedac1d443888"
           }
         ]
       }
@@ -2083,20 +2198,20 @@
       "enabled": true,
       "optional": true,
       "coop": true,
-      "version": "1.0",
+      "version": "1.1",
       "author": "icxrus",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 19530
       },
       "package": {
-        "hash": "59049506c65c104748f851f3004eb27c4daf746b3a51567c2b929e8dd0ada14f",
-        "size": 977,
+        "hash": "6868f146b41971ad4883df7561bb8354899ffe7612f410a810b2486ed553dba8",
+        "size": 962,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/fixed-npc-vehicle-reactions-59049506c65c1047.tar.zst.001",
-            "size": 1728,
-            "blake3": "ef790031cdd31d9a27beeed55b2fada59b654f22574ffe98a3754c9b9a17cc51"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/fixed-npc-vehicle-reactions-6868f146b41971ad.tar.zst.001",
+            "size": 1816,
+            "blake3": "0a60023473bf1ab593f29c6c22cfc67672fcf7fb227e795f16f7bd54b896b610"
           }
         ]
       }
@@ -2258,20 +2373,20 @@
       "enabled": true,
       "optional": true,
       "coop": true,
-      "version": "1.21",
+      "version": "1.21.2",
       "author": "anygoodname",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 29152
       },
       "package": {
-        "hash": "33b078297b08016d87b51e3d28b07b54fa54a9b1bbe4f46cd721c98ded2ba7c4",
-        "size": 2846730,
+        "hash": "30cb7560e4d0b108ca16642db3736845d1ff644f183dc8e507c44618aaf16ef2",
+        "size": 2847484,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.1.0/immersion-patch-cyberpunk-story-quest-fixes-33b078297b08016d.tar.zst.001",
-            "size": 2772204,
-            "blake3": "c9046dff605d9d1282dd33c5cc7e5fe9d98ffec3bdf49914130662ed9b72598b"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/immersion-patch-cyberpunk-story-quest-fixes-30cb7560e4d0b108.tar.zst.001",
+            "size": 2772927,
+            "blake3": "5440a8464abed776f406d188a353a59ad5b7ee18f9031273d3672d237ca02021"
           }
         ]
       }
@@ -2309,25 +2424,51 @@
     },
     {
       "kind": "mod",
+      "id": "torrent-lightning-with-physically-accurate-rain-torrent",
+      "name": "Torrent (Lightning with Physically Accurate Rain) - Torrent",
+      "enabled": true,
+      "optional": true,
+      "coop": false,
+      "version": "1.3",
+      "author": "CyanideX",
+      "title": "Torrent (Lightning with Physically Accurate Rain)",
+      "nexus": {
+        "game": "cyberpunk2077",
+        "modId": 37031
+      },
+      "package": {
+        "hash": "d85fceba42444fa142f4e8e7309c0dd22a48217d127e71d201e27b024ffe7297",
+        "size": 3880873,
+        "parts": [
+          {
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/torrent-lightning-with-physically-accurate-rain-torrent-d85fceba42444fa1.tar.zst.001",
+            "size": 3148455,
+            "blake3": "3382b17c6d8e034dfef1be98d4c1cfa6ca5198e39c903adc2bec5f48445b49c6"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "mod",
       "id": "visual-effects-fixes",
       "name": "Visual Effects Fixes",
       "enabled": true,
       "optional": true,
       "coop": true,
-      "version": "0.1",
+      "version": "0.2",
       "author": "Sosuinepsixuyu",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 35461
       },
       "package": {
-        "hash": "fb9af9330bd07cf2f6afd97a559085d6a2eef551e1473bc5fa643f326458de88",
-        "size": 17367040,
+        "hash": "8bdd25cb662beeae290af4aa79010874234d399b4b4480403639d28bd27b5493",
+        "size": 17010688,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.1.0/visual-effects-fixes-fb9af9330bd07cf2.tar.zst.001",
-            "size": 13065451,
-            "blake3": "33911cfa854a76c08fb602f38c3f443096d73fe78b7ba4b4b773bc3da453f23c"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/visual-effects-fixes-8bdd25cb662beeae.tar.zst.001",
+            "size": 12690898,
+            "blake3": "a76edf57ce82de7ed4ec4f31ce76bd03c59e5ffcf599abde98ce3596ea967164"
           }
         ]
       }
@@ -2353,6 +2494,32 @@
             "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/orbital-air-traffic-enhanced-cfaa6e7ce04810f8.tar.zst.001",
             "size": 225305,
             "blake3": "70b52fe405e9de5cc075c9efbe25233bc4458c8da5f7681b7cbe2fba3181a987"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "mod",
+      "id": "impact-fx-cinematicimpactfx-settings-0-8-4",
+      "name": "Impact FX - CinematicImpactFX Settings 0.8.4",
+      "enabled": true,
+      "optional": true,
+      "coop": false,
+      "version": "0.8.4",
+      "author": "Triplord",
+      "title": "Impact FX",
+      "nexus": {
+        "game": "cyberpunk2077",
+        "modId": 36631
+      },
+      "package": {
+        "hash": "75c7beae3883b216a4ee466fa8f73f8a0ee36481b6dd7d1ad44757e1e3b8b60d",
+        "size": 59625959,
+        "parts": [
+          {
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/impact-fx-cinematicimpactfx-settings-0-8-4-75c7beae3883b216.tar.zst.001",
+            "size": 27688009,
+            "blake3": "8033ce450bfbe050e6771a0602ba4e25e07494f15496cf1f41a0909c7285d4f3"
           }
         ]
       }
@@ -2387,23 +2554,23 @@
       "kind": "mod",
       "id": "nc-mediascape-enhancer",
       "name": "NC Mediascape Enhancer",
-      "enabled": false,
+      "enabled": true,
       "optional": true,
       "coop": true,
-      "version": "1.1",
+      "version": "1.2",
       "author": "Proxima Dust",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 24453
       },
       "package": {
-        "hash": "5c34dbdf0845382af885b8e10f1ec2bb0faa0eca3616429c964067411bfa33c4",
-        "size": 271577,
+        "hash": "8249be27f56328b7108df94a699ab4810c0742b3d10bf645e25189567cb7898b",
+        "size": 301506,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/nc-mediascape-enhancer-5c34dbdf0845382a.tar.zst.001",
-            "size": 167328,
-            "blake3": "c7902e638e9ffab6c65ead19bec033d441289a4ba86a99ed2b06fda501a17d25"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/nc-mediascape-enhancer-8249be27f56328b7.tar.zst.001",
+            "size": 166742,
+            "blake3": "512819df86e57557496469bb91b3b821db50d92d4cab1e29c85bfb4b2f49064d"
           }
         ]
       }
@@ -2626,13 +2793,13 @@
         "modId": 18027
       },
       "package": {
-        "hash": "8a7004e52e42ef81ab8b72aa6812081cb0b1a11798bd5ab53cd91660bfdf0e82",
+        "hash": "a9b155249a1ef5cb3b006d3e57d839b5ddf41378fb7149c234667ffa9105dff7",
         "size": 197373,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/weather-switcher-8a7004e52e42ef81.tar.zst.001",
-            "size": 39050,
-            "blake3": "770f03f7814c22d184fae70b44afbe7db6b88978b9c86a956a025a50a953a5b9"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/weather-switcher-a9b155249a1ef5cb.tar.zst.001",
+            "size": 39051,
+            "blake3": "e6a9fe6e4bc56a7b3763d23fc96a63e21fbc316b6b187c6c9a25968d437682b4"
           }
         ]
       }
@@ -2688,6 +2855,32 @@
       }
     },
     {
+      "kind": "mod",
+      "id": "rainsoaked-dynamic-rain-and-water-wetness-rainsoaked",
+      "name": "RainSoaked - Dynamic Rain and Water Wetness - RainSoaked",
+      "enabled": true,
+      "optional": true,
+      "coop": false,
+      "version": "1.4.6",
+      "author": "Diakoe",
+      "title": "RainSoaked - Dynamic Rain and Water Wetness",
+      "nexus": {
+        "game": "cyberpunk2077",
+        "modId": 38156
+      },
+      "package": {
+        "hash": "948abd4cea278f0dc561c189828f1cf958d4bf0d16716803dbae56fb3c2017e7",
+        "size": 149394,
+        "parts": [
+          {
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/rainsoaked-dynamic-rain-and-water-wetness-rainsoaked-948abd4cea278f0d.tar.zst.001",
+            "size": 40649,
+            "blake3": "8afb8cc7887374cc4226e87775cd4e4dec3d3875fb2ccfd0bea78ff35d765e7e"
+          }
+        ]
+      }
+    },
+    {
       "kind": "separator",
       "title": "05 - Audio & Radio",
       "color": "#ffff00"
@@ -2713,31 +2906,6 @@
             "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.2/restore-v2-0-double-jump-sound-c6b139db4587c474.tar.zst.001",
             "size": 3045734,
             "blake3": "2c83b87bd90e7415e472102c571ed3315c2ce7ca316f181ec986b3a5349f6490"
-          }
-        ]
-      }
-    },
-    {
-      "kind": "mod",
-      "id": "sfx-toggle-mute-sounds-and-combat-music",
-      "name": "SFX Toggle (Mute Sounds and Combat Music)",
-      "enabled": true,
-      "optional": true,
-      "coop": true,
-      "version": "1.3",
-      "author": "MisterChedda",
-      "nexus": {
-        "game": "cyberpunk2077",
-        "modId": 20421
-      },
-      "package": {
-        "hash": "a6dd2a0558e85826b82b2030fa4e11aa0da53adb938e9a7e1ac49e210d4a1562",
-        "size": 166250,
-        "parts": [
-          {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/sfx-toggle-mute-sounds-and-combat-music-a6dd2a0558e85826.tar.zst.001",
-            "size": 97375,
-            "blake3": "0a976495aa5126da545433e9a93236ea5a5fa3fb1cc8b5834afc12c324d8bb19"
           }
         ]
       }
@@ -2865,6 +3033,32 @@
             "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/vtk-vanilla-hd-body-for-femv-body-44c9273bcfa9052a.tar.zst.001",
             "size": 185472806,
             "blake3": "63fbcebf33f26bb9b3c3cd56dc9b6573dca361bfa1c359af93715544ec2da745"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "mod",
+      "id": "elyra-hair-ccxl-atomiic-elyra-hair-ccxl",
+      "name": "Elyra - Hair CCXL - Atomiic Elyra Hair CCXL",
+      "enabled": true,
+      "optional": true,
+      "coop": false,
+      "version": "1",
+      "author": "AtomiicTV",
+      "title": "Elyra - Hair CCXL",
+      "nexus": {
+        "game": "cyberpunk2077",
+        "modId": 36293
+      },
+      "package": {
+        "hash": "c58d93822bbba437779d716668abeaa77d06ec9fd100f2cdd85ffdcb7b63cd72",
+        "size": 1937943,
+        "parts": [
+          {
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/elyra-hair-ccxl-atomiic-elyra-hair-ccxl-c58d93822bbba437.tar.zst.001",
+            "size": 1762499,
+            "blake3": "e025d488ffd195cfa439eea263bc4975471e321f0a59ab62242f6bb6bd06e15a"
           }
         ]
       }
@@ -3200,23 +3394,23 @@
       "kind": "mod",
       "id": "acu-character-preset-manager",
       "name": "ACU - Character Preset Manager",
-      "enabled": false,
+      "enabled": true,
       "optional": true,
       "coop": true,
-      "version": "3.2.1",
+      "version": "4.1.8",
       "author": "PotatoOfDoom",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 3850
       },
       "package": {
-        "hash": "2b50f9ae05d7f466c3def53f4f582a9c89731386b7c2b78d5382cfea34f4750f",
-        "size": 699171,
+        "hash": "3fbea79b711296211a5f5c207668c2f216b0f1861c11fd31e18fcd811336318a",
+        "size": 1516231,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/acu-character-preset-manager-2b50f9ae05d7f466.tar.zst.001",
-            "size": 291229,
-            "blake3": "a86769b5e51e999150bad755b2ae945260160715f33aeaecea136e65b6946373"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/acu-character-preset-manager-3fbea79b71129621.tar.zst.001",
+            "size": 373381,
+            "blake3": "cac5d8cd3ebbf47dfc8d25cf83031d3a7f1fba9a1698e4015f870a647105a322"
           }
         ]
       }
@@ -3300,25 +3494,26 @@
     },
     {
       "kind": "mod",
-      "id": "judy-alternate-body",
-      "name": "Judy alternate body",
+      "id": "pure-judy-total-overhaul-custom-body-skin-textures-hair-and-makeup-mn0w-s-purejudy-aio-noabs",
+      "name": "Pure Judy - Total Overhaul (Custom Body - Skin Textures - Hair and Makeup) - Mn0w's PureJudy AIO NoAbs",
       "enabled": true,
       "optional": true,
-      "coop": true,
-      "version": "1.2.1",
-      "author": "Burgundeltraut",
+      "coop": false,
+      "version": "2.4",
+      "author": "Mn0w",
+      "title": "Pure Judy - Total Overhaul (Custom Body - Skin Textures - Hair and Makeup)",
       "nexus": {
         "game": "cyberpunk2077",
-        "modId": 26642
+        "modId": 34589
       },
       "package": {
-        "hash": "f58d0927abfe7e71b31843642ac8ecf46b69debe12f23797e36704585d6740ec",
-        "size": 4186112,
+        "hash": "0d509d7747f299cd45f87fef3c5dfdf48dedc9d6d76d8693ef3c699740f015a5",
+        "size": 41415536,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/judy-alternate-body-f58d0927abfe7e71.tar.zst.001",
-            "size": 4108003,
-            "blake3": "7eb14e7acc49a3a5392fc981e6e6ced480fdf1003f56eaff8cb2cf0bd4ecb886"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/pure-judy-total-overhaul-custom-body-skin-textures-hair-and-makeup-mn0w-s-purejudy-aio-noabs-0d509d7747f299cd.tar.zst.001",
+            "size": 40810026,
+            "blake3": "4f10f08c0096386e179cc674eff7619a40c5df3b66949b7e80df053602ea3f22"
           }
         ]
       }
@@ -3515,6 +3710,7 @@
       "coop": true,
       "version": "1.11",
       "author": "Sanchez",
+      "title": "Prestige Glasses - ArchiveXL",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 27118
@@ -3943,20 +4139,20 @@
       "enabled": true,
       "optional": true,
       "coop": true,
-      "version": "3.11",
+      "version": "3.12",
       "author": "Atomiic",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 20058
       },
       "package": {
-        "hash": "41cf9ddab8b78e06165472924bf990436a9a9f4f00c4146d96222098eac5abf6",
-        "size": 130296,
+        "hash": "74bbe32f8f61f6584826b6f2c246a0a2a4caecbca60f0458566b0a27aeab9510",
+        "size": 134019,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/atomiic-shop-41cf9ddab8b78e06.tar.zst.001",
-            "size": 57259,
-            "blake3": "1f677505eb357f217c0c60da0c464fa9ef47a9af472ea9085911256ddf96b1bf"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/atomiic-shop-74bbe32f8f61f658.tar.zst.001",
+            "size": 57551,
+            "blake3": "9be34eb8eeb1a2f8eb68f65d0e73cf38915853d70dfe39d003a391783db4730c"
           }
         ]
       }
@@ -3968,20 +4164,20 @@
       "enabled": true,
       "optional": true,
       "coop": true,
-      "version": "1.30",
+      "version": "1.42",
       "author": "argisht",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 34150
       },
       "package": {
-        "hash": "87ef450f0bbe856b494fd00f966c3222b36e7f744bdbf2c4823d61a6fe1ed379",
-        "size": 270792,
+        "hash": "90c3d531d64afd0d0165adaee5dac7d1b1d45f97ebb33627d867578d94a869ce",
+        "size": 275081,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.7/dead-s-aorta-virtual-atelier-store-87ef450f0bbe856b.tar.zst.001",
-            "size": 252169,
-            "blake3": "b2462c368ef940c35c452b8fc887c05acbaacbdc3c4968dab10ae4eaf5db7b5b"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/dead-s-aorta-virtual-atelier-store-90c3d531d64afd0d.tar.zst.001",
+            "size": 253125,
+            "blake3": "80fd271aae7c9abaa2e0d58afee916269c3d23459c957da7fb88b2fbddd361ec"
           }
         ]
       }
@@ -4018,20 +4214,20 @@
       "enabled": true,
       "optional": true,
       "coop": true,
-      "version": "10.1.g",
+      "version": "10.1.k",
       "author": "EzioMaverick",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 4805
       },
       "package": {
-        "hash": "bac242d0fda1e81515b0706dfaa3e4b4179fd7cd07d90cdad6ad70c9cdf0aa91",
-        "size": 88445,
+        "hash": "9690a0832f470bf7a4e4306b6f9a13f982dc8712bf21428df2312ac0aa26dcf2",
+        "size": 88696,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/nc-fashion-virtual-atelier-bac242d0fda1e815.tar.zst.001",
-            "size": 70582,
-            "blake3": "df42ef49131fbb129fead8983332d5f57dea6f804a8af978184d0601829fcb36"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/nc-fashion-virtual-atelier-9690a0832f470bf7.tar.zst.001",
+            "size": 70732,
+            "blake3": "3264f1e9c3a66d80caf49e23b2b175a3571efe1f72657251dd97d792467bac2d"
           }
         ]
       }
@@ -4043,20 +4239,20 @@
       "enabled": true,
       "optional": true,
       "coop": true,
-      "version": "1.0.9",
+      "version": "1.1",
       "author": "Veegee",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 30021
       },
       "package": {
-        "hash": "10f870808b4599d77899c534a690d16241224631c28e64d775a5a95e04a9cc9f",
-        "size": 30733,
+        "hash": "45eee22317a55898f9c9dd8ca61b9c72300035370ac5e1c25108fd28f4613a1d",
+        "size": 32814,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/veegee-shop-4-10f870808b4599d7.tar.zst.001",
-            "size": 14053,
-            "blake3": "9671aa5ce6e53b1c7cb132c7d55705bb0fe8ab71ed86bd9892a284809584b2a7"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/veegee-shop-4-45eee22317a55898.tar.zst.001",
+            "size": 14347,
+            "blake3": "1c6a5ebbddfcfde22d5233bd6900dfc22d5c6dcab15e1ef539bb67c79876b59b"
           }
         ]
       }
@@ -4120,25 +4316,77 @@
     },
     {
       "kind": "mod",
+      "id": "main-menu-backgrounds-change-background-make-your-own-main-menu-backgrounds-v1-2-0",
+      "name": "Main Menu Backgrounds (Change Background - Make Your Own) - Main Menu Backgrounds V1.2.0",
+      "enabled": true,
+      "optional": true,
+      "coop": false,
+      "version": "1.2",
+      "author": "LevieTw",
+      "title": "Main Menu Backgrounds (Change Background - Make Your Own)",
+      "nexus": {
+        "game": "cyberpunk2077",
+        "modId": 36111
+      },
+      "package": {
+        "hash": "7078f1ad43dd92a269eb17a14db1b5300d0bc64b3ee44949f8b4c248e81fc768",
+        "size": 3905960,
+        "parts": [
+          {
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/main-menu-backgrounds-change-background-make-your-own-main-menu-backgrounds-v1-2-0-7078f1ad43dd92a2.tar.zst.001",
+            "size": 3659535,
+            "blake3": "737f02f330bbf4a65647916847321d805544858baac259d526553a19d37da149"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "mod",
+      "id": "wardrobe-ui-improvements-wardrobeuiimprovements-1-0-1",
+      "name": "Wardrobe UI Improvements - WardrobeUIImprovements 1.0.1",
+      "enabled": true,
+      "optional": true,
+      "coop": false,
+      "version": "1.0.5",
+      "author": "pointdotpoint",
+      "title": "Wardrobe UI Improvements",
+      "nexus": {
+        "game": "cyberpunk2077",
+        "modId": 36262
+      },
+      "package": {
+        "hash": "132fe8efaf6fdb1b0fe3968cc0e6010cc1f42d3b910a6c6e029afca45b486446",
+        "size": 312524,
+        "parts": [
+          {
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/wardrobe-ui-improvements-wardrobeuiimprovements-1-0-1-132fe8efaf6fdb1b.tar.zst.001",
+            "size": 69420,
+            "blake3": "e2298b34ed4a405cb6cc0e9c83a0d0465912f791e51e172d97ee4263b2d9337b"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "mod",
       "id": "informative-healthbar",
       "name": "Informative Healthbar",
       "enabled": true,
       "optional": true,
       "coop": true,
-      "version": "1.13",
+      "version": "1.15",
       "author": "Scream81",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 29625
       },
       "package": {
-        "hash": "f3cbe93ce62bc783cdc49807c360f9962bebfd36f071c30e583ae7793dcc09d7",
-        "size": 493938,
+        "hash": "010e5fc3156ab2d2e63c08e6d85d3090138939ec4b4ff854d8f779086d64b00a",
+        "size": 494184,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.1.0/informative-healthbar-f3cbe93ce62bc783.tar.zst.001",
-            "size": 68402,
-            "blake3": "8326fe76b9439764a766cf4279004dac94ec8038c50cb3ff4a83cf5621a402a0"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/informative-healthbar-010e5fc3156ab2d2.tar.zst.001",
+            "size": 68428,
+            "blake3": "936d67dc84185f998c2ee3011ce699173d46b64f0cf671fadf91947f4ec74537"
           }
         ]
       }
@@ -4164,6 +4412,58 @@
             "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.6/3d-world-map-fixed-7ab3c8bcf4e2971f.tar.zst.001",
             "size": 5161685,
             "blake3": "1c2078a50f2a3cb282c9d08d53b4bd38e820f78462a4e4fd86e8f9477ec8c74d"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "mod",
+      "id": "remove-mods-mod-io-menu-and-mod-verification-popup-remove-mods-menu",
+      "name": "Remove Mods (mod.io) Menu and Mod Verification popup - Remove Mods Menu",
+      "enabled": true,
+      "optional": true,
+      "coop": false,
+      "version": "1.3",
+      "author": "Akiway",
+      "title": "Remove Mods (mod.io) Menu and Mod Verification popup",
+      "nexus": {
+        "game": "cyberpunk2077",
+        "modId": 35686
+      },
+      "package": {
+        "hash": "f41f35b3c8e2bee23fb1e5203e4c383283626c0eefb7408318377b483f4bc902",
+        "size": 9292,
+        "parts": [
+          {
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/remove-mods-mod-io-menu-and-mod-verification-popup-remove-mods-menu-f41f35b3c8e2bee2.tar.zst.001",
+            "size": 2909,
+            "blake3": "9890887d59bbb2572972b30c436fb1512602ea2fa21c735188b5b83b1007a91c"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "mod",
+      "id": "mime-mouse-interactive-model-enhancement-mime",
+      "name": "MIME - Mouse Interactive Model Enhancement - MIME",
+      "enabled": true,
+      "optional": true,
+      "coop": false,
+      "version": "2.5",
+      "author": "ExpositPlay",
+      "title": "MIME - Mouse Interactive Model Enhancement",
+      "nexus": {
+        "game": "cyberpunk2077",
+        "modId": 35483
+      },
+      "package": {
+        "hash": "5034da820ddbb9dd1ef3c8422c1c70464fd8687699567cbdd00c5657902b58ee",
+        "size": 4650578,
+        "parts": [
+          {
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/mime-mouse-interactive-model-enhancement-mime-5034da820ddbb9dd.tar.zst.001",
+            "size": 3658895,
+            "blake3": "4465e943c14998bab62cba163298de62d734f6493ecba3fe452b2e1f92a4a6ff"
           }
         ]
       }
@@ -4251,20 +4551,20 @@
       "enabled": true,
       "optional": true,
       "coop": true,
-      "version": "2.23.1",
+      "version": "2.23.2",
       "author": "DJ_Kovrik",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 2592
       },
       "package": {
-        "hash": "7127d583f7273ea9b820ae3d8f67a9bbb7fe5ce9a465de56d08355eee3539717",
-        "size": 343502,
+        "hash": "6d29a11cc33b422808050a54e0d3ebc0ed3a2cefcb50c64be9aac19b57bec859",
+        "size": 348983,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/limited-hud-7127d583f7273ea9.tar.zst.001",
-            "size": 93364,
-            "blake3": "641aac4388e934358cdc73a1ec4e95b61a878fdb8b3e7fec17af1dedeccdd9b5"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/limited-hud-6d29a11cc33b4228.tar.zst.001",
+            "size": 93593,
+            "blake3": "1d5722f28db8f1ded640a218c5d7d9b833f19dd5f6732cece62fe12c5ad7c7cf"
           }
         ]
       }
@@ -4276,20 +4576,20 @@
       "enabled": true,
       "optional": true,
       "coop": true,
-      "version": "1.4",
+      "version": "1.5",
       "author": "svarmod",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 19632
       },
       "package": {
-        "hash": "1582e2566123c05dbf1df60aeba184c66610421b0e811b480d245d05941c422d",
-        "size": 532484,
+        "hash": "1b79198f54b0658f83d47c9c357efe6f7659986ace54582c5dcad1b651cb8d82",
+        "size": 1354763,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.1.0/inventory-adjustments-hub-1582e2566123c05d.tar.zst.001",
-            "size": 49091,
-            "blake3": "dcf5b4a64e208766d6f1543ec228fe13a09a178e8247d0e4fadcf15265f6f0cb"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/inventory-adjustments-hub-1b79198f54b0658f.tar.zst.001",
+            "size": 855058,
+            "blake3": "994ddf794b263c4d97bf11774bc29fba56e7b1a68694e525b9e11337ec210b9b"
           }
         ]
       }
@@ -4376,20 +4676,20 @@
       "enabled": true,
       "optional": true,
       "coop": true,
-      "version": "2.1",
+      "version": "2.1.1",
       "author": "DJ_Kovrik",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 4941
       },
       "package": {
-        "hash": "24355c30d9fdf67f517f70b335e0b8743e5217e3ad4bab4f95a5611a9a97865e",
-        "size": 5140,
+        "hash": "5efe8eed54a61796859caed2bc9a16abf5e1541c5d2b8a913fabb30b12bb7cd0",
+        "size": 5218,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/real-vendor-names-24355c30d9fdf67f.tar.zst.001",
-            "size": 2801,
-            "blake3": "adc5b1203876e390c8e07d33700df4d41842f56cfa8cdf5cc270cb3fc0ce8243"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/real-vendor-names-5efe8eed54a61796.tar.zst.001",
+            "size": 2903,
+            "blake3": "367f8fcd40e84b3a02e86d19b3c9d1075c40699a5b809adf2740f04ab443ef7a"
           }
         ]
       }
@@ -4401,20 +4701,45 @@
       "enabled": true,
       "optional": true,
       "coop": true,
-      "version": "1.4",
+      "version": "1.4.1",
       "author": "rodikh",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 3486
       },
       "package": {
-        "hash": "87819e1dcde216ca77e38b4cba5a180e84e4e1d1b5291213cc3561d595e86d1c",
-        "size": 31660,
+        "hash": "594b3b93a0ab76b20d6a57f42d9b699ad1bc9e87f916071640685a8c7577d16b",
+        "size": 36339,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.1.0/better-loot-markers-87819e1dcde216ca.tar.zst.001",
-            "size": 9119,
-            "blake3": "ad8cfb76e6bdfd0188721a975b359bfaa614f80f2242fda180def38322d95adc"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/better-loot-markers-594b3b93a0ab76b2.tar.zst.001",
+            "size": 10310,
+            "blake3": "87f0ceeb509c2cb72d920b6e52578bd0796c5d54011481d1c0300b5531587a07"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "mod",
+      "id": "game-2-5-load-game-menu-qol",
+      "name": "Game 2.5 Load Game Menu QoL",
+      "enabled": true,
+      "optional": true,
+      "coop": false,
+      "version": "1.0",
+      "author": "anygoodname",
+      "nexus": {
+        "game": "cyberpunk2077",
+        "modId": 35707
+      },
+      "package": {
+        "hash": "0e16cf0113d85730ddbf881c621ed8a77f7b9ec23248765befd84ee9795cb73f",
+        "size": 4324,
+        "parts": [
+          {
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/game-2-5-load-game-menu-qol-0e16cf0113d85730.tar.zst.001",
+            "size": 1967,
+            "blake3": "f03f24c7b45676a80b0dff1578befbabe3bdab21d2f843cd6a060ff042882f68"
           }
         ]
       }
@@ -4576,20 +4901,20 @@
       "enabled": true,
       "optional": true,
       "coop": true,
-      "version": "1.3",
+      "version": "1.3.1",
       "author": "L3LY",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 34160
       },
       "package": {
-        "hash": "26c9ec4a2e96ee2af4ccd409769f1e9525fe7559aeac51deb5891f0a300e567f",
-        "size": 205497,
+        "hash": "fa0865708dbecf31d4464f3892bcd74ec4c31624baec8a8ebd282759e6d408a4",
+        "size": 209240,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/immersive-scanner-26c9ec4a2e96ee2a.tar.zst.001",
-            "size": 40943,
-            "blake3": "63de61c6bef0f646d909d03a3af5e228872f7056f78d13c517712f49f25aab2d"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/immersive-scanner-fa0865708dbecf31.tar.zst.001",
+            "size": 41787,
+            "blake3": "4d9a4d303ade462e46fdd93baef7965e31450f7fed673be502f84a6e61beb62f"
           }
         ]
       }
@@ -4858,7 +5183,7 @@
       "enabled": true,
       "optional": true,
       "coop": false,
-      "version": "8.1.5",
+      "version": "9.1.1",
       "author": "DigitalVixen",
       "title": "True First Person Camera 2.0",
       "nexus": {
@@ -4866,13 +5191,13 @@
         "modId": 30558
       },
       "package": {
-        "hash": "a0d39aacafdb304174a70226a39386542f72ffc3763e34db2678222a6cb8eb5a",
-        "size": 1074092,
+        "hash": "970e32859aff2c771e537a59f58059cb5ad329ec24641b99f4878ae4bbd55694",
+        "size": 1875611,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/true-first-person-camera-2-0-true-first-personcamera-2-0-a0d39aacafdb3041.tar.zst.001",
-            "size": 268218,
-            "blake3": "d8c21ebe8a9086346bdf6cf3881158653cd9a71f7d5378ac7d0de0dc86af5f81"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/true-first-person-camera-2-0-true-first-personcamera-2-0-970e32859aff2c77.tar.zst.001",
+            "size": 380153,
+            "blake3": "61bb386dba648c818f809308f8879b9212c9072e23d4de8ae1b59caa7fb00616"
           }
         ]
       }
@@ -4915,7 +5240,7 @@
       "enabled": true,
       "optional": true,
       "coop": true,
-      "version": "3.1",
+      "version": "3.4",
       "author": "CyanideX",
       "title": "Load Begone (Skip Intro Splash Videos and More)",
       "nexus": {
@@ -4923,13 +5248,13 @@
         "modId": 8144
       },
       "package": {
-        "hash": "4185ef8e7ca58a9fde7b80ea68a7a132fe720d1e3502a6caddb12bb8b93c257a",
-        "size": 317938,
+        "hash": "248ecb4db88f09e4ed0de4001c2a8c9eff0468ba14ff0ef91ecc29fe96edf593",
+        "size": 322519,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.2/load-begone-skip-intro-splash-videos-and-more-fomod-load-begone-no-splash-videos-skip-continue-4185ef8e7ca58a9f.tar.zst.001",
-            "size": 77862,
-            "blake3": "c0168e602229473299ae8fbef8bd6f1402a0b9433bb63e9677967a78d552368c"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/load-begone-skip-intro-splash-videos-and-more-fomod-load-begone-no-splash-videos-skip-continue-248ecb4db88f09e4.tar.zst.001",
+            "size": 78275,
+            "blake3": "60e70e106e58df861e4df030f8ae8cfc177bbe91bc3f1349413acba3ad76025a"
           }
         ]
       }
@@ -4992,20 +5317,20 @@
       "enabled": true,
       "optional": true,
       "coop": true,
-      "version": "1.4.1",
+      "version": "1.4.2",
       "author": "DJ_Kovrik",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 20743
       },
       "package": {
-        "hash": "af2cd911c17c346f382b12f76cdf44984f77d43a032ce0cc8e5f6624e87a1096",
-        "size": 14307,
+        "hash": "63512479a54cdf59445dbe8ad9b4e87d6e06f1f4678ae1f362ea6426fe499fc2",
+        "size": 23124,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/cutscene-weapon-swapper-af2cd911c17c346f.tar.zst.001",
-            "size": 5173,
-            "blake3": "1aa5550f5bf28854c6274d1aaf71cbce9bd1b466e2a4d111345fbd71c3f9e2c7"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/cutscene-weapon-swapper-63512479a54cdf59.tar.zst.001",
+            "size": 6978,
+            "blake3": "c64adc171d6c1be869746f06742c5890f6cb1f3aaaa41428e5e6a777632a3e9f"
           }
         ]
       }
@@ -5017,7 +5342,7 @@
       "enabled": true,
       "optional": true,
       "coop": true,
-      "version": "1.0.0.4",
+      "version": "1.0.0.7",
       "author": "yakuzadeso",
       "title": "Reset Attributes always available - Redscript",
       "nexus": {
@@ -5025,13 +5350,13 @@
         "modId": 9240
       },
       "package": {
-        "hash": "1854fbffd106ccde4896654ca08403e01dddcbbfaea809e5bb5ce41021d046d1",
-        "size": 2980,
+        "hash": "aed06b67f37368ae2ee56e794fa11493cfc64516fb60b68ba73971886bd0b386",
+        "size": 5352,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/reset-attributes-always-available-1854fbffd106ccde.tar.zst.001",
-            "size": 1986,
-            "blake3": "0054082b53227ba562b7323b0a38a6c0ace57ad7da00d2b79895ae1a11bca992"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/reset-attributes-always-available-aed06b67f37368ae.tar.zst.001",
+            "size": 2510,
+            "blake3": "21d52b5519f2abee87ecb1b324e02cee112f55505a094c6a2ea0e4f789f8606c"
           }
         ]
       }
@@ -5271,6 +5596,31 @@
     },
     {
       "kind": "mod",
+      "id": "weapon-skin-icons",
+      "name": "Weapon Skin Icons",
+      "enabled": true,
+      "optional": true,
+      "coop": false,
+      "version": "1.0.5",
+      "author": "dnbnhlp",
+      "nexus": {
+        "game": "cyberpunk2077",
+        "modId": 35480
+      },
+      "package": {
+        "hash": "c3a06285f54f40dd583c467e24abb6b0fedbac8a9ac599af60aae394cf56b6fe",
+        "size": 6975233,
+        "parts": [
+          {
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/weapon-skin-icons-c3a06285f54f40dd.tar.zst.001",
+            "size": 6732786,
+            "blake3": "90eb1df825bcd9bc1fbf55cc510b1cf83e47b26d2080210f68c44e8ca5182435"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "mod",
       "id": "weapons-improved",
       "name": "Weapons Improved",
       "enabled": false,
@@ -5352,7 +5702,7 @@
       "enabled": true,
       "optional": true,
       "coop": true,
-      "version": "1.0.1",
+      "version": "1.0.2",
       "author": "argisht",
       "title": "AKM Jackal Killer Assault Rifle",
       "nexus": {
@@ -5360,13 +5710,13 @@
         "modId": 34411
       },
       "package": {
-        "hash": "69ee2a141749e81be3e258cf76782ad5ead1cad9054678dc9177e55ab6740962",
-        "size": 59130460,
+        "hash": "94ffa7ae7852b3a058369b2dd5444cb5b12894da62e032248816ff58f619a3e1",
+        "size": 59053587,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/akm-jackal-killer-69ee2a141749e81b.tar.zst.001",
-            "size": 58828266,
-            "blake3": "890631b9b2d586d30b915419a0388efc7cafd65dcf590d3b12e4abed95965ca3"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/akm-jackal-killer-94ffa7ae7852b3a0.tar.zst.001",
+            "size": 58729039,
+            "blake3": "f0355228b907452fa60f2e8d8fa85d4185adf79d23b70e5a145809231a97059f"
           }
         ]
       }
@@ -5524,6 +5874,31 @@
     },
     {
       "kind": "mod",
+      "id": "expanded-dual-wielding",
+      "name": "Expanded Dual Wielding",
+      "enabled": true,
+      "optional": true,
+      "coop": false,
+      "version": "3.7",
+      "author": "JericoHellden",
+      "nexus": {
+        "game": "cyberpunk2077",
+        "modId": 35626
+      },
+      "package": {
+        "hash": "513e4b198459ce404e1291743f87abe084c8a3af319f1678ac010a4e54ec88b6",
+        "size": 1352168,
+        "parts": [
+          {
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/expanded-dual-wielding-513e4b198459ce40.tar.zst.001",
+            "size": 1130771,
+            "blake3": "e3748aad01f88cb4827f29145a33391f30eeced4257938c0ab54cef69f8d2f0a"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "mod",
       "id": "night-city-optics-pack",
       "name": "Night City Optics Pack",
       "enabled": true,
@@ -5625,7 +6000,7 @@
     },
     {
       "kind": "separator",
-      "title": "13 - Combat - Quickhacks & Hacking",
+      "title": "13 - Combat - Hacking & Chrome",
       "color": "#00c7c7"
     },
     {
@@ -5635,7 +6010,7 @@
       "enabled": true,
       "optional": true,
       "coop": false,
-      "version": "4.00",
+      "version": "4.03",
       "author": "Zeusico",
       "title": "10 New Quickhacks - Netrunner's Arsenal",
       "nexus": {
@@ -5643,13 +6018,13 @@
         "modId": 31125
       },
       "package": {
-        "hash": "0d9ec0f02f625dbf7ac0cca94b9807d932372b2b76813f777bc2907d8cb65fdc",
-        "size": 1838335,
+        "hash": "71855c7713489693c16615e42117f71d3f0aa4ee10888b2a735dbabc34d2f066",
+        "size": 1864962,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.2/10-new-quickhacks-netrunner-s-arsenal-10-new-quickhacks-0d9ec0f02f625dbf.tar.zst.001",
-            "size": 1248095,
-            "blake3": "bc0b7083d29648bcfc17331163a40cd6b40774c0411371775f2839eb6a31d523"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/10-new-quickhacks-netrunner-s-arsenal-10-new-quickhacks-71855c7713489693.tar.zst.001",
+            "size": 1237359,
+            "blake3": "62bfa892cfdc2272ccc14b7b884bd757d695309f88c8accba4f25969d8a03334"
           }
         ]
       }
@@ -5737,20 +6112,20 @@
       "enabled": true,
       "optional": true,
       "coop": true,
-      "version": "1.3.5",
+      "version": "1.3.6",
       "author": "The guy posting it",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 18290
       },
       "package": {
-        "hash": "187f8a5f2f3ad292969b14e7c3ef6a94bd96baae3429d40d6420a93b5337b90c",
-        "size": 81450,
+        "hash": "dc1330ce1e78f99c2da3798823ece80df9383a34062cffd60befb7fec3dc4465",
+        "size": 81580,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.1.0/quickhack-fixes-187f8a5f2f3ad292.tar.zst.001",
-            "size": 22693,
-            "blake3": "a79cb0661021937fad3471f9f6a1a82e708d15223d7befa6c63e803ec23c22e6"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/quickhack-fixes-dc1330ce1e78f99c.tar.zst.001",
+            "size": 22843,
+            "blake3": "c51f2179e9952b76cb03afb165c957b916e66ac0ca5abd702930b498854d6dda"
           }
         ]
       }
@@ -5762,20 +6137,20 @@
       "enabled": true,
       "optional": true,
       "coop": true,
-      "version": "1.04",
+      "version": "1.05",
       "author": "Zeusico",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 31818
       },
       "package": {
-        "hash": "dabe87b30e588028bdddf69d2de73f6036b0f82892ea2c8af0632445e06e20f7",
-        "size": 86408,
+        "hash": "55181897c6088097b6136fd9831f0f29f7cc27c7ce755ab32a88e2ad09e1eea4",
+        "size": 99989,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/widow-s-web-new-quickhack-dabe87b30e588028.tar.zst.001",
-            "size": 40722,
-            "blake3": "c18e40523d194b5e62c7276e59c6f2f9822723364f3461ab93f8044f709ceec0"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/widow-s-web-new-quickhack-55181897c6088097.tar.zst.001",
+            "size": 43391,
+            "blake3": "c21d2020b7a619e8a5316298fbc9fd5a484eb37b59f7e5dcc8eecb6031c222da"
           }
         ]
       }
@@ -5787,7 +6162,7 @@
       "enabled": true,
       "optional": true,
       "coop": true,
-      "version": "2.04",
+      "version": "2.05",
       "author": "Zeusico",
       "title": "Thunderclap - New Quickhack",
       "nexus": {
@@ -5795,13 +6170,13 @@
         "modId": 31484
       },
       "package": {
-        "hash": "666393cd8ef32b4dfd3a2fe8744e4477628072e4e143905a017a8f9f6ffff7ae",
-        "size": 99795,
+        "hash": "ce6360bcc2cc57eae660a6664c2156a1d195a53330b485110e1948e27310612c",
+        "size": 109280,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/thunderclap-new-custom-quickhack-666393cd8ef32b4d.tar.zst.001",
-            "size": 51595,
-            "blake3": "726c0ebd772b57af61e6e71bbe19190165636b395895210888ee2e1a24cfa332"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/thunderclap-new-custom-quickhack-ce6360bcc2cc57ea.tar.zst.001",
+            "size": 53102,
+            "blake3": "42a01a614cb260ba5967affc3e375b8136287e3e457d8863ef5ed4c678bf7fa0"
           }
         ]
       }
@@ -5813,20 +6188,20 @@
       "enabled": true,
       "optional": true,
       "coop": true,
-      "version": "2.02",
+      "version": "2.03",
       "author": "Zeusico",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 31872
       },
       "package": {
-        "hash": "a3d4cf9e47a493a26e5278685a897a799d7f3edadb36bea22ff14af9462d02f9",
-        "size": 107271,
+        "hash": "11cde81f1c488c28e9a975f1c93d02f3ebc2d8e2fc7e0d338f899816ee5bfdd6",
+        "size": 114302,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/gravitational-force-new-quickhack-a3d4cf9e47a493a2.tar.zst.001",
-            "size": 53989,
-            "blake3": "dcef862f6d5f30bf0c2398a79fe5e7d00e09e92a1aadf65317483bfcff533369"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/gravitational-force-new-quickhack-11cde81f1c488c28.tar.zst.001",
+            "size": 55444,
+            "blake3": "75246534931e121bef0d5967e0e1600904af16a953e57f3e8c86e5f7f5be31f4"
           }
         ]
       }
@@ -5838,20 +6213,20 @@
       "enabled": true,
       "optional": true,
       "coop": true,
-      "version": "1.02",
+      "version": "1.04",
       "author": "Zeusico",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 32126
       },
       "package": {
-        "hash": "c779244f8ba73b9f7cac9dab4246da62cf2f9b066fe8cc502f91f6c37c02c712",
-        "size": 131252,
+        "hash": "70812224ec0ab84dd29c53be401544613362f9a9f0b198c5b2f11418c68309f7",
+        "size": 136099,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/blackwall-takedown-new-quickhack-c779244f8ba73b9f.tar.zst.001",
-            "size": 58201,
-            "blake3": "64795bbc292f81b41b113d5f8708fe040b6c32c3eb4d0b3adf92eea6326f317d"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/blackwall-takedown-new-quickhack-70812224ec0ab84d.tar.zst.001",
+            "size": 59562,
+            "blake3": "48bf80c1f020deec6aff23d77701eb2146e8bbbf27ade5f365e845e998437924"
           }
         ]
       }
@@ -5888,20 +6263,20 @@
       "enabled": true,
       "optional": true,
       "coop": true,
-      "version": "1.2",
+      "version": "1.2.1",
       "author": "mitaywalle",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 34683
       },
       "package": {
-        "hash": "acd92e03f6320970941a297941f506fa72a665e77205c1034f066dd3a55cf1d9",
-        "size": 301931,
+        "hash": "4ec52d835b6fbfbb36fdab34f71536f1273300d02186e6f60c372789c7b0c312",
+        "size": 301850,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.1.0/wyvern-protocol-hack-acd92e03f6320970.tar.zst.001",
-            "size": 113261,
-            "blake3": "cf1422987f475a72229fb4d868b045f1337476ed3c8798a4498f1990409aa713"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/wyvern-protocol-hack-4ec52d835b6fbfbb.tar.zst.001",
+            "size": 113364,
+            "blake3": "ed419a01c60b95a1460d8604c9c438c2cd830e4616ed024bb194161f813a3436"
           }
         ]
       }
@@ -5939,20 +6314,20 @@
       "enabled": true,
       "optional": true,
       "coop": true,
-      "version": "4.10.4",
+      "version": "4.10.6",
       "author": "DigitalVixen",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 29105
       },
       "package": {
-        "hash": "94039fa98cb5d2ad63ad1c80fff9cc5a40ce1233b061316b1f400d9ae8728a34",
-        "size": 357443,
+        "hash": "e3b45c3139c36c6c54da2b6efd28c6dfff3681802d7bab6a7dc56ca746308a24",
+        "size": 359013,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/shattered-chrome-94039fa98cb5d2ad.tar.zst.001",
-            "size": 65907,
-            "blake3": "cc2c931d1cb0e3fd14ccc4359dbbb9c0fbe39b216838d62d224d09e81e3765fc"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/shattered-chrome-e3b45c3139c36c6c.tar.zst.001",
+            "size": 66483,
+            "blake3": "b45553e910800bc3109cfa141b692d3b6d32134c56eea0a8d831ef06c9dd96c8"
           }
         ]
       }
@@ -5964,20 +6339,20 @@
       "enabled": true,
       "optional": true,
       "coop": true,
-      "version": "1.2.21",
+      "version": "1.2.4",
       "author": "Phoenicia",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 19798
       },
       "package": {
-        "hash": "a64cd92b0f75c5a33aca96889505cb6dd93387296a7940937240234c282fa545",
-        "size": 3325802,
+        "hash": "87f7e843ec77d3fe3b4a2919be1f01515116d78f76328f3e6e5d8b2fc39622ad",
+        "size": 3366800,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/neuralware-chipware-expansion-a64cd92b0f75c5a3.tar.zst.001",
-            "size": 2321167,
-            "blake3": "18d2d83a007805da2b12b2ead220f8de1157df1811590bfe95ee6174e52af729"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/neuralware-chipware-expansion-87f7e843ec77d3fe.tar.zst.001",
+            "size": 2386036,
+            "blake3": "5bc7c3e5a242c4e3e77eff803248e9cf3c4f13c071f40bb06eba2423cdfaaa8e"
           }
         ]
       }
@@ -6090,20 +6465,20 @@
       "enabled": true,
       "optional": true,
       "coop": true,
-      "version": "3.13",
+      "version": "3.15",
       "author": "DigitalVixen",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 29101
       },
       "package": {
-        "hash": "6f16bb8e07b4df2b8b808efdce97826e66df260521d11611863cd38f9635e23f",
-        "size": 144700,
+        "hash": "78b53fc486fd769994880597842542ed4d8b3ecdd81310168ede4c8677da87f9",
+        "size": 159249,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/chrome-plating-6f16bb8e07b4df2b.tar.zst.001",
-            "size": 34471,
-            "blake3": "f3f57e0bb8fda9dbb357b74435bb15548e2679db8834f00f8c607044f4b907b1"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/chrome-plating-78b53fc486fd7699.tar.zst.001",
+            "size": 38496,
+            "blake3": "86996502f341a2f2dc4c07880630c74cf4e9e80427628f1abf2bf7b36325befc"
           }
         ]
       }
@@ -6216,20 +6591,20 @@
       "enabled": true,
       "optional": true,
       "coop": true,
-      "version": "2.5.1",
+      "version": "2.5.2",
       "author": "BiasNil",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 22784
       },
       "package": {
-        "hash": "626783e7269e9ce4fa978638fa3af21cb908544f19c2d1b52b7cef4a8d2dc623",
-        "size": 134321,
+        "hash": "192007190aa23d8735b652f52554627eaa5f60806c1ca3406ece68c5b9239693",
+        "size": 138462,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/better-leveling-revamp-of-custom-level-cap-626783e7269e9ce4.tar.zst.001",
-            "size": 31656,
-            "blake3": "9c0071bafce79dc6485f904c1a25f9065c19c44a561bb43b6ab8feff75d13e7e"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/better-leveling-revamp-of-custom-level-cap-192007190aa23d87.tar.zst.001",
+            "size": 32614,
+            "blake3": "a778bbe735ef1243ef8dcb23166746f18b20fde94df8061af49e2140e0ed33c6"
           }
         ]
       }
@@ -6291,20 +6666,20 @@
       "enabled": true,
       "optional": true,
       "coop": true,
-      "version": "1.1.3",
+      "version": "1.1.4",
       "author": "StoofyFrond",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 32933
       },
       "package": {
-        "hash": "41b281729f3da7b2a9859ab5368da8b5a1beeaf4ed1dc641ac925fad4bf5a43d",
-        "size": 161825,
+        "hash": "d033faed2f68b7140708044506fc04421d37031bc213a9184c5eac6060bc6374",
+        "size": 162457,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.5/bullet-ballet-custom-perk-tree-for-pistol-play-41b281729f3da7b2.tar.zst.001",
-            "size": 42420,
-            "blake3": "d3d61b0ce4e91b8f1ba95f5baadae919381c0f240ba95da1e748281ba20a615e"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/bullet-ballet-custom-perk-tree-for-pistol-play-d033faed2f68b714.tar.zst.001",
+            "size": 42747,
+            "blake3": "306b7809bf279553786e9f086ad92ea57f7ad356d26ea64e6396385fb18a8f00"
           }
         ]
       }
@@ -6414,13 +6789,13 @@
       "coop": true,
       "version": "1.5.1",
       "package": {
-        "hash": "ba7a9531cdd6e32b552b12bfdf12e03a80514ceedc08c265690efad083343ae9",
+        "hash": "08cad2d9cbe6fd1ed6dacc03d1482777625f232c80cfafa0afdd63a21105d787",
         "size": 253527,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.2/lynoeconomy-compatibility-ba7a9531cdd6e32b.tar.zst.001",
-            "size": 53162,
-            "blake3": "b2499643160256352f59a9b14655d6e5bde4f054585c731f9c0d8ea68802fe74"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/lynoeconomy-compatibility-08cad2d9cbe6fd1e.tar.zst.001",
+            "size": 53226,
+            "blake3": "496a28402c1d60847af3085a79d60f4e6be2451a8a3c3e719653124e837f7f09"
           }
         ]
       }
@@ -6432,20 +6807,20 @@
       "enabled": true,
       "optional": true,
       "coop": true,
-      "version": "4.1",
+      "version": "4.1.2",
       "author": "DJ_Kovrik",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 4378
       },
       "package": {
-        "hash": "eb55c407a23d8c842242eee41477977ed678a042ced8355089173ee219aa8ca6",
-        "size": 835293,
+        "hash": "03d2b292c1fa76230d070a140cf5a9bb31d8f559a3c2f279d8c691857387099d",
+        "size": 846775,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.2/enhanced-craft-eb55c407a23d8c84.tar.zst.001",
-            "size": 77333,
-            "blake3": "981fa6c57c5ddd1818265b2636b3b3c843f8f17de7836d6b6a49e122801945e0"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/enhanced-craft-03d2b292c1fa7623.tar.zst.001",
+            "size": 78237,
+            "blake3": "8b3c2dbf0ff8c2b2ae52f15743518bf713017ef48591996d6b600ba2eb32f1f3"
           }
         ]
       }
@@ -6501,6 +6876,32 @@
       }
     },
     {
+      "kind": "mod",
+      "id": "restricted-hardware-0-9-1",
+      "name": "Restricted Hardware 0.9.1",
+      "enabled": true,
+      "optional": true,
+      "coop": false,
+      "version": "1",
+      "author": "Explosionary",
+      "title": "Restricted Hardware",
+      "nexus": {
+        "game": "cyberpunk2077",
+        "modId": 38624
+      },
+      "package": {
+        "hash": "a50df8620bc4499820e281d71adc9c0bdd24608d2c4cedaf1fa4b5439c9afa3f",
+        "size": 1686266,
+        "parts": [
+          {
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/restricted-hardware-0-9-1-a50df8620bc44998.tar.zst.001",
+            "size": 780183,
+            "blake3": "cb8ccc37c042063b1c35f95b6cfbb8f424df4d641ac93bc71832479d99e1f13b"
+          }
+        ]
+      }
+    },
+    {
       "kind": "separator",
       "title": "14 - Combat - AI & Stealth",
       "color": "#00c7c7"
@@ -6512,20 +6913,45 @@
       "enabled": true,
       "optional": true,
       "coop": true,
-      "version": "1.1",
+      "version": "1.1.2",
       "author": "dnbnhlp",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 32817
       },
       "package": {
-        "hash": "2eea71bdc796571708133fe3b7b5b76aa08d52ca15a1c2e7156f41026c1fb41e",
-        "size": 13292,
+        "hash": "c986a3e0c96c1187358ef31861df3b8b6e844c8473fc04da58b18dd3206a99c4",
+        "size": 16782,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/melee-attack-variety-2eea71bdc7965717.tar.zst.001",
-            "size": 5123,
-            "blake3": "2d9595f45f8c1fe77ceeb15d32b67e9ae30381537f4be8d7ee1eb56976d4117a"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/melee-attack-variety-c986a3e0c96c1187.tar.zst.001",
+            "size": 5727,
+            "blake3": "5bdec7b0bfdca37cd72371d90e054304d15e013b42d600cc0e2fbb204fc8900e"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "mod",
+      "id": "combat-evolved",
+      "name": "Combat Evolved",
+      "enabled": true,
+      "optional": true,
+      "coop": false,
+      "version": "5.1.1",
+      "author": "DigitalVixen",
+      "nexus": {
+        "game": "cyberpunk2077",
+        "modId": 29125
+      },
+      "package": {
+        "hash": "dbd6213b02457a3f0e13c3cdb167acd77b0a71fc3b0e7282ba0fd98318235258",
+        "size": 1129569,
+        "parts": [
+          {
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/combat-evolved-dbd6213b02457a3f.tar.zst.001",
+            "size": 154121,
+            "blake3": "3a901996015a6c17ae204778bda24cc3aa6d7f737b421ba5c8b2fdf4e5181d93"
           }
         ]
       }
@@ -6537,20 +6963,20 @@
       "enabled": true,
       "optional": true,
       "coop": false,
-      "version": "1.11.3",
+      "version": "1.11.6",
       "author": "RMK",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 7616
       },
       "package": {
-        "hash": "70de12c8fbb56f71e2b85083c6056c917ea6fdf68579cd76aa5af554b25cd7a5",
-        "size": 39953874,
+        "hash": "565f0b43da177edcf00e373e7fbe9fc3b4bed13cf93808e9c661dfd5151f6ac4",
+        "size": 39955781,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/stealthrunner-stealth-gameplay-expansion-70de12c8fbb56f71.tar.zst.001",
-            "size": 38195770,
-            "blake3": "64353efec0db4d909b1393bd622897d98b8ac876789992d31bec942411d28042"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/stealthrunner-stealth-gameplay-expansion-565f0b43da177edc.tar.zst.001",
+            "size": 38196140,
+            "blake3": "f8b657d5cc7417e53d343c5c248bad8fb8655118a7498115d434637380cd06f5"
           }
         ]
       }
@@ -6607,31 +7033,6 @@
     },
     {
       "kind": "mod",
-      "id": "combat-evolved",
-      "name": "Combat Evolved",
-      "enabled": true,
-      "optional": true,
-      "coop": true,
-      "version": "4.16.9",
-      "author": "DigitalVixen",
-      "nexus": {
-        "game": "cyberpunk2077",
-        "modId": 29125
-      },
-      "package": {
-        "hash": "bb4844661d8f57a6c1fcc1df666375a2e0cdb7402e05150b59c4f4feac462a11",
-        "size": 890273,
-        "parts": [
-          {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.7/combat-evolved-bb4844661d8f57a6.tar.zst.001",
-            "size": 113978,
-            "blake3": "e25dc40a90531e11a431e0b1833c40ca1f53edd31b2f901701d909b160f8c73c"
-          }
-        ]
-      }
-    },
-    {
-      "kind": "mod",
       "id": "maxtac-enhanced",
       "name": "MaxTac Enhanced",
       "enabled": true,
@@ -6667,32 +7068,32 @@
       "enabled": true,
       "optional": true,
       "coop": true,
-      "version": "2.0",
+      "version": "3.0",
       "author": "SketchCritic",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 3858
       },
       "package": {
-        "hash": "34c180c99ceec87b8f4af07c407ee8f606ec73243b1972a0824f9f1510f9bf8e",
-        "size": 57344,
+        "hash": "0a9dc18ae7c9947b545b43f60a6ceeb1faba4b77da1d6c3c99ce8fc916daa0a8",
+        "size": 2882256,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/ragdoll-physics-overhaul-34c180c99ceec87b.tar.zst.001",
-            "size": 53920,
-            "blake3": "49a406c13692cdbd39faa81eda00c68e9de81a933947fefe1c394fcd79f68660"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/ragdoll-physics-overhaul-0a9dc18ae7c9947b.tar.zst.001",
+            "size": 723105,
+            "blake3": "02b436345531b7e12b856fb6288f32c3e82fe684d6e6dced959b61c0cfba53ba"
           }
         ]
       }
     },
     {
       "kind": "mod",
-      "id": "gorerunner",
-      "name": "GoreRunner",
+      "id": "gorerunner-blood-and-carnage-overhaul-gorerunner-performance",
+      "name": "GoreRunner (Blood and Carnage Overhaul) - GoreRunner Performance",
       "enabled": true,
       "optional": true,
-      "coop": true,
-      "version": "2.02",
+      "coop": false,
+      "version": "2.1",
       "author": "Cazanu",
       "title": "GoreRunner (Blood and Carnage Overhaul)",
       "nexus": {
@@ -6700,13 +7101,13 @@
         "modId": 24210
       },
       "package": {
-        "hash": "fad027cbc36847174b433ead75970e7fe28dc52e8c710f5403bfaeee08d6892b",
-        "size": 920365874,
+        "hash": "b4c5b3d479cd1eab94e518b0398bd5b8b577b09bd99bf1ef0fcd2a296c82093d",
+        "size": 875146843,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/gorerunner-fad027cbc3684717.tar.zst.001",
-            "size": 863959830,
-            "blake3": "8c85eae64f1c3daf5c6066861583fbdea6283d7b9abdfcf1a302a93b453aadf8"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/gorerunner-blood-and-carnage-overhaul-gorerunner-performance-b4c5b3d479cd1eab.tar.zst.001",
+            "size": 819792457,
+            "blake3": "c9f678f8c861cd8a1fc88388d64433cc05c297dd3d9cd9b29ec4e5ea9f978a15"
           }
         ]
       }
@@ -6788,25 +7189,51 @@
     },
     {
       "kind": "mod",
+      "id": "custom-third-person-executions-custom-third-person-executions",
+      "name": "Custom Third Person Executions - Custom-Third-Person-Executions",
+      "enabled": true,
+      "optional": true,
+      "coop": false,
+      "version": "2.1.1",
+      "author": "argisht",
+      "title": "Custom Third Person Executions",
+      "nexus": {
+        "game": "cyberpunk2077",
+        "modId": 34672
+      },
+      "package": {
+        "hash": "75c6c9ceb296301ab10d656b3ef0e42ace31a41c6de102da43eb5d152e346678",
+        "size": 54182270,
+        "parts": [
+          {
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/custom-third-person-executions-custom-third-person-executions-75c6c9ceb296301a.tar.zst.001",
+            "size": 43774042,
+            "blake3": "26bb415359787697d56f2b794984393233813d478800af4bc8129576b8ed5b10"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "mod",
       "id": "immersive-explosions",
       "name": "Immersive Explosions",
       "enabled": true,
       "optional": true,
       "coop": true,
-      "version": "1.1.4",
+      "version": "1.1.5",
       "author": "dnbnhlp",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 31624
       },
       "package": {
-        "hash": "d4aea9a158dc66d536e6e7f3c7deb5a29268777210c4c3cbc93a78cecd09e5b6",
-        "size": 27793,
+        "hash": "74fdd6086aa5dda09223e7dec6035fd6f1c2bb88d75ed2c6b100e5cfaf8c13c0",
+        "size": 30731,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.1.0/immersive-explosions-d4aea9a158dc66d5.tar.zst.001",
-            "size": 9014,
-            "blake3": "a5d27c6d268192d90e897637dcc36efec77328fae16449b3bf2c84181b482e35"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/immersive-explosions-74fdd6086aa5dda0.tar.zst.001",
+            "size": 9566,
+            "blake3": "84fd595cea882cb33a7594075831f980d6e5bb09a01d81a6ea2bc73e730ee77c"
           }
         ]
       }
@@ -7114,20 +7541,20 @@
       "enabled": true,
       "optional": true,
       "coop": true,
-      "version": "3.2.2",
+      "version": "3.2.3",
       "author": "juiiicy00",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 29224
       },
       "package": {
-        "hash": "ef3deb6cb5f3145d78204c667130d723d14a62d413822624aab48a02c62bdfae",
-        "size": 2514064,
+        "hash": "a03918bc54202d430c263220f523e7d08bafd4aeef7c38aaf0f1be1dc753fad3",
+        "size": 2653823,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.1.0/trauma-team-international-premium-coverage-ef3deb6cb5f3145d.tar.zst.001",
-            "size": 1544050,
-            "blake3": "38b9247e70b51daa68197ed8421bb4ac8e5194d308fb5e96710c493603180cca"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/trauma-team-international-premium-coverage-a03918bc54202d43.tar.zst.001",
+            "size": 1544361,
+            "blake3": "57ae19e4ab35297445b91d81144a09cd3f20ed6e3bcb577b0db729ebf7e7b601"
           }
         ]
       }
@@ -7214,20 +7641,20 @@
       "enabled": true,
       "optional": true,
       "coop": true,
-      "version": "2024.0-06-09",
+      "version": "20250104",
       "author": "DeepBlueFrog",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 11880
       },
       "package": {
-        "hash": "dd284da9e6c1784e979bfd947f0bde87cc1690a07e42d40366bb2f05aae4b267",
+        "hash": "8b5581c2191e6e5da6f39784dbbd329041856ae89928b3156e52b1b5750b3493",
         "size": 12659,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/immersive-components-dd284da9e6c1784e.tar.zst.001",
-            "size": 6659,
-            "blake3": "75252cea777d72278d140b4056df65dfe144cd4a82d829bd301c1388ceb6cbdf"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/immersive-components-8b5581c2191e6e5d.tar.zst.001",
+            "size": 6255,
+            "blake3": "355b00a8e25e0de56946fcc77d798236fa9d6db70298adf4285924e519bafb47"
           }
         ]
       }
@@ -7239,20 +7666,20 @@
       "enabled": true,
       "optional": true,
       "coop": true,
-      "version": "0.4.6",
+      "version": "0.4.7-hotfix",
       "author": "RollermineC",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 15624
       },
       "package": {
-        "hash": "6d95309bc98d97fcd5268d108ef58ee5eb75520762ee8bd58523cbcc671c56b9",
-        "size": 15888428,
+        "hash": "77a588e2d2e5ef1ff386c69fad4f5df62c1476f2a8c6e5fb3f326bd69a557c3d",
+        "size": 15895091,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.7/taxi-work-in-night-city-6d95309bc98d97fc.tar.zst.001",
-            "size": 15738182,
-            "blake3": "4ae98320fb923f082ee6c0739e9f0174ed1bbaa021e78155fe851b7602faae9b"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/taxi-work-in-night-city-77a588e2d2e5ef1f.tar.zst.001",
+            "size": 15736722,
+            "blake3": "9ec60b18000be7d1c34cc1942b7ff409a8532dd9334ee985f9d9a6bc8d291e80"
           }
         ]
       }
@@ -7289,7 +7716,7 @@
       "enabled": true,
       "optional": true,
       "coop": true,
-      "version": "2.1",
+      "version": "2.4.2",
       "author": "0nlyQ",
       "title": "Much Better Contracts (Repeatable Gigs)",
       "nexus": {
@@ -7297,13 +7724,13 @@
         "modId": 35142
       },
       "package": {
-        "hash": "0d1c1d31ca6046d81557c5131d8f4e9babc47e409b4420facb5a96fbc3fff579",
-        "size": 7525940,
+        "hash": "048a25ae6f26378c7409c129a9ad986e87af86b5476fde0b5069277f23bc1081",
+        "size": 7284898,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.2/much-better-contracts-repeatable-gigs-much-better-contracts-0d1c1d31ca6046d8.tar.zst.001",
-            "size": 2591882,
-            "blake3": "7517521683ad9f2df7e52f6bec09dc04c55fecab0b2d7c2e7f1b06881c9c5e85"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/much-better-contracts-repeatable-gigs-much-better-contracts-048a25ae6f26378c.tar.zst.001",
+            "size": 2589920,
+            "blake3": "262133f2a6206b286a359a2d988f3d3a994eb29a0a13fe0203ee9f68d887d4ad"
           }
         ]
       }
@@ -7393,7 +7820,7 @@
       "enabled": true,
       "optional": true,
       "coop": true,
-      "version": "2.0.1",
+      "version": "2.0.2",
       "author": "Deceptious",
       "title": "NCI Addon - Badlands and Pacifica",
       "nexus": {
@@ -7401,13 +7828,13 @@
         "modId": 15138
       },
       "package": {
-        "hash": "cddb67a23a49f091c1e99fd104bc79655c05d696b527116c2a1dbdc9bcb17193",
-        "size": 4956160,
+        "hash": "5924200adb8e8d2d31f75f75e0c7d0d4ce71ec35a2466915895c5b5a83b8164a",
+        "size": 4952064,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.1.0/nci-addon-badlands-and-pacifica-nci-badlands-and-pacifica-cddb67a23a49f091.tar.zst.001",
-            "size": 4786884,
-            "blake3": "83c15a14d51e16b097cb9d727aeef433957d523953d9615dd7ac0f3268fafb19"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/nci-addon-badlands-and-pacifica-nci-badlands-and-pacifica-5924200adb8e8d2d.tar.zst.001",
+            "size": 4786091,
+            "blake3": "15891668fd947bc91eaae94ec71e1e1e6eace469b64839a657f7fa73702b24f6"
           }
         ]
       }
@@ -7445,20 +7872,46 @@
       "enabled": true,
       "optional": true,
       "coop": true,
-      "version": "1.0",
+      "version": "1.1",
       "author": "Spuddeh",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 34896
       },
       "package": {
-        "hash": "2f70074e849650a026dcd48a70bb2c9b8e0a3ad5e2c88c1cb28e7e672dfa51a3",
-        "size": 118784,
+        "hash": "01c067d42a9c97a6b9cdf82f88eb8874aa122ffb53191ed143c36af52c54a818",
+        "size": 130048,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.1.0/audible-traffic-radios-2f70074e849650a0.tar.zst.001",
-            "size": 54223,
-            "blake3": "8fb4701fafe09d86dd172c3f4ee5acfa5389d7f73e0cabd023c01429c5acc881"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/audible-traffic-radios-01c067d42a9c97a6.tar.zst.001",
+            "size": 57436,
+            "blake3": "33b7975bc0218a23b5dc18d42a30b660123263b6983256944e42f321c3c05b3c"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "mod",
+      "id": "join-trauma-team-av-rescue-shifts-traumateam-1-3-1",
+      "name": "Join Trauma Team - AV Rescue Shifts - TraumaTeam 1.3.1",
+      "enabled": true,
+      "optional": true,
+      "coop": false,
+      "version": "1.3.1",
+      "author": "nightcityriot",
+      "title": "Join Trauma Team - AV Rescue Shifts",
+      "nexus": {
+        "game": "cyberpunk2077",
+        "modId": 37338
+      },
+      "package": {
+        "hash": "065303fae92f8df99f9fc002fd8caf0de692c893dfaba5aef0cafc453d5a97ee",
+        "size": 4227554,
+        "parts": [
+          {
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/join-trauma-team-av-rescue-shifts-traumateam-1-3-1-065303fae92f8df9.tar.zst.001",
+            "size": 3937385,
+            "blake3": "0a4432165b2c5b76c8f167aae27198add4b8c5bb30c1d3af21a908bc2957819a"
           }
         ]
       }
@@ -7551,20 +8004,20 @@
       "enabled": true,
       "optional": true,
       "coop": true,
-      "version": "1.5.1",
+      "version": "1.5.2",
       "author": "Lord Trilobite",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 25441
       },
       "package": {
-        "hash": "63fc06b46bf034696d9fe6ecfb3d8898655946fed3e9bd9346b600c17986a0bc",
+        "hash": "de9853d0d284fc60305cdff2e05494a5ebbcec2cbe5dec7ea03a6b66bdfacd7e",
         "size": 2128593,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/japantown-north-verticality-expanded-63fc06b46bf03469.tar.zst.001",
-            "size": 1260560,
-            "blake3": "719d95f6fa13f6f3db2ab4a64584501b0109a94899f69a98fad512538f7e6bfe"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/japantown-north-verticality-expanded-de9853d0d284fc60.tar.zst.001",
+            "size": 1260565,
+            "blake3": "512341b0b2f22e2717b6f1817a6299f9c8d2cb9d29a64771873dc616c04473b0"
           }
         ]
       }
@@ -7631,20 +8084,20 @@
       "enabled": true,
       "optional": true,
       "coop": true,
-      "version": "3.8.2",
+      "version": "3.9",
       "author": "DigitalVixen",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 29008
       },
       "package": {
-        "hash": "2d3cc487d6f4b0230d74e3124a2350cbef1094b1ea276f46a01a024667fc81fa",
-        "size": 211949,
+        "hash": "75e7f5d89bd827e689424a07ac25e1ed723c854564fcd98c697a595a0ccf2d44",
+        "size": 248872,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.1.0/night-city-remembers-2d3cc487d6f4b023.tar.zst.001",
-            "size": 38770,
-            "blake3": "1b55c062fc19297fdd3974f9c1f1ce20ae629835a1a41c34fc722ceb2a12e6a0"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/night-city-remembers-75e7f5d89bd827e6.tar.zst.001",
+            "size": 45534,
+            "blake3": "f35226912ae1da1eebe8cdb7c8eaf50e1ee801509975d1901b7624d620c42f08"
           }
         ]
       }
@@ -7681,7 +8134,7 @@
       "enabled": true,
       "optional": true,
       "coop": false,
-      "version": "3.20.1-dev.2",
+      "version": "3.21.1",
       "author": "The Mox and ArmanIII",
       "title": "Lizzie's Braindances",
       "nexus": {
@@ -7689,13 +8142,13 @@
         "modId": 11077
       },
       "package": {
-        "hash": "368150d88ba3b1e141175ccf66855799bc6fa15ae0d9bed81d5247b4ae6e3c93",
-        "size": 196491793,
+        "hash": "274a2234357a441aec9cd2fd69f9af35ca51d1f98c08fb02e88f693780fdc667",
+        "size": 196661490,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.2/lizzie-s-braindances-game-version-2-5-368150d88ba3b1e1.tar.zst.001",
-            "size": 190107611,
-            "blake3": "efedd3e85e797eba17d01c40c8a9fb118a857b5999d0dc8ed84bc95df2d1693e"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/lizzie-s-braindances-game-version-2-5-274a2234357a441a.tar.zst.001",
+            "size": 190171195,
+            "blake3": "7de0c609d4febeaa17fbe0ab491d660559f78be8ca2cc6038eaffa7b00cf81e0"
           }
         ]
       }
@@ -7757,20 +8210,21 @@
       "enabled": true,
       "optional": true,
       "coop": true,
-      "version": "1.6",
+      "version": "2.0",
       "author": "Dedra",
+      "title": "Lucy Romanced (Immersive Edgerunner Quest) - Part 1",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 33231
       },
       "package": {
-        "hash": "f37d7d695d50ff2b163535f0614e0e3feaaa3e64ff98f61f72937db75fe7abfa",
-        "size": 1670173,
+        "hash": "d7cd8952561d185adac82e1adf87d3dda635dc28c87b2808f186d3483ee8ffb3",
+        "size": 1686465,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.2/lucy-romanced-immersive-edgerunner-quest-f37d7d695d50ff2b.tar.zst.001",
-            "size": 1551251,
-            "blake3": "6b56435a06733b66294fcb4db74b89900b479e23dce243e63edecdafcdaf6301"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/lucy-romanced-immersive-edgerunner-quest-d7cd8952561d185a.tar.zst.001",
+            "size": 1554113,
+            "blake3": "25204c6902d4ae97942ef23803003b2281074f85e53882f2572336d0ef9d0521"
           }
         ]
       }
@@ -7782,20 +8236,20 @@
       "enabled": true,
       "optional": true,
       "coop": true,
-      "version": "1.3.3",
+      "version": "1.3.7",
       "author": "GetTenSO",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 34062
       },
       "package": {
-        "hash": "93de5f9fe4d9d54f20bb34ca7d647bf166da80995ed2afa2ea620dd1e06b0620",
-        "size": 117892235,
+        "hash": "f8c24e75f5f63c222032d27f247b0f7a686bd31fdaf924c2e8b757597d81f87c",
+        "size": 117895524,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/oni-arasaka-s-demon-lore-friendly-questline-companion-and-romance-93de5f9fe4d9d54f.tar.zst.001",
-            "size": 116022016,
-            "blake3": "dfe541217cb091f36a324e8c5dc92e4938a77e16ef4159297cfca672b7e97ccb"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/oni-arasaka-s-demon-lore-friendly-questline-companion-and-romance-f8c24e75f5f63c22.tar.zst.001",
+            "size": 116022804,
+            "blake3": "a258812d9eb7f5aebe12bd197ef112d00f80656ab79ca40b81c1d854f669fd5f"
           }
         ]
       }
@@ -7812,20 +8266,20 @@
       "enabled": true,
       "optional": true,
       "coop": true,
-      "version": "1.0.4",
+      "version": "1.0.5",
       "author": "dnbnhlp",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 34908
       },
       "package": {
-        "hash": "c9885300fc36e88078dcc40bce11ea61aa467553897fe54f8078bce673c898b4",
-        "size": 2255334,
+        "hash": "5101fc2325a17bf60ba5e4d021b43faf9b79177015b40c11dbc1a8b25eb75ef9",
+        "size": 2719648,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.2/crowd-variety-restored-c9885300fc36e880.tar.zst.001",
-            "size": 101583,
-            "blake3": "a8b17030894d2f97aa4edaba935d0a8d28efea2debec2557b35085bdccd7fcaa"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/crowd-variety-restored-5101fc2325a17bf6.tar.zst.001",
+            "size": 128109,
+            "blake3": "5a9d98623d6567a5ac6b0323d9236934a621dc789787231c9607f285e884e4d6"
           }
         ]
       }
@@ -7837,20 +8291,20 @@
       "enabled": true,
       "optional": true,
       "coop": true,
-      "version": "cpdf-1.5",
+      "version": "ncpdf-1.7",
       "author": "Demon9ne",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 22838
       },
       "package": {
-        "hash": "b054af9a8f01a91fd41746d40dacf8a76136e6d528e14d14ddcfdc421e2c5631",
-        "size": 15289,
+        "hash": "490675254d63597834ab52d852836b597c26b6735f61a8ac96f4066ddb05ae6f",
+        "size": 16133,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/ncpd-fixes-b054af9a8f01a91f.tar.zst.001",
-            "size": 5102,
-            "blake3": "59908332bfa93a26be0e06c89965e9a68a856431b0d873cff8e50c92683aba68"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/ncpd-fixes-490675254d635978.tar.zst.001",
+            "size": 5105,
+            "blake3": "6c6f6c429397f3eaaef1953e2bed757e7655c1c9fcca7b8415ddd89d5dee1f62"
           }
         ]
       }
@@ -7901,6 +8355,32 @@
             "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/fighting-gangs-allowed-reasonable-police-0b993fd2b3e22a95.tar.zst.001",
             "size": 2008,
             "blake3": "8872ab463b2b9f083f97abb3cba3f9b3c0c3ef19efd6deec3821f14fe528a0d4"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "mod",
+      "id": "street-vendors-unlocked-1-0-0",
+      "name": "Street Vendors Unlocked 1.0.0",
+      "enabled": true,
+      "optional": true,
+      "coop": false,
+      "version": "1.0",
+      "author": "dnbnhlp",
+      "title": "Street Vendors Unlocked",
+      "nexus": {
+        "game": "cyberpunk2077",
+        "modId": 37501
+      },
+      "package": {
+        "hash": "422198ec6dfad5210b1ea0873ed21a997b28a583484e16e83b24192ac73b1b4f",
+        "size": 81539,
+        "parts": [
+          {
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/street-vendors-unlocked-1-0-0-422198ec6dfad521.tar.zst.001",
+            "size": 16256,
+            "blake3": "6e0c4a3b38adf1f0ad5542a7a65a3f8b11146a1b0c0720386a04928ddd93e1ca"
           }
         ]
       }
@@ -7962,20 +8442,20 @@
       "enabled": true,
       "optional": true,
       "coop": false,
-      "version": "1.6.11",
+      "version": "1.6.12",
       "author": "Dray",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 27625
       },
       "package": {
-        "hash": "a6de888a78227cfc57d99a3d91ecb54b4df656adbc76c12f4b8809ddfc94a1a4",
-        "size": 3992181,
+        "hash": "9ac75be26c105e3b258b3d80a1452f9b0a8d1c38ed86a48dc309ae3bd5f819c8",
+        "size": 3996784,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/night-city-allies-immersive-companion-system-a6de888a78227cfc.tar.zst.001",
-            "size": 2790551,
-            "blake3": "a2e7d3d14e7bc7d7136770a516a50d9ec35555e3edf6fb0207d8f88d1b144430"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/night-city-allies-immersive-companion-system-9ac75be26c105e3b.tar.zst.001",
+            "size": 2792347,
+            "blake3": "5793bbc5dfff98120cf6b5956b7d833f8e2160b3a167f46b1a74e4b3b3d18a79"
           }
         ]
       }
@@ -8039,7 +8519,7 @@
       "kind": "mod",
       "id": "shift-dynamic-first-person-camera-shift",
       "name": "Shift (Dynamic First Person Camera) - Shift",
-      "enabled": false,
+      "enabled": true,
       "optional": true,
       "coop": false,
       "version": "1.14",
@@ -8093,20 +8573,20 @@
       "enabled": true,
       "optional": true,
       "coop": true,
-      "version": "0.0.0.21",
+      "version": "0.0.0.22",
       "author": "nobo",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 23157
       },
       "package": {
-        "hash": "33034f21d662e7683522472a65e676f29b24dcdeb6dd5042a4de19da72ddb573",
-        "size": 261169,
+        "hash": "fb5a56cbd015c2bda3f84587cc57720522f2302f9cdc41f89f16ac7a1e0153c6",
+        "size": 265265,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/auto-drive-enhanced-33034f21d662e768.tar.zst.001",
-            "size": 93441,
-            "blake3": "9b2621916230673528aa95127b8c0fcad1137f1d6cc919aabdeda25d965a58d0"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/auto-drive-enhanced-fb5a56cbd015c2bd.tar.zst.001",
+            "size": 96090,
+            "blake3": "3d3f88322191e8b0e958bba0e15ac722a54b69d7134d464d0c93e4bb8cf961aa"
           }
         ]
       }
@@ -8118,20 +8598,21 @@
       "enabled": true,
       "optional": true,
       "coop": true,
-      "version": "2.20.1",
+      "version": "2.21.1",
       "author": "imbamakaber",
+      "title": "Authentic Shift (Gear Shifting Fix - Realistic Gearbox RPM and Sound - Car Tuning)",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 6823
       },
       "package": {
-        "hash": "4f288a5270b2201efcdbb0754111e82abf4ef408eb96db526e43945ee3e11391",
-        "size": 762711,
+        "hash": "a927f86b9d2070ca1a5e08847c870e101aa5599bedd7509ce6dd924657c3b027",
+        "size": 828844,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.1.0/authentic-shift-qol-gear-ratios-shifts-audio-sound-asmr-and-optional-tuning-system-4f288a5270b2201e.tar.zst.001",
-            "size": 309615,
-            "blake3": "cb3fea4fb8f65c8ebfda4837542429c2a2236f0258c04c64a220588d37e61eaa"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/authentic-shift-qol-gear-ratios-shifts-audio-sound-asmr-and-optional-tuning-system-a927f86b9d2070ca.tar.zst.001",
+            "size": 322810,
+            "blake3": "d24b4ae641e1e25ded8be9ef1adcdb872c538f60a1d08275ac431cfb4083bacb"
           }
         ]
       }
@@ -8143,20 +8624,20 @@
       "enabled": true,
       "optional": true,
       "coop": true,
-      "version": "17.8",
+      "version": "17.9",
       "author": "YG",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 11765
       },
       "package": {
-        "hash": "788a42b456e53118ead971d7db6a5302eae11e02669ef9e7c0481c1c8e426315",
-        "size": 582387,
+        "hash": "7b2a9814d6ec18b1f39646be54e80cf1d1a1b9e4a5f15267e8fad8f850bbcab8",
+        "size": 584346,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/enhanced-vehicle-system-788a42b456e53118.tar.zst.001",
-            "size": 89707,
-            "blake3": "e069f3581eb420349cdf6d7b291b4dd14443976d56883cea0b0c7ed4fdf1f055"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/enhanced-vehicle-system-7b2a9814d6ec18b1.tar.zst.001",
+            "size": 90099,
+            "blake3": "4819f8d0927decf98a640d4e206ad2608d56dcd53e76d6ed4563939446d8a78c"
           }
         ]
       }
@@ -8173,20 +8654,20 @@
       "enabled": true,
       "optional": true,
       "coop": true,
-      "version": "3.02",
+      "version": "3.05",
       "author": "cradilyex",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 25552
       },
       "package": {
-        "hash": "be97952157cbf2444fd176a59ec2c86701994c13c15f33b34a093846833a3480",
-        "size": 2776817,
+        "hash": "f0e9cfd2edc9a424c16d9e7aca32b540d224c0e26e8cefe15c21bef5540f45ce",
+        "size": 3208208,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.2/night-city-traffic-overhaul-be97952157cbf244.tar.zst.001",
-            "size": 2221380,
-            "blake3": "126edba6cc49f4dd9180803b53d9bb5463b9bf56bef450d668a5ec8bec5b9150"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/night-city-traffic-overhaul-f0e9cfd2edc9a424.tar.zst.001",
+            "size": 2231570,
+            "blake3": "a8f537155ecc163f641029c1015293d3e941f6b3c67dcfa4abc3e6ac8fe5994a"
           }
         ]
       }
@@ -8791,7 +9272,7 @@
       "kind": "mod",
       "id": "photo-mode-pose-selector",
       "name": "Photo Mode Pose Selector",
-      "enabled": true,
+      "enabled": false,
       "optional": true,
       "coop": true,
       "version": "1.5.2",
@@ -9042,12 +9523,12 @@
     },
     {
       "kind": "mod",
-      "id": "enhanced-vehicle-system-ru",
-      "name": "Enhanced Vehicle System RU",
+      "id": "enhanced-vehicle-system-russian-translation-17-9",
+      "name": "Enhanced Vehicle System Russian Translation 17.9",
       "enabled": true,
       "optional": true,
-      "coop": true,
-      "version": "1.8",
+      "coop": false,
+      "version": "1.9",
       "author": "Masuryan",
       "title": "Enhanced Vehicle System Russian Translation",
       "nexus": {
@@ -9055,13 +9536,13 @@
         "modId": 18410
       },
       "package": {
-        "hash": "08204577f67c3432c270c9972afc3a6db77c5e7c8a9c1a04328d11dac07ed219",
+        "hash": "6eb730ec5e3c6b9760bbe27c0172d9048bfb67ba4e156a9fe409c49df737f0f5",
         "size": 12417,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.6/enhanced-vehicle-system-ru-08204577f67c3432.tar.zst.001",
-            "size": 8841,
-            "blake3": "1b3ed1484be7c45c6eaf738e421a8fb04eb42143008a6ae249f21d81399680a2"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/enhanced-vehicle-system-russian-translation-17-9-6eb730ec5e3c6b97.tar.zst.001",
+            "size": 7468,
+            "blake3": "f377f5dfa0687946e66b5b597d9e69d2180228a1b95e697a46afdfe68874c482"
           }
         ]
       }
@@ -9099,7 +9580,7 @@
       "enabled": true,
       "optional": true,
       "coop": false,
-      "version": "1.2.2",
+      "version": "1.2.3",
       "author": "8LOMU8",
       "title": "Neuralware - Chipware Expansion_1.2.2_RU.zip",
       "nexus": {
@@ -9107,13 +9588,13 @@
         "modId": 21995
       },
       "package": {
-        "hash": "4271888924aae19d84a1066bf489ed401448a12fdc6ce8a5c31f2bf7c5f40928",
-        "size": 1583174,
+        "hash": "4096090221b499efef9cfb30d3f63e1257ec4210fb42c3fcc1dabbb6b634933f",
+        "size": 1624779,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.2/neuralware-chipware-expansion-1-2-2-ru-zip-neuralware-chipware-expansion-ru-4271888924aae19d.tar.zst.001",
-            "size": 1520343,
-            "blake3": "d94018700048e59edfc6a7142c7a9b4d08f7abfc2cb323b00480d21c646cc177"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/neuralware-chipware-expansion-1-2-2-ru-zip-neuralware-chipware-expansion-ru-4096090221b499ef.tar.zst.001",
+            "size": 1587383,
+            "blake3": "c3da5e5ea02491474ef26da7c37e80743827e803f49ea04078ddd76a06bdc2f1"
           }
         ]
       }
@@ -9125,7 +9606,7 @@
       "enabled": true,
       "optional": true,
       "coop": true,
-      "version": "1.1.10",
+      "version": "1.1.150",
       "author": "8LOMU8",
       "title": "Black Chrome_RU",
       "nexus": {
@@ -9133,13 +9614,13 @@
         "modId": 22106
       },
       "package": {
-        "hash": "280777aba8a84e3e83d3f63b6ce7f7d13cbb887ddfac100888c28fc3c5cca8c9",
+        "hash": "e9fe4a52851419db46068e9c324cd1af3382abf9aae6dec51aa5b38815bef0bb",
         "size": 12425,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/black-chrome-ru-280777aba8a84e3e.tar.zst.001",
-            "size": 6956,
-            "blake3": "a77ea4dee15b4594f6167d80486c9394e0bf70158970a422387c3ccf6bfc4c1b"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/black-chrome-ru-e9fe4a52851419db.tar.zst.001",
+            "size": 7096,
+            "blake3": "2fd5c717354e4c4f65d0fd348ed2aa870f90d2e3f2436161c53c90bda4717d68"
           }
         ]
       }
@@ -9268,15 +9749,35 @@
       "enabled": true,
       "optional": true,
       "coop": false,
-      "version": "2026.10.24",
+      "version": "0.2.3",
       "package": {
-        "hash": "8424e11bfb37eebaddf895bea0087f882c3ca6fe66ff98cc796de0b9433c5b94",
-        "size": 1149322,
+        "hash": "c1727cdcd8c2a86f38975965b8a0132fd23c0acdd569410c261e018c9ae04de7",
+        "size": 1160829,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.2/lyno-ru-digitalvixen-core-8424e11bfb37eeba.tar.zst.001",
-            "size": 190085,
-            "blake3": "7a1776def3785bdf08fc8ce6057f6f5a124b0a8c40876611fe1a7aeabce2871d"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/lyno-ru-digitalvixen-core-c1727cdcd8c2a86f.tar.zst.001",
+            "size": 192551,
+            "blake3": "d124c81c6cbe744324e857d67f70da8ca0819ca825d38cd170bd927ecf493909"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "mod",
+      "id": "lyno-ru-restricted-hardware",
+      "name": "LYNO RU - Restricted Hardware",
+      "enabled": true,
+      "optional": true,
+      "coop": false,
+      "version": "1.0",
+      "package": {
+        "hash": "d20fbf91c791c8cc7dbfebb6736dfff8a703f790c2e6333fb48076619b70149c",
+        "size": 447008,
+        "parts": [
+          {
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/lyno-ru-restricted-hardware-d20fbf91c791c8cc.tar.zst.001",
+            "size": 125695,
+            "blake3": "fa36537423b8245c7bc6f731e1969e915f29dca59439af78d1e0275a9bef653e"
           }
         ]
       }
@@ -9658,13 +10159,13 @@
       "optional": true,
       "coop": true,
       "package": {
-        "hash": "aa40557f128741fef6ca408b87f8d9b15519298d5d9566ac3362d2852cb087c6",
-        "size": 20395096,
+        "hash": "58d2d42267d4510f42ec3e1327bfe3edc6b8c88da0f9dfe83ae57e24f4a8c3ea",
+        "size": 20407519,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/lyno-settings-aa40557f128741fe.tar.zst.001",
-            "size": 9140666,
-            "blake3": "d56d319c47da1733d6f925fcbbdcab789782caf5b571a527d6a9358e053ec7ed"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/lyno-settings-58d2d42267d4510f.tar.zst.001",
+            "size": 9140463,
+            "blake3": "37c4709afd5c18aab362b643ed593cd5e29ff8adc0c3445069f00cde5c51b12c"
           }
         ]
       }
@@ -9685,6 +10186,25 @@
             "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.2/lyno-compatibility-2-50-ed8927da58130358.tar.zst.001",
             "size": 258559,
             "blake3": "d9b228c856551c56720446bef85be62a836f91ff534dc2e94fe6b997df66fff6"
+          }
+        ]
+      }
+    },
+    {
+      "kind": "mod",
+      "id": "vram-fix",
+      "name": "VRAM-Fix",
+      "enabled": true,
+      "optional": true,
+      "coop": false,
+      "package": {
+        "hash": "58b3e5d5e6e08f496d86d3939674605ea894c246fe0a68d515ec084b342b6877",
+        "size": 272191488,
+        "parts": [
+          {
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.4.0/vram-fix-58b3e5d5e6e08f49.tar.zst.001",
+            "size": 267351893,
+            "blake3": "2b77fae7224d78979fdbae17022729ca7f2145fd5c745c4d528c5f82ac188407"
           }
         ]
       }
