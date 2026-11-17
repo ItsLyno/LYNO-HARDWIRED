@@ -1,12 +1,26 @@
 {
   "schema": 4,
   "name": "LYNO//HARDWIRED",
-  "buildVersion": "1.2",
+  "buildVersion": "1.3.0",
   "gameVersion": "2.5",
   "gameExe": "2.5",
   "mo2Version": "2.5.2",
   "profile": "LYNO",
   "changelog": [
+    {
+      "version": "1.3.0",
+      "date": "2026-10-29",
+      "notes": [
+        "Поддержка 2.5 версии, некоторые моды выключены. Сборка будет обновляться под выход модов на 2.5"
+      ]
+    },
+    {
+      "version": "1.1.1",
+      "date": "2026-10-27",
+      "notes": [
+        "COOP мод"
+      ]
+    },
     {
       "version": "1.2",
       "date": "2026-10-27",
@@ -128,6 +142,7 @@
       "id": "cyber-engine-tweaks",
       "name": "Cyber Engine Tweaks",
       "enabled": true,
+      "coop": true,
       "version": "1.38.1",
       "author": "yamashi",
       "nexus": {
@@ -151,20 +166,21 @@
       "id": "codeware",
       "name": "Codeware",
       "enabled": true,
-      "version": "1.21.1",
+      "coop": true,
+      "version": "1.21.2",
       "author": "psiberx",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 7780
       },
       "package": {
-        "hash": "725758222c9f83dd4fbc780d5e73cffa4ef50539d77b3a52f17cff7bfa3ff6ba",
-        "size": 15997480,
+        "hash": "4f3aca600440418f0eca125e0743651a5098620dc233cc1ca6f76600fe6bad18",
+        "size": 16028759,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.2/codeware-725758222c9f83dd.tar.zst.001",
-            "size": 1686630,
-            "blake3": "46e532929bf731201457ef7c6a8d451b79b0d4aa3d3cf0923a875a19ed180d6f"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/codeware-4f3aca600440418f.tar.zst.001",
+            "size": 1693716,
+            "blake3": "67657f47f5d998ad0dfef84e3ca287fb0986fa2c1e112e4e75da24184101dc4b"
           }
         ]
       }
@@ -174,6 +190,7 @@
       "id": "red4ext",
       "name": "RED4ext",
       "enabled": true,
+      "coop": true,
       "version": "1.31",
       "author": "WopsS",
       "nexus": {
@@ -197,6 +214,7 @@
       "id": "redscript",
       "name": "redscript",
       "enabled": true,
+      "coop": true,
       "version": "0.5.32",
       "author": "jac3km4",
       "nexus": {
@@ -220,6 +238,7 @@
       "id": "tweakxl",
       "name": "TweakXL",
       "enabled": true,
+      "coop": true,
       "version": "1.12",
       "author": "psiberx",
       "nexus": {
@@ -231,7 +250,7 @@
         "size": 2137670,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.2/tweakxl-063ef839a78dab1c.tar.zst.001",
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/tweakxl-063ef839a78dab1c.tar.zst.001",
             "size": 980944,
             "blake3": "fb82edb36396f1e0a310237300c50f22e60eac6fcc5c8af123bd4dff414a183f"
           }
@@ -243,20 +262,21 @@
       "id": "archivexl",
       "name": "ArchiveXL",
       "enabled": true,
-      "version": "1.28",
+      "coop": true,
+      "version": "1.28.6",
       "author": "psiberx",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 4198
       },
       "package": {
-        "hash": "e8a737fe97221fabb55bb941534c4d52d5d57d7932cfbbac65ef7b7e3bd108a2",
-        "size": 3568147,
+        "hash": "e5a60b2e8955ad644ccccc506df3acf982f25d2b845a7ea6b2798d2be5cb5ce4",
+        "size": 3561355,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.2/archivexl-e8a737fe97221fab.tar.zst.001",
-            "size": 891471,
-            "blake3": "326e147ea4dc2ec81e3f92ef2248934a067d00ff1bd7fd1d3119305bf4e814af"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/archivexl-e5a60b2e8955ad64.tar.zst.001",
+            "size": 892656,
+            "blake3": "dc4d5590250271051063b4c43f983c558f325cb818006fedefa7a7c1e2352844"
           }
         ]
       }
@@ -266,6 +286,7 @@
       "id": "input-loader",
       "name": "Input Loader",
       "enabled": true,
+      "coop": true,
       "version": "0.2.6",
       "author": "Jack Humbert",
       "nexus": {
@@ -289,6 +310,7 @@
       "id": "native-settings-ui",
       "name": "Native Settings UI",
       "enabled": true,
+      "coop": true,
       "version": "1.97",
       "author": "keanuWheeze",
       "nexus": {
@@ -312,20 +334,21 @@
       "id": "mod-settings",
       "name": "Mod Settings",
       "enabled": true,
-      "version": "0.2.27",
+      "coop": true,
+      "version": "0.2.28",
       "author": "Jack Humbert",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 4885
       },
       "package": {
-        "hash": "a5069c912fea17bf4e4a45954324ef9a8042edd51bc061683c25e32f510358fb",
-        "size": 1198508,
+        "hash": "cba1df808b174b4acc6d6f5a6af75d5414055811e407c40b66c8194d6890b5e2",
+        "size": 1215940,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.2/mod-settings-a5069c912fea17bf.tar.zst.001",
-            "size": 407070,
-            "blake3": "b125f198b890096dccb68ab939b2e797cc470a19556daf8584c326ee4025161d"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/mod-settings-cba1df808b174b4a.tar.zst.001",
+            "size": 412733,
+            "blake3": "d6b5e7ca5a54796afac205b34e662423026915bc5cba954d480d34303a925b98"
           }
         ]
       }
@@ -335,20 +358,21 @@
       "id": "audioware",
       "name": "Audioware",
       "enabled": true,
-      "version": "1.10.1",
+      "coop": true,
+      "version": "1.11",
       "author": "Roms1383",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 12001
       },
       "package": {
-        "hash": "6663e223d92c37bbd086fc24cabdee8f7ed6f8dfce85f74b1ab15041993bda71",
-        "size": 3815239,
+        "hash": "1beff445b22a3a86a36fa25c417ce980507d21e3bd6085f9dc36a521f6471786",
+        "size": 3839303,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.2/audioware-6663e223d92c37bb.tar.zst.001",
-            "size": 1309478,
-            "blake3": "8a444702e0621684e45ed4f0a3e1686bb935f7752900342c1f8427d6309d5840"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/audioware-1beff445b22a3a86.tar.zst.001",
+            "size": 1314999,
+            "blake3": "4318c0708c847b1dd9d5e9203f4a7170213d5bf958de1b5afe473a5b930b9f7a"
           }
         ]
       }
@@ -358,6 +382,7 @@
       "id": "equipment-ex",
       "name": "Equipment-EX",
       "enabled": true,
+      "coop": true,
       "version": "1.2.10",
       "author": "psiberx and DJ_Kovrik",
       "nexus": {
@@ -369,7 +394,7 @@
         "size": 275678,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.2/equipment-ex-948de12cd6c69baf.tar.zst.001",
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/equipment-ex-948de12cd6c69baf.tar.zst.001",
             "size": 91107,
             "blake3": "fbc608777d5dbb9a35af851a9016517493238dc10f8aa0e93210b40c03a35755"
           }
@@ -381,6 +406,7 @@
       "id": "virtual-atelier",
       "name": "Virtual Atelier",
       "enabled": true,
+      "coop": true,
       "version": "1.6.4",
       "author": "Pacings and djkovrik",
       "nexus": {
@@ -404,6 +430,7 @@
       "id": "cyberware-ex",
       "name": "Cyberware-EX",
       "enabled": true,
+      "coop": true,
       "version": "1.6",
       "author": "psiberx",
       "nexus": {
@@ -427,20 +454,21 @@
       "id": "audioxl",
       "name": "AudioXL",
       "enabled": true,
-      "version": "0.9",
+      "coop": true,
+      "version": "0.9.1",
       "author": "DigitalVixen",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 33442
       },
       "package": {
-        "hash": "92eeb274648832a2d7a1c25794326ec1f3042d6dab942ca0297fffee50058172",
-        "size": 1071576,
+        "hash": "f4922a65ce4a8b1462b49c43facd84bfc9215efc548408333a14804437642879",
+        "size": 1098959,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.2/audioxl-92eeb274648832a2.tar.zst.001",
-            "size": 435880,
-            "blake3": "8f7a97f54bf27e90b0d425c86589f5ce19d80705167a28c819f921f8bcbe8090"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/audioxl-f4922a65ce4a8b14.tar.zst.001",
+            "size": 447044,
+            "blake3": "e0f2c7b6936134347d10f5828f3c6a7006d9f6b73688b76e417e68c761631ea6"
           }
         ]
       }
@@ -456,6 +484,7 @@
       "name": "Calendar",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "3.5.2",
       "author": "DigitalVixen",
       "nexus": {
@@ -480,6 +509,7 @@
       "name": "Dedra Core",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.10",
       "author": "Dedra",
       "nexus": {
@@ -491,9 +521,9 @@
         "size": 30883,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.2/dedra-core-f8e8090db782e185.tar.zst.001",
-            "size": 8038,
-            "blake3": "a2a26e7e6ca40ccc5788891293df0c7e8e377324da3d203631bcb2ea0a50261c"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/dedra-core-f8e8090db782e185.tar.zst.001",
+            "size": 8108,
+            "blake3": "c6fb0d29f288f6e1e58f04a210a1fbd56f1d5d07f96c0e926a6c7aa89f68951b"
           }
         ]
       }
@@ -504,20 +534,21 @@
       "name": "GetTenSO CORE",
       "enabled": true,
       "optional": true,
-      "version": "1.0.2",
+      "coop": true,
+      "version": "1.0.3",
       "author": "GetTenSO",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 35521
       },
       "package": {
-        "hash": "7e338c30291f4c0a8dfd90f31fe129ba40d84ed72c9ea7844b8f786f127dc8bb",
-        "size": 44009906,
+        "hash": "6e8aebfb386b6104be3b44400d17f54d750412d538fd7397124d431841906aca",
+        "size": 44018403,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.1.0/gettenso-core-7e338c30291f4c0a.tar.zst.001",
-            "size": 43913222,
-            "blake3": "0f615d72444bab9263d59e4b0288d97be882b3c9c62fac512c6ef0799f6465b8"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/gettenso-core-6e8aebfb386b6104.tar.zst.001",
+            "size": 43915082,
+            "blake3": "4f1878df48a579b48fdce3b642c1d4a39f9d690cc8ea24d54f2e159f81ecccd0"
           }
         ]
       }
@@ -528,6 +559,7 @@
       "name": "Vehicle Turret Core - VehicleTurretCore 1.0.0",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.0",
       "author": "whatmynickname",
       "title": "Vehicle Turret Core",
@@ -553,6 +585,7 @@
       "name": "V Voice Framework",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.5",
       "author": "dnbnhlp",
       "nexus": {
@@ -564,9 +597,9 @@
         "size": 4069802,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.2/v-voice-framework-684b39834aa0cea6.tar.zst.001",
-            "size": 1172338,
-            "blake3": "548e726181cab5bd229a9e6a6dccc3bf02b968901b6368312ad0ebd8dc748a72"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/v-voice-framework-684b39834aa0cea6.tar.zst.001",
+            "size": 1172485,
+            "blake3": "ab8b79dce75f4c6dd08f64032125eb495258beba9361f298064fca1f8d3263dc"
           }
         ]
       }
@@ -577,6 +610,7 @@
       "name": "Native Settings UI Side Menu Add-on",
       "enabled": false,
       "optional": true,
+      "coop": false,
       "version": "1.3.11",
       "author": "anygoodname",
       "nexus": {
@@ -601,6 +635,7 @@
       "name": "CET Window Manager 2.1.1",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "2.1.2",
       "author": "spirit - sprt_",
       "title": "CET Window Manager",
@@ -613,9 +648,9 @@
         "size": 160268,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.2/cet-window-manager-2-1-1-ec7392eaaf585197.tar.zst.001",
-            "size": 52615,
-            "blake3": "c04bd14dedfb0584b24f66451e04741640cf02f17c5425df57995ba4a33be1a5"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/cet-window-manager-2-1-1-ec7392eaaf585197.tar.zst.001",
+            "size": 52701,
+            "blake3": "f6422d3bbd8df47a6e870c8f3773a9cf941f07f5ef94064145dca155b5869d98"
           }
         ]
       }
@@ -626,6 +661,7 @@
       "name": "Browser Extension",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "0.9.7",
       "author": "r457 and gh057",
       "nexus": {
@@ -650,6 +686,7 @@
       "name": "Virtual Car Dealer",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "2.3",
       "author": "DJ_Kovrik",
       "nexus": {
@@ -674,6 +711,7 @@
       "name": "Cyberware-EX Extended Slots",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.0",
       "author": "psiberx",
       "title": "Cyberware-EX",
@@ -699,6 +737,7 @@
       "name": "Deceptious Quest Core",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "3.3.3",
       "author": "Deceptious",
       "nexus": {
@@ -723,6 +762,7 @@
       "name": "Deceptious Quest Core Utilities and Settings",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.3.2",
       "author": "Deceptious",
       "nexus": {
@@ -747,6 +787,7 @@
       "name": "Reflex is Cool",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.0.2",
       "author": "Phoenicia",
       "nexus": {
@@ -771,6 +812,7 @@
       "name": "CET Mod Manager",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "2.0.12",
       "author": "Ming",
       "title": "Cyber Engine Tweaks In-game Mod Manager (dofile script launcher)",
@@ -796,6 +838,7 @@
       "name": "Find-EX",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.2",
       "author": "psiberx",
       "nexus": {
@@ -820,20 +863,21 @@
       "name": "Native Interactions Framework",
       "enabled": true,
       "optional": true,
-      "version": "1.1.4",
+      "coop": true,
+      "version": "1.1.5",
       "author": "keanuWheeze",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 21422
       },
       "package": {
-        "hash": "c511adb00cf2e2c452d3fb71764049d31e738001427332d98e7d2cd210febf63",
+        "hash": "5ee64094ee714b0c050be75774e347aa9ef315271b6e4829fa18d252c3c61b26",
         "size": 604012,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.2/native-interactions-framework-c511adb00cf2e2c4.tar.zst.001",
-            "size": 331750,
-            "blake3": "804eeea0e771f25b87436f6437ff474020cd559d6f8d82815d6fe82841d8517b"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/native-interactions-framework-5ee64094ee714b0c.tar.zst.001",
+            "size": 331840,
+            "blake3": "fff55ef89bda40e131c4a3a7ec9edf2168c2946d591a7bcb19ef3528ed8c1b8d"
           }
         ]
       }
@@ -844,6 +888,7 @@
       "name": "Utilities 2077",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "0.7",
       "author": "U0047",
       "nexus": {
@@ -868,6 +913,7 @@
       "name": "Custom Perk Framework",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "2.14",
       "author": "0nlyQ",
       "nexus": {
@@ -892,6 +938,7 @@
       "name": "RedWindows",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "2.4",
       "author": "DigitalVixen",
       "nexus": {
@@ -916,6 +963,7 @@
       "name": "Redscript Configuration Framework",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "3.2",
       "author": "DigitalVixen",
       "nexus": {
@@ -927,9 +975,9 @@
         "size": 676987,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.2/redscript-configuration-framework-3d39c70eeab2655a.tar.zst.001",
-            "size": 140996,
-            "blake3": "9294fd559272c1e678191a0de666577458eca9bbec8f8861220e25fe32bcd01c"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/redscript-configuration-framework-3d39c70eeab2655a.tar.zst.001",
+            "size": 140909,
+            "blake3": "3f81b14d35bcc731c8e5e0229187d43c1bc311a3e0b20174f1dadc2d6804992f"
           }
         ]
       }
@@ -940,6 +988,7 @@
       "name": "RedLogger",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.4.2",
       "author": "DigitalVixen",
       "nexus": {
@@ -951,9 +1000,9 @@
         "size": 202597,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.2/redlogger-c4a10dba24bee658.tar.zst.001",
-            "size": 87526,
-            "blake3": "e66d16d32775f4beb50559e05eaf3808fd8d7e9e5ae780e1424079bc15dd468a"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/redlogger-c4a10dba24bee658.tar.zst.001",
+            "size": 87594,
+            "blake3": "a5862230a219d6a610571814801337b898883672f7a073471776f83f7a6019cc"
           }
         ]
       }
@@ -964,6 +1013,7 @@
       "name": "RedIMGRetriever",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "0.3.1",
       "author": "DigitalVixen",
       "nexus": {
@@ -988,6 +1038,7 @@
       "name": "RedFunctions",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "0.14.1",
       "author": "DigitalVixen",
       "nexus": {
@@ -1012,6 +1063,7 @@
       "name": "RedFileSystem",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "0.16",
       "author": "Rayshader",
       "nexus": {
@@ -1023,9 +1075,9 @@
         "size": 564334,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.2/redfilesystem-4a677ebbad53ff95.tar.zst.001",
-            "size": 225450,
-            "blake3": "100423addde3da3c2143c71006da48701a003277b254837c61a89e1443e4ff8c"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/redfilesystem-4a677ebbad53ff95.tar.zst.001",
+            "size": 225521,
+            "blake3": "5f4af54031a2e9eb2f01940aed31c9b87d3fe2e0501e1c9b54ab3bdcfe5acf54"
           }
         ]
       }
@@ -1036,6 +1088,7 @@
       "name": "RedData",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "0.11",
       "author": "Rayshader",
       "nexus": {
@@ -1047,9 +1100,9 @@
         "size": 670218,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.2/reddata-71f9d48306d8a847.tar.zst.001",
-            "size": 229715,
-            "blake3": "682cd48e6fc0c6f3f9ee4ad4766fd466653eb4b39c5c8c3c43f2fb4e93b89cde"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/reddata-71f9d48306d8a847.tar.zst.001",
+            "size": 229781,
+            "blake3": "8729f7ddd12b0fd16509dbdb75d89064e5774b764bfc7498c604e9df843240ce"
           }
         ]
       }
@@ -1060,20 +1113,21 @@
       "name": "Window Utils (GUI Library - Animation - Grid Alignment)",
       "enabled": true,
       "optional": true,
-      "version": "1.1.4",
+      "coop": true,
+      "version": "1.2.2",
       "author": "CyanideX",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 26589
       },
       "package": {
-        "hash": "0ffd120f4d55507155fd2a5e0974fe4b661a2eafc87f24f9080ac5e9d5ae807c",
-        "size": 744456,
+        "hash": "8bdab82aa3a10d7fb39aa29156fee4ae7eaa0153eea65c40febe225091acf839",
+        "size": 1031401,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.1.0/window-utils-gui-library-animation-grid-alignment-0ffd120f4d555071.tar.zst.001",
-            "size": 144003,
-            "blake3": "d880da4b4f4b9c7fa59f5c3fc40497bef6e71ce8cda0686c32071aaddb4a7fa7"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/window-utils-gui-library-animation-grid-alignment-8bdab82aa3a10d7f.tar.zst.001",
+            "size": 252066,
+            "blake3": "7034a5e3439a6aa72fd8ee46a470d5aec0dd0bd3e4090d1819778aa871831712"
           }
         ]
       }
@@ -1084,6 +1138,7 @@
       "name": "RedHttpClient",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "0.8",
       "author": "Rayshader",
       "nexus": {
@@ -1095,9 +1150,9 @@
         "size": 1167534,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.2/redhttpclient-84bfa25f87022151.tar.zst.001",
-            "size": 479258,
-            "blake3": "e17e6fb3f7eb52ceb1a8e7c55dd782bda694917c6433ebba71d6438070032f8f"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/redhttpclient-84bfa25f87022151.tar.zst.001",
+            "size": 479315,
+            "blake3": "08306d3c344c2470768d9b1bb19c73e9281dd5644f9bf5cf1e560a8100460ef1"
           }
         ]
       }
@@ -1108,20 +1163,21 @@
       "name": "DigitalVixen Core",
       "enabled": true,
       "optional": true,
-      "version": "4.9.5",
+      "coop": true,
+      "version": "4.9.8",
       "author": "DigitalVixen",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 28390
       },
       "package": {
-        "hash": "fe99c81441edcde46262622ac88975218fe7d5ba4f94375a875d657fdcf54f6b",
-        "size": 10187149,
+        "hash": "23954c465461ed5c1d309ad661e2656d258267a223f9717a254b148d7b926172",
+        "size": 10211541,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.7/digitalvixen-core-fe99c81441edcde4.tar.zst.001",
-            "size": 418195,
-            "blake3": "cdecb1b7c216297e044011d5307476ea146cb7663e92862c9a58997c964b8fd4"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/digitalvixen-core-23954c465461ed5c.tar.zst.001",
+            "size": 419602,
+            "blake3": "02cf0feb5350328309a16d65e21458a493532294ca069321b3fcb6cf452e62b5"
           }
         ]
       }
@@ -1132,6 +1188,7 @@
       "name": "NightlyNow Core",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.2.1",
       "author": "NightlyNow",
       "nexus": {
@@ -1156,6 +1213,7 @@
       "name": "Perk Addition Framework",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.0.1",
       "author": "JonnesTT",
       "nexus": {
@@ -1180,6 +1238,7 @@
       "name": "Vehicle Core",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.0",
       "author": "theCyanideX",
       "nexus": {
@@ -1204,6 +1263,7 @@
       "name": "XUtils",
       "enabled": false,
       "optional": true,
+      "coop": true,
       "version": "1.0.2",
       "author": "CyanideX",
       "nexus": {
@@ -1228,6 +1288,7 @@
       "name": "0-Engine",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "0.18.6",
       "author": "DigitalVixen",
       "nexus": {
@@ -1252,6 +1313,7 @@
       "name": "Native and Mod Settings Localized",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.1.3",
       "author": "maniman303",
       "nexus": {
@@ -1276,20 +1338,21 @@
       "name": "Night City Interactions - Core",
       "enabled": true,
       "optional": true,
-      "version": "4.1",
+      "coop": true,
+      "version": "4.1.1",
       "author": "Deceptious",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 5519
       },
       "package": {
-        "hash": "0cf2de9a18d5d454cdac7eb4c78f677db23396b050478c63d15f95f7d073b074",
-        "size": 29385459,
+        "hash": "6d74eb55e503afd3275aff7078c4c1ba22c6feef9521ceac0dfc284fc56673ca",
+        "size": 29386842,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.1.0/night-city-interactions-core-0cf2de9a18d5d454.tar.zst.001",
-            "size": 25681624,
-            "blake3": "748735f1c487e780497a3baf8c2b3c7669de0f2145b31aebdbe2ee16e152b5d9"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/night-city-interactions-core-6d74eb55e503afd3.tar.zst.001",
+            "size": 25682483,
+            "blake3": "d417fb87e9b0c2962fd982a7e3660cae2a3d38e4e910a02e256bc456605069f5"
           }
         ]
       }
@@ -1300,6 +1363,7 @@
       "name": "Immersive Night City Fixes - CORE",
       "enabled": false,
       "optional": true,
+      "coop": true,
       "version": "1.4",
       "author": "DBK",
       "nexus": {
@@ -1329,6 +1393,7 @@
       "name": "Immersive Night City Fixes",
       "enabled": false,
       "optional": true,
+      "coop": true,
       "version": "0.35",
       "author": "DBK",
       "nexus": {
@@ -1353,20 +1418,21 @@
       "name": "Ultra Plus - Physically Accurate Path Tracing",
       "enabled": true,
       "optional": true,
-      "version": "v10.1.0.6",
+      "coop": true,
+      "version": "v10.1.0.9",
       "author": "SammiLucia",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 10490
       },
       "package": {
-        "hash": "5243b5bfb82697fb982dcdc831fa775b30692a37628b6b7d7d06d2adad55166f",
-        "size": 657240,
+        "hash": "c1707438658f1220fc34f940ec9182d22a76502b5f32e41d2c09f61130596088",
+        "size": 7090477,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.2/ultra-plus-physically-accurate-path-tracing-5243b5bfb82697fb.tar.zst.001",
-            "size": 140283,
-            "blake3": "4fc7d9b56264718d6346db320d3f9c923c99314eeb4c94968f4706d40355218a"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/ultra-plus-physically-accurate-path-tracing-c1707438658f1220.tar.zst.001",
+            "size": 4659020,
+            "blake3": "cbf4d84a2bfb4c1d6906908fc67662aac8d13b7ddcf14f06e0f4c1e16ed28e22"
           }
         ]
       }
@@ -1377,6 +1443,7 @@
       "name": "Advanced Crash Reporter",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.5",
       "author": "Akiway",
       "nexus": {
@@ -1401,6 +1468,7 @@
       "name": "Air Traffic Dupe Fix",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.0",
       "author": "Deceptious",
       "nexus": {
@@ -1425,6 +1493,7 @@
       "name": "CPU Optimization Plus",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.0.1",
       "author": "vinson911",
       "title": "CPU Optimization Plus.",
@@ -1450,6 +1519,7 @@
       "name": "Database Fixes",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.1.1",
       "author": "MerseyRockoff",
       "nexus": {
@@ -1474,6 +1544,7 @@
       "name": "General Shadows Fixes",
       "enabled": false,
       "optional": true,
+      "coop": false,
       "version": "0.75",
       "author": "sosuinepxisuyu",
       "nexus": {
@@ -1498,6 +1569,7 @@
       "name": "Decals Flickering Fix",
       "enabled": false,
       "optional": true,
+      "coop": false,
       "version": "0.12",
       "author": "sosuinepsixuyu",
       "nexus": {
@@ -1522,6 +1594,7 @@
       "name": "Effects Rendering Fix",
       "enabled": false,
       "optional": true,
+      "coop": false,
       "version": "0.1",
       "author": "sosuinepsixuyu",
       "nexus": {
@@ -1546,6 +1619,7 @@
       "name": "Disappearing NPC and Vehicle Fix",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.0",
       "author": "Valour549",
       "title": "Disappearing NPC and Vehicle Fix (Crowd LOD spawn distance)",
@@ -1571,6 +1645,7 @@
       "name": "Streaming Bug Workaround",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "0.26",
       "author": "sosuinepsixuyu",
       "nexus": {
@@ -1595,6 +1670,7 @@
       "name": "Horizon Sandstorm Flickering Fix",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "0.1",
       "author": "sosuinepsixuyu",
       "nexus": {
@@ -1619,6 +1695,7 @@
       "name": "Preem Fixes (PT Shadow Bug Fix and HD Textures)",
       "enabled": false,
       "optional": true,
+      "coop": false,
       "version": "1.4a",
       "author": "CyanideX",
       "nexus": {
@@ -1643,6 +1720,7 @@
       "name": "More Occluders (Performance Improvement)",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "0.4",
       "author": "sosuine",
       "nexus": {
@@ -1667,6 +1745,7 @@
       "name": "NPC Actions Stutter Fix",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "0.11",
       "author": "sosuinepsixuyu",
       "nexus": {
@@ -1691,6 +1770,7 @@
       "name": "Eyes LOD Fix - No more disappearing eyes",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "2.2",
       "author": "JohnsonsStuff",
       "nexus": {
@@ -1720,6 +1800,7 @@
       "name": "Vehicle Destruction Mesh Fix",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.1",
       "author": "SDH0",
       "nexus": {
@@ -1744,6 +1825,7 @@
       "name": "Machete Finisher Kill Fix",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1",
       "author": "dnbnhlp",
       "nexus": {
@@ -1768,6 +1850,7 @@
       "name": "Finisher Grace Fix - Fixed Version",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.0",
       "author": "dnbnhlp",
       "title": "Finisher Grace Fix",
@@ -1793,6 +1876,7 @@
       "name": "Map Waypoint Bug Fixes",
       "enabled": false,
       "optional": true,
+      "coop": true,
       "version": "1.1",
       "author": "Spuddeh",
       "nexus": {
@@ -1817,6 +1901,7 @@
       "name": "Radioport Dropout Fix",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.2",
       "author": "Spuddeh",
       "title": "Radioport Fixes - Dropouts and Misc Fixes",
@@ -1842,6 +1927,7 @@
       "name": "Conflict Begone",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.4",
       "author": "CyanideX",
       "title": "Conflict Begone (Archive Conflict Checker - User Mod Support)",
@@ -1867,6 +1953,7 @@
       "name": "Vehicle Exit Fix",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.0",
       "author": "MisterChedda",
       "title": "Vehicle Exit Fix for 2.3",
@@ -1892,6 +1979,7 @@
       "name": "Hammers are not bats",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.0.2",
       "author": "The guy posting it",
       "title": "Hammers are not bats (tooltip fix)",
@@ -1917,6 +2005,7 @@
       "name": "Second Heart Fix",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.3",
       "author": "enowai",
       "nexus": {
@@ -1941,6 +2030,7 @@
       "name": "No crowd panic from stealth activity",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.0",
       "author": "anygoodname",
       "title": "Immersion patch - No crowd panic from stealth activity",
@@ -1966,6 +2056,7 @@
       "name": "Photomode Camera Reset Fix",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.2",
       "author": "Finnick420",
       "title": "Photomode Camera Reset Fix (look-at-camera lock)",
@@ -1991,6 +2082,7 @@
       "name": "Fixed NPC Vehicle Reactions",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.0",
       "author": "icxrus",
       "nexus": {
@@ -2015,6 +2107,7 @@
       "name": "Dash Fix",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.0.1",
       "author": "Seijax",
       "nexus": {
@@ -2039,6 +2132,7 @@
       "name": "Psycho Killer Reward - Restored",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.0",
       "author": "saltypigloaf",
       "nexus": {
@@ -2063,20 +2157,21 @@
       "name": "Deceptious Bug Fixes",
       "enabled": true,
       "optional": true,
-      "version": "1.4.2",
+      "coop": true,
+      "version": "1.4.3",
       "author": "Deceptious",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 18318
       },
       "package": {
-        "hash": "6cc5f3aa624d9d82aa6405c316bec0026dedb98511b93e1cf20da951c041fd7d",
-        "size": 3836988,
+        "hash": "6941fb0d0cb9a75ec10c86c332364d777255a35e734715d7a89018e3bdfd5dcb",
+        "size": 3783888,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.1.0/deceptious-bug-fixes-6cc5f3aa624d9d82.tar.zst.001",
-            "size": 3281610,
-            "blake3": "4a83b611dc41df62cc38d16c17f4a13415eabffb10ebf9aaffed6a8d6c52924a"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/deceptious-bug-fixes-6941fb0d0cb9a75e.tar.zst.001",
+            "size": 3236896,
+            "blake3": "83b3755b2c7541a965df2a42258b7c8df392bef85c61d0a238977856ad73b8bf"
           }
         ]
       }
@@ -2087,6 +2182,7 @@
       "name": "Forbidden Vehicle Movement No More",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "0.11",
       "author": "sosuinepsixuyu",
       "nexus": {
@@ -2111,6 +2207,7 @@
       "name": "Enemies Melee Attacks Fixes",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "0.1",
       "author": "sosuine",
       "nexus": {
@@ -2135,6 +2232,7 @@
       "name": "Carjacking Bug Fix game 2.3x",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.0",
       "author": "anygoodname",
       "nexus": {
@@ -2159,6 +2257,7 @@
       "name": "Immersion Patch - Cyberpunk Story Quest Fixes",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.21",
       "author": "anygoodname",
       "nexus": {
@@ -2188,6 +2287,7 @@
       "name": "Preem Water 2.0 ( Canon - Pure - Tropical - Paradise ) - Preem Water 2.0 - Canon",
       "enabled": true,
       "optional": true,
+      "coop": false,
       "version": "2.1b",
       "author": "CyanideX",
       "title": "Preem Water 2.0 ( Canon - Pure - Tropical - Paradise )",
@@ -2213,6 +2313,7 @@
       "name": "Visual Effects Fixes",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "0.1",
       "author": "Sosuinepsixuyu",
       "nexus": {
@@ -2237,20 +2338,21 @@
       "name": "Orbital Air Traffic Enhanced",
       "enabled": true,
       "optional": true,
-      "version": "1.1.1",
+      "coop": true,
+      "version": "1.1.2",
       "author": "Deceptious",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 31355
       },
       "package": {
-        "hash": "bf56ee1866c7cc3634a18677cb6fdab8d62d5a26aa44d73dcfb9ceb7b1dddbdc",
-        "size": 336538,
+        "hash": "cfaa6e7ce04810f8155a045f6abb5fdedc88aa6c7f26071ab288c2bc5addb88e",
+        "size": 336702,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.2/orbital-air-traffic-enhanced-bf56ee1866c7cc36.tar.zst.001",
-            "size": 225132,
-            "blake3": "1f1f459e2f49c41b55e1258b02a55ac14dff9f16d35e9c522221964b35723af0"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/orbital-air-traffic-enhanced-cfaa6e7ce04810f8.tar.zst.001",
+            "size": 225305,
+            "blake3": "70b52fe405e9de5cc075c9efbe25233bc4458c8da5f7681b7cbe2fba3181a987"
           }
         ]
       }
@@ -2261,6 +2363,7 @@
       "name": "Blur Begone",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "2.6",
       "author": "CyanideX",
       "title": "Blur Begone (Clear Materials)",
@@ -2286,6 +2389,7 @@
       "name": "NC Mediascape Enhancer",
       "enabled": false,
       "optional": true,
+      "coop": true,
       "version": "1.1",
       "author": "Proxima Dust",
       "nexus": {
@@ -2310,6 +2414,7 @@
       "name": "Blind Begone (First Person Driving Auto Exposure Fix)",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.2",
       "author": "CyanideX",
       "nexus": {
@@ -2334,6 +2439,7 @@
       "name": "Film Grain Fix",
       "enabled": false,
       "optional": true,
+      "coop": true,
       "version": "1.1",
       "author": "MisterChedda",
       "nexus": {
@@ -2358,6 +2464,7 @@
       "name": "LUT Switcher 3 (Realtime - Scanner - Weather - Menu)",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "3.5",
       "author": "CyanideX",
       "nexus": {
@@ -2369,9 +2476,9 @@
         "size": 3698102,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.2/lut-switcher-3-realtime-scanner-weather-menu-c4d9bf5b24512837.tar.zst.001",
-            "size": 3556348,
-            "blake3": "3312f36e8cf9ead504b6f045fa7b1fd708b00ee9fc4f23b4933c87e556e2a080"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/lut-switcher-3-realtime-scanner-weather-menu-c4d9bf5b24512837.tar.zst.001",
+            "size": 3556420,
+            "blake3": "e277e6ecb5237feade26375dcb2f51a9e93863a549420739415a3e0e37f19ee2"
           }
         ]
       }
@@ -2382,6 +2489,7 @@
       "name": "LUT Pack - Misc",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.2.1m",
       "author": "CyanideX",
       "title": "LUT Switcher 3 (Realtime - Scanner - Weather - Menu)",
@@ -2407,6 +2515,7 @@
       "name": "LUT Pack - GITS",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.1g",
       "author": "CyanideX",
       "title": "LUT Switcher 3 (Realtime - Scanner - Weather - Menu)",
@@ -2432,6 +2541,7 @@
       "name": "LUT Pack - Edge LUT",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.3e",
       "author": "CyanideX",
       "title": "LUT Switcher 3 (Realtime - Scanner - Weather - Menu)",
@@ -2457,6 +2567,7 @@
       "name": "Skyfall LUT",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.6",
       "author": "Cyb3rPho3nix",
       "nexus": {
@@ -2481,6 +2592,7 @@
       "name": "Clear Windows",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "2.5",
       "author": "DBK",
       "nexus": {
@@ -2505,6 +2617,7 @@
       "name": "Weather Switcher",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.7.6",
       "author": "CyanideX",
       "title": "Weather Switcher (Change Weather - Control Time - Customize Clouds)",
@@ -2513,13 +2626,13 @@
         "modId": 18027
       },
       "package": {
-        "hash": "a6d67cc9c2954ac2094891793ae75835f78993af521da953faee53bb9fa08289",
+        "hash": "8a7004e52e42ef81ab8b72aa6812081cb0b1a11798bd5ab53cd91660bfdf0e82",
         "size": 197373,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.2/weather-switcher-a6d67cc9c2954ac2.tar.zst.001",
-            "size": 38977,
-            "blake3": "2a9a154115deba960ed4d088367c39316ffb10b296c46b46f29abbe94a91aad0"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/weather-switcher-8a7004e52e42ef81.tar.zst.001",
+            "size": 39050,
+            "blake3": "770f03f7814c22d184fae70b44afbe7db6b88978b9c86a956a025a50a953a5b9"
           }
         ]
       }
@@ -2530,6 +2643,7 @@
       "name": "The Grid (Custom Street Light Hours - Weather Effects - Blackouts)",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.0.1",
       "author": "theCyanideX",
       "nexus": {
@@ -2554,6 +2668,7 @@
       "name": "Increased Level of Details Distance - Draw Distance",
       "enabled": true,
       "optional": true,
+      "coop": false,
       "version": "5.1",
       "author": "DBK",
       "nexus": {
@@ -2583,6 +2698,7 @@
       "name": "Restore v2.0 Double Jump Sound",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "4",
       "author": "YG",
       "nexus": {
@@ -2607,6 +2723,7 @@
       "name": "SFX Toggle (Mute Sounds and Combat Music)",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.3",
       "author": "MisterChedda",
       "nexus": {
@@ -2631,15 +2748,16 @@
       "name": "LynoRadio-0.1.0",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "0.2",
       "package": {
         "hash": "2628aa0956a26443f491a9bd9f961675b31f5ac820b284ba53d4062bb1844238",
         "size": 71240,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.2/lynoradio-0-1-0-2628aa0956a26443.tar.zst.001",
-            "size": 29335,
-            "blake3": "047c6ed2e9dd023928e4bbb0b964aee4cd9a0ddc4726983b5d80ed2cf82f882b"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/lynoradio-0-1-0-2628aa0956a26443.tar.zst.001",
+            "size": 29411,
+            "blake3": "396ca15de39509f7ec95e11313115834fa3c6e438715fb52914ec5ca8b5872ea"
           }
         ]
       }
@@ -2655,6 +2773,7 @@
       "name": "Character Rendering Editor - Real-time Control on Skin Hair Eyes for more Realistic Shaders - Cyber Engine Tweaks",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "3.0",
       "author": "Arkhe0",
       "nexus": {
@@ -2679,20 +2798,21 @@
       "name": "Enhanced Big Breasts (EBB) - BODY MOD",
       "enabled": true,
       "optional": true,
-      "version": "4.0.4",
+      "coop": true,
+      "version": "5.0",
       "author": "Hyst",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 4654
       },
       "package": {
-        "hash": "f89dfbcf7772c5a93dbbea4609a3a3e1290d07df13708b9bc978b18de8117791",
-        "size": 185820474,
+        "hash": "b54f27e1116eda3988fd07d32e998c4a6ce4d84ab69613bc0186ede1e2b3dd88",
+        "size": 184094363,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/enhanced-big-breasts-ebb-body-mod-f89dfbcf7772c5a9.tar.zst.001",
-            "size": 184506829,
-            "blake3": "e37797b4a384dbc1c6d53130b7b18cf83b754e75bdf7414aeed59a48a09e0b57"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/enhanced-big-breasts-ebb-body-mod-b54f27e1116eda39.tar.zst.001",
+            "size": 182800929,
+            "blake3": "d6280d6b05496f56f17ed6ce73d3683e465e5c097e3f5e0d750fdfdab4cffed7"
           }
         ]
       }
@@ -2703,6 +2823,7 @@
       "name": "VTK Vanilla HD Body for FemV - Head",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "3.1",
       "author": "xBaebsae",
       "title": "VTK Vanilla HD Body for FemV - High Resolution Mesh and Textures - Plus Resources",
@@ -2728,6 +2849,7 @@
       "name": "VTK Vanilla HD Body for FemV - Body",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "3.4",
       "author": "xBaebsae",
       "title": "VTK Vanilla HD Body for FemV - High Resolution Mesh and Textures - Plus Resources",
@@ -2753,6 +2875,7 @@
       "name": "Hair Color Profiles CCXL",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.02",
       "author": "island_dancer and psiberx",
       "nexus": {
@@ -2777,6 +2900,7 @@
       "name": "Hackclaw MaiXiaowen",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.0",
       "author": "Veegee",
       "nexus": {
@@ -2801,6 +2925,7 @@
       "name": "Veegee Hackclaw Hair",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.1",
       "author": "Veegee",
       "title": "Veegee Hackclaw Hair - CCXL - MCH",
@@ -2826,6 +2951,7 @@
       "name": "Heterochromia Eyes - CCXL",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "2.1",
       "author": "icxrus",
       "nexus": {
@@ -2850,6 +2976,7 @@
       "name": "EKT Custom Character Creator - FEMV ONLY",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.05",
       "author": "EKT",
       "nexus": {
@@ -2874,6 +3001,7 @@
       "name": "XS Sporty Sexy Map - Athletic Fit FemV Muscle Body VTK EBB Angel",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "3.0",
       "author": "xs2reality",
       "nexus": {
@@ -2898,6 +3026,7 @@
       "name": "Glorifica - HairCCXL",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.1",
       "author": "B1W",
       "title": "Glorifica - Hair",
@@ -2923,6 +3052,7 @@
       "name": "EVE - Skin Texture - VTK Fem Bodies",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.0",
       "author": "Hyst",
       "nexus": {
@@ -2947,6 +3077,7 @@
       "name": "Beautiful MAKEUP - CCXL - Realistic Eyeshadows and Eyeliners - Casual Edition - BOTH V",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.0",
       "author": "Arkhe0",
       "nexus": {
@@ -2971,6 +3102,7 @@
       "name": "MAKEUP ENHANCER - Realistic Eyeshadows and Eyeliners - Noise Decal Fix - Both V - NPCs",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.0",
       "author": "Arkhe0",
       "nexus": {
@@ -2995,6 +3127,7 @@
       "name": "V Physics Lab",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.3",
       "author": "AppaAbba",
       "nexus": {
@@ -3019,6 +3152,7 @@
       "name": "(Venus Planet) Hair Collection v.02",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.0",
       "author": "Peachu",
       "nexus": {
@@ -3043,6 +3177,7 @@
       "name": "Beautiful Exotics Eyes Pack - CCXL Version",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.0",
       "author": "protossvoid",
       "nexus": {
@@ -3067,6 +3202,7 @@
       "name": "ACU - Character Preset Manager",
       "enabled": false,
       "optional": true,
+      "coop": true,
       "version": "3.2.1",
       "author": "PotatoOfDoom",
       "nexus": {
@@ -3091,6 +3227,7 @@
       "name": "Hair Collection",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.0",
       "author": "Raenef1",
       "title": "Raenef's Hair Collection 3 CCXL MCH M F",
@@ -3116,6 +3253,7 @@
       "name": "CoRa - CCXL HAIR - CoRa   Hair",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1",
       "author": "B1W",
       "title": "CoRa - CCXL HAIR",
@@ -3141,6 +3279,7 @@
       "name": "Panam alternate body",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "2.0.1",
       "author": "Burgundeltraut",
       "nexus": {
@@ -3165,6 +3304,7 @@
       "name": "Judy alternate body",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.2.1",
       "author": "Burgundeltraut",
       "nexus": {
@@ -3189,6 +3329,7 @@
       "name": "ROTTEN ANGEL LIPSTICK COLLECTION (AXL) - SAINT VICIOUS COSMETICS",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.0",
       "author": "watson",
       "nexus": {
@@ -3213,6 +3354,7 @@
       "name": "EASY ACCESS COLLECTION - CCXL HAIR - BOB PAK VOL 1",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.0",
       "author": "meluminary",
       "title": "EASY ACCESS COLLECTION - CCXL HAIR",
@@ -3238,6 +3380,7 @@
       "name": "EASY ACCESS COLLECTION - CCXL HAIR - BOB PAK VOL 6",
       "enabled": true,
       "optional": true,
+      "coop": false,
       "version": "6.0",
       "author": "meluminary",
       "title": "EASY ACCESS COLLECTION - CCXL HAIR",
@@ -3263,6 +3406,7 @@
       "name": "EASY ACCESS COLLECTION - CCXL HAIR - BOB PAK VOL 3",
       "enabled": true,
       "optional": true,
+      "coop": false,
       "version": "3.0",
       "author": "meluminary",
       "title": "EASY ACCESS COLLECTION - CCXL HAIR",
@@ -3288,6 +3432,7 @@
       "name": "infrab's Nipple Shapes",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.3",
       "author": "infrab",
       "nexus": {
@@ -3317,6 +3462,7 @@
       "name": "Netrunner Suit Pt10",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1",
       "author": "Veegee",
       "nexus": {
@@ -3341,6 +3487,7 @@
       "name": "Fishnet Tights V2 - Archive XL",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "3.0.2",
       "author": "Hyst",
       "nexus": {
@@ -3365,6 +3512,7 @@
       "name": "Prestige Glasses - FemV and MascV",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.11",
       "author": "Sanchez",
       "nexus": {
@@ -3389,6 +3537,7 @@
       "name": "Naked Snake Suit Archive XL",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.1",
       "author": "EzioMaverick",
       "nexus": {
@@ -3413,6 +3562,7 @@
       "name": "Freyna Christmas Outfit - Archive XL",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.0",
       "author": "Hyst",
       "nexus": {
@@ -3437,6 +3587,7 @@
       "name": "Cheerleader Outfit - Archive XL",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.1",
       "author": "Atomiictv",
       "nexus": {
@@ -3461,6 +3612,7 @@
       "name": "A-Girls - Valby Outfit - Archive XL",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.0",
       "author": "Atomiic",
       "nexus": {
@@ -3485,6 +3637,7 @@
       "name": "Hailey Task Force Outfit - Archive XL",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.0",
       "author": "LxRHyst",
       "nexus": {
@@ -3509,6 +3662,7 @@
       "name": "Groovy Y2K Outfit Pt2",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.0",
       "author": "Veegee",
       "nexus": {
@@ -3533,6 +3687,7 @@
       "name": "Task Force Outfit Ines - Archive XL",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.0",
       "author": "AtomiicTV",
       "nexus": {
@@ -3557,6 +3712,7 @@
       "name": "Rev's Threads - Stockings Pack",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.4",
       "author": "Rev",
       "nexus": {
@@ -3581,6 +3737,7 @@
       "name": "Hailey Ult Suit Archive XL",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.0",
       "author": "EzioMaverick",
       "nexus": {
@@ -3605,6 +3762,7 @@
       "name": "Boudoir Pt32",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.0",
       "author": "Veegee",
       "nexus": {
@@ -3629,6 +3787,7 @@
       "name": "Cyber Hackclaw Outfit",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "2.0",
       "author": "Veegee",
       "nexus": {
@@ -3658,6 +3817,7 @@
       "name": "Sanchez Virtual Boutique - Virtual Atelier",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.17",
       "author": "Sanchez",
       "nexus": {
@@ -3682,6 +3842,7 @@
       "name": "Hyst Atelier Store - Virtual Atelier",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.35",
       "author": "Hyst",
       "nexus": {
@@ -3693,9 +3854,9 @@
         "size": 107066,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.2/hyst-atelier-store-virtual-atelier-67e117f1d991e2d0.tar.zst.001",
-            "size": 76319,
-            "blake3": "807bf8cedf08a9b0e6520c404444c3581168d78a1cbdf5edc17f5e955c878eae"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/hyst-atelier-store-virtual-atelier-67e117f1d991e2d0.tar.zst.001",
+            "size": 76400,
+            "blake3": "1032dc95f6364e0d17ded940894aff6065788e4e946310a0246891746cb2ab5d"
           }
         ]
       }
@@ -3706,6 +3867,7 @@
       "name": "VEEGEE SHOP 3",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.5.2",
       "author": "Veegee",
       "nexus": {
@@ -3730,6 +3892,7 @@
       "name": "The Zenitex Military Store",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.2",
       "author": "ScorpionTank - Krat0es - Saltypigloaf",
       "nexus": {
@@ -3754,6 +3917,7 @@
       "name": "Zeusico's Atelier",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "2.06",
       "author": "Zeusico",
       "nexus": {
@@ -3765,9 +3929,9 @@
         "size": 494939,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.2/zeusico-s-atelier-b549d40cd7363897.tar.zst.001",
-            "size": 489400,
-            "blake3": "02259c384655ac25d4c31143a6c68f41564f810d55b38e66dc0f5356ecabe2e2"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/zeusico-s-atelier-b549d40cd7363897.tar.zst.001",
+            "size": 489487,
+            "blake3": "727cf88a1c82af9bf89b858e3f8bba6f6fb5732d1ac491f28c3d8b057f171945"
           }
         ]
       }
@@ -3778,6 +3942,7 @@
       "name": "Atomiic Shop",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "3.11",
       "author": "Atomiic",
       "nexus": {
@@ -3802,6 +3967,7 @@
       "name": "Dead's Aorta - Virtual Atelier store",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.30",
       "author": "argisht",
       "nexus": {
@@ -3826,6 +3992,7 @@
       "name": "Rev's Threads - Atelier",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.2",
       "author": "Rev",
       "nexus": {
@@ -3850,6 +4017,7 @@
       "name": "NC Fashion Virtual Atelier",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "10.1.g",
       "author": "EzioMaverick",
       "nexus": {
@@ -3874,6 +4042,7 @@
       "name": "Veegee Shop 4",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.0.9",
       "author": "Veegee",
       "nexus": {
@@ -3903,6 +4072,7 @@
       "name": "Streamlined HUD - 1. Streamlined AIO",
       "enabled": true,
       "optional": true,
+      "coop": false,
       "version": "1.32",
       "author": "ctxrlsec",
       "title": "Streamlined HUD",
@@ -3928,7 +4098,8 @@
       "name": "Ping (Menu Search - Mod Support) - Ping",
       "enabled": true,
       "optional": true,
-      "version": "1.4",
+      "coop": true,
+      "version": "1.4.1",
       "author": "theCyanideX",
       "title": "Ping (Live Settings - Menu Search)",
       "nexus": {
@@ -3936,13 +4107,13 @@
         "modId": 34933
       },
       "package": {
-        "hash": "8dc186cab2719d4380b916d00b554127979bf5fd2701ea545fd4d9d704ce18b8",
-        "size": 112732,
+        "hash": "508aaa4364c7a0a242dad6f4a1108cb714e23a9db6cbaa4615072a187a195d32",
+        "size": 112424,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.2/ping-menu-search-mod-support-ping-8dc186cab2719d43.tar.zst.001",
-            "size": 24178,
-            "blake3": "39287f6b6cec2e4e490f65b7ba46dfffac716601ad8bdfad7ac5e3d57d3ba204"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/ping-menu-search-mod-support-ping-508aaa4364c7a0a2.tar.zst.001",
+            "size": 24250,
+            "blake3": "ca1a5925f8f892a69bbace4ff69bbceae847b1a4a0c06779a943ac46f9faecfa"
           }
         ]
       }
@@ -3953,6 +4124,7 @@
       "name": "Informative Healthbar",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.13",
       "author": "Scream81",
       "nexus": {
@@ -3977,6 +4149,7 @@
       "name": "3D World Map Fixed",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.5",
       "author": "malgalad",
       "nexus": {
@@ -4001,6 +4174,7 @@
       "name": "RAM bar fix",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.2",
       "author": "Scream81",
       "nexus": {
@@ -4025,6 +4199,7 @@
       "name": "Character Creator UI Improvements",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.1",
       "author": "pointdotpoint",
       "nexus": {
@@ -4049,6 +4224,7 @@
       "name": "Cleaner UI - Archive version",
       "enabled": true,
       "optional": true,
+      "coop": false,
       "version": "2.0",
       "author": "Kratoes",
       "title": "Cleaner UI",
@@ -4074,6 +4250,7 @@
       "name": "Limited HUD",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "2.23.1",
       "author": "DJ_Kovrik",
       "nexus": {
@@ -4085,9 +4262,9 @@
         "size": 343502,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.2/limited-hud-7127d583f7273ea9.tar.zst.001",
-            "size": 93285,
-            "blake3": "8ab1a6047bacafdd0a33d93bc12d84ba0385fef40418ca481ff62e9db8aa93e2"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/limited-hud-7127d583f7273ea9.tar.zst.001",
+            "size": 93364,
+            "blake3": "641aac4388e934358cdc73a1ec4e95b61a878fdb8b3e7fec17af1dedeccdd9b5"
           }
         ]
       }
@@ -4098,6 +4275,7 @@
       "name": "Inventory Adjustments Hub",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.4",
       "author": "svarmod",
       "nexus": {
@@ -4122,6 +4300,7 @@
       "name": "Preem Scanner (Customization Options for a Clean Minimal Scanner)",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.0e",
       "author": "CyanideX",
       "nexus": {
@@ -4146,6 +4325,7 @@
       "name": "Non-Intrusive Minimap (WIP)",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "0.9.1",
       "author": "r457 and gh057",
       "nexus": {
@@ -4170,6 +4350,7 @@
       "name": "In-World Navigation",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "0.1.25",
       "author": "Jack Humbert",
       "nexus": {
@@ -4181,9 +4362,9 @@
         "size": 1674357,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.2/in-world-navigation-53f474474ace85f7.tar.zst.001",
-            "size": 548128,
-            "blake3": "a8d9a2774d04dfbb796a7d12298828b83905dccc535c5776c7ecc5b5c032f5c6"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/in-world-navigation-53f474474ace85f7.tar.zst.001",
+            "size": 548205,
+            "blake3": "70e66f2709c5f9c0da0ff120a8318350eeff0962288e92260fd9c31b732074b1"
           }
         ]
       }
@@ -4194,6 +4375,7 @@
       "name": "Real Vendor Names",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "2.1",
       "author": "DJ_Kovrik",
       "nexus": {
@@ -4218,6 +4400,7 @@
       "name": "Better Loot Markers",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.4",
       "author": "rodikh",
       "nexus": {
@@ -4242,6 +4425,7 @@
       "name": "Readable Shards",
       "enabled": true,
       "optional": true,
+      "coop": false,
       "version": "5",
       "author": "MisterChedda",
       "nexus": {
@@ -4266,6 +4450,7 @@
       "name": "Vehicle Durability Display",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.1",
       "author": "tidusmd",
       "nexus": {
@@ -4290,6 +4475,7 @@
       "name": "Quickhack Loadouts",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.5",
       "author": "RMK",
       "nexus": {
@@ -4314,6 +4500,7 @@
       "name": "Quickhacks sort by slot",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "0.0.0.3",
       "author": "nobo",
       "nexus": {
@@ -4338,6 +4525,7 @@
       "name": "Smart Frames Enhanced",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.0",
       "author": "nutboy",
       "nexus": {
@@ -4362,6 +4550,7 @@
       "name": "Show Me How Many - Proper Inventory Activity Logs",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "2.0.3",
       "author": "Gigowatt221",
       "nexus": {
@@ -4386,6 +4575,7 @@
       "name": "Immersive Scanner",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.3",
       "author": "L3LY",
       "nexus": {
@@ -4410,6 +4600,7 @@
       "name": "High Resolution Garment Preview",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.0",
       "author": "glek39",
       "nexus": {
@@ -4439,6 +4630,7 @@
       "name": "Ladders Improved",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "2.01",
       "author": "RelaxItsOk",
       "nexus": {
@@ -4463,6 +4655,7 @@
       "name": "Air's Inertia",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.2",
       "author": "tidusmd",
       "title": "Air's Inertia Returns",
@@ -4488,6 +4681,7 @@
       "name": "Better Movement - QOL Jog and Sprint",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.0",
       "author": "Valour549",
       "nexus": {
@@ -4512,6 +4706,7 @@
       "name": "Movement And Camera Tweaks",
       "enabled": true,
       "optional": true,
+      "coop": false,
       "version": "1.5",
       "author": "sosuinepsixuyu",
       "nexus": {
@@ -4536,6 +4731,7 @@
       "name": "Responsive V",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.4",
       "author": "MisterChedda",
       "nexus": {
@@ -4560,6 +4756,7 @@
       "name": "FreeRunner",
       "enabled": false,
       "optional": true,
+      "coop": true,
       "version": "1.0.1",
       "author": "BiasNil",
       "nexus": {
@@ -4584,6 +4781,7 @@
       "name": "Vault Anywhere",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.1",
       "author": "dnbnhlp",
       "nexus": {
@@ -4608,6 +4806,7 @@
       "name": "Autodrive Cinematic Camera Extended",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.1",
       "author": "MisterChedda",
       "nexus": {
@@ -4632,6 +4831,7 @@
       "name": "Advanced Control Mod 1.2.3",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.2.3",
       "author": "hwkmod",
       "title": "Advanced Control - Walk with Mouse Scroll - Lean Left Right - Toggle ADS - Inspect Weapon",
@@ -4655,9 +4855,10 @@
       "kind": "mod",
       "id": "true-first-person-camera-2-0-true-first-personcamera-2-0",
       "name": "True First Person Camera 2.0 - True First PersonCamera 2.0",
-      "enabled": false,
+      "enabled": true,
       "optional": true,
-      "version": "8.0.3",
+      "coop": false,
+      "version": "8.1.5",
       "author": "DigitalVixen",
       "title": "True First Person Camera 2.0",
       "nexus": {
@@ -4665,13 +4866,13 @@
         "modId": 30558
       },
       "package": {
-        "hash": "643dde4e0f7a5980bdbae44e856a6f51bdc9f64284dbd977bf93609059686d32",
-        "size": 1009919,
+        "hash": "a0d39aacafdb304174a70226a39386542f72ffc3763e34db2678222a6cb8eb5a",
+        "size": 1074092,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.2/true-first-person-camera-2-0-true-first-personcamera-2-0-643dde4e0f7a5980.tar.zst.001",
-            "size": 248336,
-            "blake3": "6a713fa5bc5ae790681ac8593a193f3474691fd75b0bc610e849a4fa63053aef"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/true-first-person-camera-2-0-true-first-personcamera-2-0-a0d39aacafdb3041.tar.zst.001",
+            "size": 268218,
+            "blake3": "d8c21ebe8a9086346bdf6cf3881158653cd9a71f7d5378ac7d0de0dc86af5f81"
           }
         ]
       }
@@ -4682,6 +4883,7 @@
       "name": "Overclocked Lynx Paws - Wall Run Climb Jump Roll - Overclocked Lynx Paws",
       "enabled": true,
       "optional": true,
+      "coop": false,
       "version": "1.11",
       "author": "Frosthaven aka __Paladin__",
       "title": "Overclocked Lynx Paws - Wall Run Climb Jump Roll",
@@ -4712,6 +4914,7 @@
       "name": "Load Begone (Skip Intro Splash Videos and More - FOMOD) - Load Begone - No Splash Videos (Skip Continue)",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "3.1",
       "author": "CyanideX",
       "title": "Load Begone (Skip Intro Splash Videos and More)",
@@ -4737,6 +4940,7 @@
       "name": "Custom Quickslots (Consumables Grenades and Cyberware Abilities) - Custom Quickslots",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "5.7.1",
       "author": "RMK",
       "title": "Custom Quickslots (Consumables Grenades and Cyberware Abilities)",
@@ -4762,20 +4966,21 @@
       "name": "It Wasn't Me",
       "enabled": true,
       "optional": true,
-      "version": "2.7",
+      "coop": true,
+      "version": "2.7.1",
       "author": "DigitalVixen",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 28980
       },
       "package": {
-        "hash": "d79e18975711c7b16bdbc05581f6ee8ea17e26ff9f9763b4fb8d9a088882a9d0",
-        "size": 77245,
+        "hash": "9f8227c3fd3ba840796c7c58acde5bb03183d0798f67c9a0a771f1510bed0b2b",
+        "size": 77690,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/it-wasn-t-me-d79e18975711c7b1.tar.zst.001",
-            "size": 16092,
-            "blake3": "63d506ed2fcf6c975b1d904feeb52a75291c26b2368a38d4b1cb1398c58da271"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/it-wasn-t-me-9f8227c3fd3ba840.tar.zst.001",
+            "size": 16348,
+            "blake3": "97b60d526d2935896a6566719b399f895277edc2aa97e2c864924d3451df83c2"
           }
         ]
       }
@@ -4786,6 +4991,7 @@
       "name": "Cutscene Weapon Swapper",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.4.1",
       "author": "DJ_Kovrik",
       "nexus": {
@@ -4810,6 +5016,7 @@
       "name": "Reset Attributes always available",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.0.0.4",
       "author": "yakuzadeso",
       "title": "Reset Attributes always available - Redscript",
@@ -4835,6 +5042,7 @@
       "name": "QoL - Faster Checkpoints",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.2",
       "author": "Deceptious",
       "nexus": {
@@ -4859,6 +5067,7 @@
       "name": "Faster Iguana Hatch",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "2.0.2",
       "author": "DJ_Kovrik",
       "nexus": {
@@ -4883,6 +5092,7 @@
       "name": "Unequip Mods",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "2.0",
       "author": "PotatoOfDoom",
       "nexus": {
@@ -4907,6 +5117,7 @@
       "name": "Unlock Me A Slots",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "uwu",
       "author": "CDPR and Me",
       "title": "Unlock Me A Slot 2.1",
@@ -4932,6 +5143,7 @@
       "name": "Computer Anywhere",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "2.2.1",
       "author": "Deceptious",
       "nexus": {
@@ -4956,6 +5168,7 @@
       "name": "Simple untrack quest - untrackQuestByRightClick",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "2.31",
       "author": "Angelore",
       "title": "Simple untrack quest",
@@ -4981,6 +5194,7 @@
       "name": "Rewire - Perk and Attributes Loadout System - Rewire PerkLoadouts V1.0.0",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "2",
       "author": "DeathTheReaper9",
       "title": "Rewire - Perk and Attributes Loadout System",
@@ -4993,9 +5207,9 @@
         "size": 622761,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.2/rewire-perk-and-attributes-loadout-system-rewire-perkloadouts-v1-0-0-5961832541db83ee.tar.zst.001",
-            "size": 506784,
-            "blake3": "7fad85eaf764324b60ca4fc268bcd4d0ca1c1a7b8cf0f7469377d8ed2c56a8fa"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/rewire-perk-and-attributes-loadout-system-rewire-perkloadouts-v1-0-0-5961832541db83ee.tar.zst.001",
+            "size": 506917,
+            "blake3": "f1fb96775421a06e7c3d57a25159963b37c5318ae0810df866dedde9dee2fa8f"
           }
         ]
       }
@@ -5011,6 +5225,7 @@
       "name": "Ricochet Redux",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "4.1.2",
       "author": "Seijax",
       "nexus": {
@@ -5035,6 +5250,7 @@
       "name": "Relic Enhanced",
       "enabled": true,
       "optional": true,
+      "coop": false,
       "version": "1.0.2",
       "author": "dnbnhlp",
       "nexus": {
@@ -5059,6 +5275,7 @@
       "name": "Weapons Improved",
       "enabled": false,
       "optional": true,
+      "coop": true,
       "version": "3.9.7",
       "author": "RelaxItsOk",
       "nexus": {
@@ -5083,6 +5300,7 @@
       "name": "Actually Smart Weapons",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "3.1",
       "author": "Seijax",
       "title": "Actually Smart Weapons (aim for the head)",
@@ -5108,6 +5326,7 @@
       "name": "Double Calibre",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.0.7",
       "author": "Oranje3",
       "nexus": {
@@ -5132,6 +5351,7 @@
       "name": "AKM Jackal Killer",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.0.1",
       "author": "argisht",
       "title": "AKM Jackal Killer Assault Rifle",
@@ -5157,6 +5377,7 @@
       "name": "AR-15 Berserker",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.0.3",
       "author": "argisht",
       "title": "AR-15 Berserker Assault Rifle",
@@ -5182,6 +5403,7 @@
       "name": "Mox Cache - New Iconic Weapons",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.0.2",
       "author": "Misoru",
       "nexus": {
@@ -5206,6 +5428,7 @@
       "name": "Tyger Cache - New Iconic Weapons",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.0.4",
       "author": "Misoru",
       "nexus": {
@@ -5230,6 +5453,7 @@
       "name": "MalorianArms 3516 Custom",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.1",
       "author": "sabbath7991",
       "nexus": {
@@ -5254,6 +5478,7 @@
       "name": "Nomad Cache - New Iconic Weapons",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.0.1",
       "author": "Misoru",
       "nexus": {
@@ -5278,6 +5503,7 @@
       "name": "Militech Sight Pack",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.5",
       "author": "sabbath7991",
       "nexus": {
@@ -5302,6 +5528,7 @@
       "name": "Night City Optics Pack",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.2",
       "author": "sabbath7991",
       "nexus": {
@@ -5326,6 +5553,7 @@
       "name": "Arasaka Weapons Pack",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.0",
       "author": "sabbath7991",
       "nexus": {
@@ -5350,6 +5578,7 @@
       "name": "Weapon Tweaks and Balance",
       "enabled": true,
       "optional": true,
+      "coop": false,
       "version": "1.10.2",
       "author": "Zako1989",
       "nexus": {
@@ -5374,6 +5603,7 @@
       "name": "Weapon Tweaks and Balance NPC",
       "enabled": true,
       "optional": true,
+      "coop": false,
       "version": "1.10",
       "author": "Zako1989",
       "title": "Weapon Tweaks and Balance",
@@ -5404,6 +5634,7 @@
       "name": "10 New Quickhacks - Netrunner's Arsenal - 10 New Quickhacks",
       "enabled": true,
       "optional": true,
+      "coop": false,
       "version": "4.00",
       "author": "Zeusico",
       "title": "10 New Quickhacks - Netrunner's Arsenal",
@@ -5429,6 +5660,7 @@
       "name": "Jacked In",
       "enabled": true,
       "optional": true,
+      "coop": false,
       "version": "1.7.2a",
       "author": "juiiicy00",
       "nexus": {
@@ -5453,6 +5685,7 @@
       "name": "Sit at netrunner chair - Extended - SANC - AIO Vanilla",
       "enabled": true,
       "optional": true,
+      "coop": false,
       "version": "1.0",
       "author": "juiiicy00",
       "title": "Sit at netrunner chair - Extended",
@@ -5478,20 +5711,21 @@
       "name": "Filthy Access Points",
       "enabled": true,
       "optional": true,
-      "version": "1.3",
+      "coop": true,
+      "version": "1.3.1",
       "author": "juiiicy00",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 27698
       },
       "package": {
-        "hash": "50758fb73bd65727691f61212802a6d6141ecd217fe085340949d51239337800",
-        "size": 943992,
+        "hash": "654bff2ce3ac30d75fa626737e0a672434da677d6232e2b8fef25f7777bf4b66",
+        "size": 945228,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.1.0/filthy-access-points-50758fb73bd65727.tar.zst.001",
-            "size": 899953,
-            "blake3": "903dda196a8e83f85223de76e6790d3eccdea6964b4dbfea7824723b871012a2"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/filthy-access-points-654bff2ce3ac30d7.tar.zst.001",
+            "size": 900348,
+            "blake3": "9bb1cdab8b3e15ff8b413aea2f4bba766ad20971cae1e98edc18f6003d182d44"
           }
         ]
       }
@@ -5502,6 +5736,7 @@
       "name": "Quickhack Fixes",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.3.5",
       "author": "The guy posting it",
       "nexus": {
@@ -5526,6 +5761,7 @@
       "name": "Widow's Web - New Quickhack",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.04",
       "author": "Zeusico",
       "nexus": {
@@ -5550,6 +5786,7 @@
       "name": "Thunderclap - New Custom Quickhack",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "2.04",
       "author": "Zeusico",
       "title": "Thunderclap - New Quickhack",
@@ -5575,6 +5812,7 @@
       "name": "Gravitational Force - New Quickhack",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "2.02",
       "author": "Zeusico",
       "nexus": {
@@ -5586,9 +5824,9 @@
         "size": 107271,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.2/gravitational-force-new-quickhack-a3d4cf9e47a493a2.tar.zst.001",
-            "size": 53919,
-            "blake3": "a608c7925beccf29d29f2fc45f34cc32d44dafad714a73090b6bbcd3ad6218fa"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/gravitational-force-new-quickhack-a3d4cf9e47a493a2.tar.zst.001",
+            "size": 53989,
+            "blake3": "dcef862f6d5f30bf0c2398a79fe5e7d00e09e92a1aadf65317483bfcff533369"
           }
         ]
       }
@@ -5599,6 +5837,7 @@
       "name": "Blackwall Takedown - New Quickhack",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.02",
       "author": "Zeusico",
       "nexus": {
@@ -5623,6 +5862,7 @@
       "name": "Quickhack Hotkeys",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "2.3.3",
       "author": "DJ_Kovrik",
       "nexus": {
@@ -5634,9 +5874,9 @@
         "size": 77823,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.2/quickhack-hotkeys-2759d0dbf2cedae8.tar.zst.001",
-            "size": 60691,
-            "blake3": "cdde4e63d0a08f7b4f17c803c625316299e49ab19b583f94f3cf315fc17c490c"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/quickhack-hotkeys-2759d0dbf2cedae8.tar.zst.001",
+            "size": 60766,
+            "blake3": "930ce7a35a32b2b4be5dc3516b5dbd237df705b4ca468c1cc0505189a3588ba6"
           }
         ]
       }
@@ -5647,6 +5887,7 @@
       "name": "Wyvern Protocol Hack",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.2",
       "author": "mitaywalle",
       "nexus": {
@@ -5671,6 +5912,7 @@
       "name": "Extra Loot - NCPD and NPCs drop loot - extra loot",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.0.0.2",
       "author": "yakuzadeso",
       "title": "Extra Loot - NCPD and NPCs drop loot",
@@ -5696,20 +5938,21 @@
       "name": "Shattered Chrome",
       "enabled": true,
       "optional": true,
-      "version": "4.10.2",
+      "coop": true,
+      "version": "4.10.4",
       "author": "DigitalVixen",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 29105
       },
       "package": {
-        "hash": "5e050dcf6badfa16f89ea3973a62d3854e31d10631584b0cd9a3f2d93829b203",
-        "size": 357081,
+        "hash": "94039fa98cb5d2ad63ad1c80fff9cc5a40ce1233b061316b1f400d9ae8728a34",
+        "size": 357443,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/shattered-chrome-5e050dcf6badfa16.tar.zst.001",
-            "size": 65828,
-            "blake3": "45f617f8692dbb76a71325e0a0e466546166f05db17f97f2f6c233ef4c89b693"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/shattered-chrome-94039fa98cb5d2ad.tar.zst.001",
+            "size": 65907,
+            "blake3": "cc2c931d1cb0e3fd14ccc4359dbbb9c0fbe39b216838d62d224d09e81e3765fc"
           }
         ]
       }
@@ -5720,20 +5963,21 @@
       "name": "Neuralware - Chipware Expansion",
       "enabled": true,
       "optional": true,
-      "version": "1.2.2",
+      "coop": true,
+      "version": "1.2.21",
       "author": "Phoenicia",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 19798
       },
       "package": {
-        "hash": "2d6da6e59d75c728d4ab7c91c55ef7825b5856575ae3df4f1f471b94fc09c083",
-        "size": 3325786,
+        "hash": "a64cd92b0f75c5a33aca96889505cb6dd93387296a7940937240234c282fa545",
+        "size": 3325802,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.2/neuralware-chipware-expansion-2d6da6e59d75c728.tar.zst.001",
-            "size": 2321478,
-            "blake3": "5e0c72e981d3f87557bd8c3e599449dd5a2da0629dd28750335ba0a528b45ce2"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/neuralware-chipware-expansion-a64cd92b0f75c5a3.tar.zst.001",
+            "size": 2321167,
+            "blake3": "18d2d83a007805da2b12b2ead220f8de1157df1811590bfe95ee6174e52af729"
           }
         ]
       }
@@ -5744,6 +5988,7 @@
       "name": "Wannabe Edgerunner",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "3.0.1",
       "author": "DJ_Kovrik",
       "title": "Wannabe Edgerunner - A simple Cyberpsychosis mod",
@@ -5769,6 +6014,7 @@
       "name": "Berserk Unchained",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "2.3.1",
       "author": "Seijax",
       "nexus": {
@@ -5793,6 +6039,7 @@
       "name": "Enhanced Edgerunner",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.01",
       "author": "dnbnhlp",
       "nexus": {
@@ -5817,6 +6064,7 @@
       "name": "Cyberware Improved",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.7.1",
       "author": "RelaxItsOk",
       "nexus": {
@@ -5841,20 +6089,21 @@
       "name": "Chrome Plating",
       "enabled": true,
       "optional": true,
-      "version": "3.12",
+      "coop": true,
+      "version": "3.13",
       "author": "DigitalVixen",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 29101
       },
       "package": {
-        "hash": "72c47c3256723145068c38c5146799d5e64ab714939382caa313205cc28eb612",
-        "size": 144448,
+        "hash": "6f16bb8e07b4df2b8b808efdce97826e66df260521d11611863cd38f9635e23f",
+        "size": 144700,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.2/chrome-plating-72c47c3256723145.tar.zst.001",
-            "size": 34308,
-            "blake3": "105b62ae3a6426f504615a107225d84c6ae4c756c17bdbc1464aeff467b2c0bc"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/chrome-plating-6f16bb8e07b4df2b.tar.zst.001",
+            "size": 34471,
+            "blake3": "f3f57e0bb8fda9dbb357b74435bb15548e2679db8834f00f8c607044f4b907b1"
           }
         ]
       }
@@ -5865,6 +6114,7 @@
       "name": "Black Chrome - Cyberware Expansion",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.1.150",
       "author": "Phoenicia",
       "nexus": {
@@ -5889,6 +6139,7 @@
       "name": "Extra Hands",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "2.2.3",
       "author": "Seijax",
       "title": "Extra Hands (cyberware)",
@@ -5914,6 +6165,7 @@
       "name": "Gravitas - New Custom Cyberware",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.04",
       "author": "Zeusico",
       "nexus": {
@@ -5925,9 +6177,9 @@
         "size": 58173,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.2/gravitas-new-custom-cyberware-e94b545264560c36.tar.zst.001",
-            "size": 32188,
-            "blake3": "a40e35baae0b237f6d6d00b2a9e0c5d46c8d9ba87f61886fd62d15268de56305"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/gravitas-new-custom-cyberware-e94b545264560c36.tar.zst.001",
+            "size": 32251,
+            "blake3": "173cbd25d08343dafba60be13d87e254782f4be523b1f8cd05b4d4695828c479"
           }
         ]
       }
@@ -5938,6 +6190,7 @@
       "name": "Merc Protocol - Perk Gameplay Expansion",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "2.13",
       "author": "0nlyQ",
       "nexus": {
@@ -5962,20 +6215,21 @@
       "name": "Better Leveling (Revamp of Custom Level Cap)",
       "enabled": true,
       "optional": true,
-      "version": "2.3.3",
+      "coop": true,
+      "version": "2.5.1",
       "author": "BiasNil",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 22784
       },
       "package": {
-        "hash": "5b308c1dad967374c7af00a2b8d2daf4d066461c2417b65fb56596369bf14ab4",
-        "size": 135821,
+        "hash": "626783e7269e9ce4fa978638fa3af21cb908544f19c2d1b52b7cef4a8d2dc623",
+        "size": 134321,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/better-leveling-revamp-of-custom-level-cap-5b308c1dad967374.tar.zst.001",
-            "size": 29281,
-            "blake3": "31d046817aff0a22c481a952239312e487f835c6f41923d06e7deb2ffe1ef203"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/better-leveling-revamp-of-custom-level-cap-626783e7269e9ce4.tar.zst.001",
+            "size": 31656,
+            "blake3": "9c0071bafce79dc6485f904c1a25f9065c19c44a561bb43b6ab8feff75d13e7e"
           }
         ]
       }
@@ -5986,6 +6240,7 @@
       "name": "Dead Shot - Custom Perk Tree for Snipers",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.3",
       "author": "StoofyFrond",
       "nexus": {
@@ -6010,6 +6265,7 @@
       "name": "Convo Skill Check Scaling",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.4.1",
       "author": "RMK",
       "nexus": {
@@ -6034,6 +6290,7 @@
       "name": "Bullet Ballet - Custom Perk Tree for Pistol Play",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.1.3",
       "author": "StoofyFrond",
       "nexus": {
@@ -6058,6 +6315,7 @@
       "name": "Monowire Perk Tree 2.0",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.2",
       "author": "IMES",
       "nexus": {
@@ -6082,6 +6340,7 @@
       "name": "Running Man - New Sprinting Perks",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.2.2",
       "author": "RMK",
       "nexus": {
@@ -6106,6 +6365,7 @@
       "name": "New Skill Mod -Called Shot- - Called Shot 1.0",
       "enabled": true,
       "optional": true,
+      "coop": false,
       "version": "1.0",
       "author": "ISSENNNN",
       "title": "New Skill Mod -Called Shot-",
@@ -6131,6 +6391,7 @@
       "name": "LynoEconomy",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.2.2",
       "package": {
         "hash": "05736244073ce4a38856c0b91b2f75c8d6ac0992f202b842885765c90ba69316",
@@ -6150,6 +6411,7 @@
       "name": "LynoEconomy-Compatibility",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.5.1",
       "package": {
         "hash": "ba7a9531cdd6e32b552b12bfdf12e03a80514ceedc08c265690efad083343ae9",
@@ -6169,6 +6431,7 @@
       "name": "Enhanced Craft",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "4.1",
       "author": "DJ_Kovrik",
       "nexus": {
@@ -6193,6 +6456,7 @@
       "name": "VendorsXL",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "2.2",
       "author": "Deceptious",
       "nexus": {
@@ -6217,6 +6481,7 @@
       "name": "Bounties Restored",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.0.2",
       "author": "Phoenicia",
       "nexus": {
@@ -6246,20 +6511,21 @@
       "name": "Melee Attack Variety",
       "enabled": true,
       "optional": true,
-      "version": "1.0.1",
+      "coop": true,
+      "version": "1.1",
       "author": "dnbnhlp",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 32817
       },
       "package": {
-        "hash": "47ccb1f4fe0f9ae5e4cff67d0c8e4b865d7aefd95289ab9c43a126ca37c343ef",
-        "size": 8753,
+        "hash": "2eea71bdc796571708133fe3b7b5b76aa08d52ca15a1c2e7156f41026c1fb41e",
+        "size": 13292,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/melee-attack-variety-47ccb1f4fe0f9ae5.tar.zst.001",
-            "size": 4235,
-            "blake3": "a4084e17e3e8919986c48fadbefa03017780300976af9503dc6e7737fbbedd02"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/melee-attack-variety-2eea71bdc7965717.tar.zst.001",
+            "size": 5123,
+            "blake3": "2d9595f45f8c1fe77ceeb15d32b67e9ae30381537f4be8d7ee1eb56976d4117a"
           }
         ]
       }
@@ -6270,20 +6536,21 @@
       "name": "Stealthrunner - Stealth Gameplay Expansion",
       "enabled": true,
       "optional": true,
-      "version": "1.11.2",
+      "coop": false,
+      "version": "1.11.3",
       "author": "RMK",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 7616
       },
       "package": {
-        "hash": "20ad142eea9ad9f319c7bec7024df8b8133421a68b0954e0f663380dabd5c0db",
-        "size": 39953161,
+        "hash": "70de12c8fbb56f71e2b85083c6056c917ea6fdf68579cd76aa5af554b25cd7a5",
+        "size": 39953874,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.2/stealthrunner-stealth-gameplay-expansion-20ad142eea9ad9f3.tar.zst.001",
-            "size": 38195542,
-            "blake3": "983c92e4fdf81e7d25b6f05813c33bc61c7d0927a92070230f7250fe76268d57"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/stealthrunner-stealth-gameplay-expansion-70de12c8fbb56f71.tar.zst.001",
+            "size": 38195770,
+            "blake3": "64353efec0db4d909b1393bd622897d98b8ac876789992d31bec942411d28042"
           }
         ]
       }
@@ -6294,6 +6561,7 @@
       "name": "Body Shield",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.2",
       "author": "Seijax",
       "nexus": {
@@ -6318,6 +6586,7 @@
       "name": "Melee Attacks Fixes And Enhancements",
       "enabled": false,
       "optional": true,
+      "coop": false,
       "version": "0.41",
       "author": "sosuinepsixuyu",
       "nexus": {
@@ -6342,6 +6611,7 @@
       "name": "Combat Evolved",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "4.16.9",
       "author": "DigitalVixen",
       "nexus": {
@@ -6366,6 +6636,7 @@
       "name": "MaxTac Enhanced",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.0",
       "author": "dnbnhlp",
       "nexus": {
@@ -6395,6 +6666,7 @@
       "name": "Ragdoll Physics Overhaul",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "2.0",
       "author": "SketchCritic",
       "nexus": {
@@ -6419,6 +6691,7 @@
       "name": "GoreRunner",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "2.02",
       "author": "Cazanu",
       "title": "GoreRunner (Blood and Carnage Overhaul)",
@@ -6431,9 +6704,9 @@
         "size": 920365874,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.2/gorerunner-fad027cbc3684717.tar.zst.001",
-            "size": 863959758,
-            "blake3": "a197d266aadca90b5a5c87678e268e27fd8c8fb39f2515f88acb61a81e4584b8"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/gorerunner-fad027cbc3684717.tar.zst.001",
+            "size": 863959830,
+            "blake3": "8c85eae64f1c3daf5c6066861583fbdea6283d7b9abdfcf1a302a93b453aadf8"
           }
         ]
       }
@@ -6444,6 +6717,7 @@
       "name": "Headshot Ragdoll",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.1A",
       "author": "NekoNyannnn",
       "nexus": {
@@ -6468,6 +6742,7 @@
       "name": "Explosion Knockback and Ragdoll Overhaul",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.23",
       "author": "cradilyex",
       "nexus": {
@@ -6492,6 +6767,7 @@
       "name": "Reduced Ragdoll Force (no flying backwards when shot with a pistol)",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "2.0.1",
       "author": "TheRealGibbon",
       "nexus": {
@@ -6516,6 +6792,7 @@
       "name": "Immersive Explosions",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.1.4",
       "author": "dnbnhlp",
       "nexus": {
@@ -6540,6 +6817,7 @@
       "name": "Enable Finisher Ragdolls",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "0.1",
       "author": "Kvalyr",
       "nexus": {
@@ -6564,6 +6842,7 @@
       "name": "Faster Vehicle Knockback Animation",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.1",
       "author": "JohnsonsStuff",
       "nexus": {
@@ -6608,6 +6887,7 @@
       "name": "No Paper Bags From Vending Machines",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.2",
       "author": "johnson",
       "nexus": {
@@ -6632,6 +6912,7 @@
       "name": "Dark Future",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "3.0-for-2.5",
       "author": "Dark Fortune Teller",
       "title": "Dark Future - Urban Survival Gameplay",
@@ -6644,9 +6925,9 @@
         "size": 101659691,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.2/dark-future-bb6f9dfdf20714a2.tar.zst.001",
-            "size": 97957468,
-            "blake3": "6fb93731e61e329a56327ffc0b359bb2fbc27a89a2537685e975618401e9a4cd"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/dark-future-bb6f9dfdf20714a2.tar.zst.001",
+            "size": 97957536,
+            "blake3": "a51c9fe06c6cf2da2c734c5e0d75856beef5ccc1c3dd91a486818b1d519a608e"
           }
         ]
       }
@@ -6657,6 +6938,7 @@
       "name": "Idle Anywhere",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "2.4.1",
       "author": "Deceptious",
       "nexus": {
@@ -6681,6 +6963,7 @@
       "name": "Eviction Notice - Story-Driven Rent System",
       "enabled": true,
       "optional": true,
+      "coop": false,
       "version": "1.0.3-for-2.3",
       "author": "Dark Fortune Teller",
       "nexus": {
@@ -6705,6 +6988,7 @@
       "name": "Gambling Website (Online games)",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "2.2",
       "author": "Dedra",
       "nexus": {
@@ -6729,6 +7013,7 @@
       "name": "SynthDose - More Drugs",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.3.9",
       "author": "Phoenicia",
       "nexus": {
@@ -6753,6 +7038,7 @@
       "name": "Immersive Timeskip",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "2.2.3",
       "author": "DJ_Kovrik",
       "nexus": {
@@ -6777,6 +7063,7 @@
       "name": "Say Hi Choom",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.2.1",
       "author": "S1nonim",
       "nexus": {
@@ -6801,6 +7088,7 @@
       "name": "Game Time Tweaks",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "0.2",
       "author": "DJ_Kovrik",
       "nexus": {
@@ -6825,6 +7113,7 @@
       "name": "Trauma Team International - Premium Coverage",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "3.2.2",
       "author": "juiiicy00",
       "nexus": {
@@ -6849,6 +7138,7 @@
       "name": "Anti-Theft Measures",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "2.3.1",
       "author": "NightlyNow",
       "nexus": {
@@ -6873,6 +7163,7 @@
       "name": "Immersive Odometer and Fuel System",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "5.5",
       "author": "elminister",
       "nexus": {
@@ -6895,22 +7186,23 @@
       "kind": "mod",
       "id": "immersive-rippers",
       "name": "Immersive Rippers",
-      "enabled": false,
+      "enabled": true,
       "optional": true,
-      "version": "2.6",
+      "coop": true,
+      "version": "2.6.2",
       "author": "Deceptious",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 7064
       },
       "package": {
-        "hash": "59fee76e6ac2f9c36634415fc861fdf31e6ff77d02126a0c57e07ee38e99d2f7",
-        "size": 468397,
+        "hash": "5ead35f9e9f2259bd1b53d41562cbed24d94b3de9c4ad332f9618207c2e515f0",
+        "size": 464604,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/immersive-rippers-59fee76e6ac2f9c3.tar.zst.001",
-            "size": 453672,
-            "blake3": "f98cc656327f142eedc953fbcfc7cab4fd90343cc34b8de1f090d2453a38a120"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/immersive-rippers-5ead35f9e9f2259b.tar.zst.001",
+            "size": 448925,
+            "blake3": "6f499468363cf7cf9ea1b81ebe82e47b59d6fd9150d69f498700faf4d479d20b"
           }
         ]
       }
@@ -6921,6 +7213,7 @@
       "name": "Immersive Components",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "2024.0-06-09",
       "author": "DeepBlueFrog",
       "nexus": {
@@ -6945,6 +7238,7 @@
       "name": "Taxi Work in Night City",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "0.4.6",
       "author": "RollermineC",
       "nexus": {
@@ -6969,6 +7263,7 @@
       "name": "Consumable Animations",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.1.3-for-2.31",
       "author": "Dark Fortune Teller",
       "nexus": {
@@ -6993,6 +7288,7 @@
       "name": "Much Better Contracts (Repeatable Gigs) - Much Better Contracts",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "2.1",
       "author": "0nlyQ",
       "title": "Much Better Contracts (Repeatable Gigs)",
@@ -7018,6 +7314,7 @@
       "name": "NCI Addon - Westbrook - NCI Westbrook",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "2.0",
       "author": "Deceptious",
       "title": "NCI Addon - Westbrook",
@@ -7043,6 +7340,7 @@
       "name": "NCI Addon - Watson - NCI Watson",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "2.0.1",
       "author": "Deceptious",
       "title": "NCI Addon - Watson",
@@ -7068,6 +7366,7 @@
       "name": "NCI Addon - Heywood - NCI Heywood",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "2.0",
       "author": "Deceptious",
       "title": "NCI Addon - Heywood",
@@ -7093,6 +7392,7 @@
       "name": "NCI Addon - Badlands and Pacifica - NCI Badlands and Pacifica",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "2.0.1",
       "author": "Deceptious",
       "title": "NCI Addon - Badlands and Pacifica",
@@ -7118,6 +7418,7 @@
       "name": "NCI Addon - City Center - NCI City Center",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "2.0",
       "author": "Deceptious",
       "title": "NCI Addon - City Center",
@@ -7143,6 +7444,7 @@
       "name": "Audible Traffic Radios",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.0",
       "author": "Spuddeh",
       "nexus": {
@@ -7172,6 +7474,7 @@
       "name": "Airdrops - More Hidden Gems",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.0",
       "author": "anygoodname",
       "nexus": {
@@ -7196,6 +7499,7 @@
       "name": "NC Courier Jobs",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "6",
       "author": "elminister",
       "nexus": {
@@ -7207,9 +7511,9 @@
         "size": 19462722,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.2/nc-courier-jobs-59e7379813f5c038.tar.zst.001",
-            "size": 10433908,
-            "blake3": "556dd43fb4943c8d9d0a102ae81fe2109ee90dedc08494d63858b129d12f1e00"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/nc-courier-jobs-59e7379813f5c038.tar.zst.001",
+            "size": 10433153,
+            "blake3": "02fd9bb8c850d6d4362c8ff215020fa3b2d6b2714ee3072c507cd21a4da032e7"
           }
         ]
       }
@@ -7218,9 +7522,10 @@
       "kind": "mod",
       "id": "eden-plaza-charter-hill-player-penthouse",
       "name": "Eden Plaza - Charter Hill Player Penthouse",
-      "enabled": false,
+      "enabled": true,
       "optional": true,
-      "version": "1.1",
+      "coop": true,
+      "version": "1.1.1",
       "author": "Magicman010",
       "title": "Eden Plaza - Charter Hill Player Penthouse (World Builder)",
       "nexus": {
@@ -7228,13 +7533,13 @@
         "modId": 25409
       },
       "package": {
-        "hash": "87387eb92a9351215824e77273dc89e59c6e34265009e63e107c17c99498d5ae",
-        "size": 954512,
+        "hash": "0c605ed8039ef787b4b34ae530efecbb75952250c3f4563d30be8b437d61d823",
+        "size": 978134,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/eden-plaza-charter-hill-player-penthouse-87387eb92a935121.tar.zst.001",
-            "size": 597887,
-            "blake3": "b4c6a9ff74c747ff07e85d55305d8ae0a96fa9ff150f5e06f541ddf5050c9e24"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/eden-plaza-charter-hill-player-penthouse-0c605ed8039ef787.tar.zst.001",
+            "size": 598423,
+            "blake3": "4d481b0006b73fd90400216cef206db115a5d5e4428e6163056b08f007f550a7"
           }
         ]
       }
@@ -7243,22 +7548,23 @@
       "kind": "mod",
       "id": "japantown-north-verticality-expanded",
       "name": "Japantown North Verticality Expanded",
-      "enabled": false,
+      "enabled": true,
       "optional": true,
-      "version": "1.4",
+      "coop": true,
+      "version": "1.5.1",
       "author": "Lord Trilobite",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 25441
       },
       "package": {
-        "hash": "1bae491c2b0a4be6e579fa2f93349ecf288e5676bff69ae8ebfc729961ed31ee",
-        "size": 2044083,
+        "hash": "63fc06b46bf034696d9fe6ecfb3d8898655946fed3e9bd9346b600c17986a0bc",
+        "size": 2128593,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.7/japantown-north-verticality-expanded-1bae491c2b0a4be6.tar.zst.001",
-            "size": 1261636,
-            "blake3": "356a70f67d12bf8f1cbee7f0dbd50931acbb3a36388510b041e4e99cde06041a"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/japantown-north-verticality-expanded-63fc06b46bf03469.tar.zst.001",
+            "size": 1260560,
+            "blake3": "719d95f6fa13f6f3db2ab4a64584501b0109a94899f69a98fad512538f7e6bfe"
           }
         ]
       }
@@ -7267,22 +7573,23 @@
       "kind": "mod",
       "id": "japantown-north-penthouse-player-apartment",
       "name": "Japantown North Penthouse - Player Apartment",
-      "enabled": false,
+      "enabled": true,
       "optional": true,
-      "version": "1.0",
+      "coop": true,
+      "version": "1.2.1",
       "author": "LordTrilobite",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 26587
       },
       "package": {
-        "hash": "413f10ec5b777f11ebb783d05f1f2903981f173c5d0315f457b4f2a375d9f700",
-        "size": 418814,
+        "hash": "12d27f2f57d0d0122ef716c85f491009481ad8fe908c1049bc82d461ecb69057",
+        "size": 1474089,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.1/japantown-north-penthouse-player-apartment-413f10ec5b777f11.tar.zst.001",
-            "size": 267346,
-            "blake3": "67ad2227d4b3ff5eeb32e3205ab6ff03259c8106bd9572b1e01f5f6f65647ba3"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/japantown-north-penthouse-player-apartment-12d27f2f57d0d012.tar.zst.001",
+            "size": 1311241,
+            "blake3": "881f94dc66e5c964110fdc540f0149f23aed1af4f3d4976ba18c959309587943"
           }
         ]
       }
@@ -7298,6 +7605,7 @@
       "name": "New Game Plus - Native",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.4.1",
       "author": "not_alphanine",
       "nexus": {
@@ -7309,9 +7617,9 @@
         "size": 5404545,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.2/new-game-plus-native-c863af239857f976.tar.zst.001",
-            "size": 4413176,
-            "blake3": "9724e7cb8bbff36a148bc9c1ce62db1c1adb467c042b2583aad0cf3d690bf51a"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/new-game-plus-native-c863af239857f976.tar.zst.001",
+            "size": 4413263,
+            "blake3": "6f2850ef8238f7cac2e598dc1fca83e788d5fb438095863d48fd61e7190c5b58"
           }
         ]
       }
@@ -7322,6 +7630,7 @@
       "name": "Night City Remembers",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "3.8.2",
       "author": "DigitalVixen",
       "nexus": {
@@ -7346,6 +7655,7 @@
       "name": "Non-Canon Romances Enhanced",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.5.1",
       "author": "Deceptious",
       "nexus": {
@@ -7370,6 +7680,7 @@
       "name": "Lizzie's Braindances - game version 2.5",
       "enabled": true,
       "optional": true,
+      "coop": false,
       "version": "3.20.1-dev.2",
       "author": "The Mox and ArmanIII",
       "title": "Lizzie's Braindances",
@@ -7395,20 +7706,21 @@
       "name": "New Lifepath Intro - Fresh Start",
       "enabled": true,
       "optional": true,
-      "version": "1.6",
+      "coop": true,
+      "version": "1.6.1",
       "author": "Deceptious",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 18223
       },
       "package": {
-        "hash": "dd8e1966223dba73c46219dfbbf3778d0aab89fb4afab83edbfc009237263be6",
-        "size": 42769859,
+        "hash": "40472bca4957c8c0efb34d83589b11911eed93c176c302a641ee20b099ba466c",
+        "size": 42770033,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.2/new-lifepath-intro-fresh-start-dd8e1966223dba73.tar.zst.001",
-            "size": 36078517,
-            "blake3": "fa8b51547615ba9e81ba720be6ecf66cb9042fb1a1ac088e55ccbefe9f1e3166"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/new-lifepath-intro-fresh-start-40472bca4957c8c0.tar.zst.001",
+            "size": 36078478,
+            "blake3": "50ae3e4bb6256551028a83bb7633b5b6f81232be30a1cbfd01c6b15711c4f08a"
           }
         ]
       }
@@ -7419,6 +7731,7 @@
       "name": "Immersive V Dialogue Expanded",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.1",
       "author": "skyrayfox",
       "nexus": {
@@ -7443,6 +7756,7 @@
       "name": "Lucy Romanced (Immersive Edgerunner Quest)",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.6",
       "author": "Dedra",
       "nexus": {
@@ -7467,20 +7781,21 @@
       "name": "ONI - Arasaka's Demon (Lore-Friendly Questline Companion and Romance)",
       "enabled": true,
       "optional": true,
-      "version": "1.3.1",
+      "coop": true,
+      "version": "1.3.3",
       "author": "GetTenSO",
       "nexus": {
         "game": "cyberpunk2077",
         "modId": 34062
       },
       "package": {
-        "hash": "1e6396a1deb9cfd2717f13d3451c08635f19e1fd0cdbf0dbb7090fa6bc0d561e",
-        "size": 117877785,
+        "hash": "93de5f9fe4d9d54f20bb34ca7d647bf166da80995ed2afa2ea620dd1e06b0620",
+        "size": 117892235,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.2/oni-arasaka-s-demon-lore-friendly-questline-companion-and-romance-1e6396a1deb9cfd2.tar.zst.001",
-            "size": 116019563,
-            "blake3": "9a4434f0cc7fce678487f6dd11715e08dbc5eb345e34dffd11b5a72fdf0dae55"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/oni-arasaka-s-demon-lore-friendly-questline-companion-and-romance-93de5f9fe4d9d54f.tar.zst.001",
+            "size": 116022016,
+            "blake3": "dfe541217cb091f36a324e8c5dc92e4938a77e16ef4159297cfca672b7e97ccb"
           }
         ]
       }
@@ -7496,6 +7811,7 @@
       "name": "Crowd Variety Restored",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.0.4",
       "author": "dnbnhlp",
       "nexus": {
@@ -7520,6 +7836,7 @@
       "name": "NCPD Fixes",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "cpdf-1.5",
       "author": "Demon9ne",
       "nexus": {
@@ -7544,6 +7861,7 @@
       "name": "Spawned NPC Post Combat Fix",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.2",
       "author": "cradilyex",
       "nexus": {
@@ -7568,6 +7886,7 @@
       "name": "Fighting Gangs Allowed - Reasonable Police",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.0",
       "author": "Valour549",
       "nexus": {
@@ -7592,6 +7911,7 @@
       "name": "Reinforcements System",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.2.1",
       "author": "Phoenicia",
       "nexus": {
@@ -7616,6 +7936,7 @@
       "name": "Random Netrunners",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.2.2",
       "author": "Seijax",
       "nexus": {
@@ -7640,6 +7961,7 @@
       "name": "Night City Allies - Immersive Companion System",
       "enabled": true,
       "optional": true,
+      "coop": false,
       "version": "1.6.11",
       "author": "Dray",
       "nexus": {
@@ -7651,9 +7973,9 @@
         "size": 3992181,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.2/night-city-allies-immersive-companion-system-a6de888a78227cfc.tar.zst.001",
-            "size": 2790473,
-            "blake3": "c7a7da48852b68fa47222fb64d60079bb75794eee28dd2c3a173b83e79908272"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/night-city-allies-immersive-companion-system-a6de888a78227cfc.tar.zst.001",
+            "size": 2790551,
+            "blake3": "a2e7d3d14e7bc7d7136770a516a50d9ec35555e3edf6fb0207d8f88d1b144430"
           }
         ]
       }
@@ -7664,6 +7986,7 @@
       "name": "Reinforcements - Gang Vs Gang",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "3.1.3",
       "author": "Gibbon",
       "nexus": {
@@ -7688,6 +8011,7 @@
       "name": "Edgerunners Lucy NPC - Spawns in Night City plus AMM and Photomode AXL",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "2.2",
       "author": "xBaebsae",
       "nexus": {
@@ -7717,6 +8041,7 @@
       "name": "Shift (Dynamic First Person Camera) - Shift",
       "enabled": false,
       "optional": true,
+      "coop": false,
       "version": "1.14",
       "author": "CyanideX",
       "title": "Shift (Dynamic First Person Camera)",
@@ -7742,6 +8067,7 @@
       "name": "Enhanced Vehicle Collision FX",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "2.3.1",
       "author": "Gashetka",
       "nexus": {
@@ -7766,6 +8092,7 @@
       "name": "Auto Drive Enhanced",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "0.0.0.21",
       "author": "nobo",
       "nexus": {
@@ -7777,9 +8104,9 @@
         "size": 261169,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.2/auto-drive-enhanced-33034f21d662e768.tar.zst.001",
-            "size": 93366,
-            "blake3": "df2d35a648e475cc17683518bc018183b9e544766ad123fb9c4c03bd7054fb53"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/auto-drive-enhanced-33034f21d662e768.tar.zst.001",
+            "size": 93441,
+            "blake3": "9b2621916230673528aa95127b8c0fcad1137f1d6cc919aabdeda25d965a58d0"
           }
         ]
       }
@@ -7790,6 +8117,7 @@
       "name": "Authentic Shift (QoL Gear Ratios Shifts Audio Sound ASMR and OPTIONAL Tuning System)",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "2.20.1",
       "author": "imbamakaber",
       "nexus": {
@@ -7814,6 +8142,7 @@
       "name": "Enhanced Vehicle System",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "17.8",
       "author": "YG",
       "nexus": {
@@ -7843,6 +8172,7 @@
       "name": "Night City Traffic Overhaul",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "3.02",
       "author": "cradilyex",
       "nexus": {
@@ -7867,6 +8197,7 @@
       "name": "Night City Fleet Expansion",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.0.1",
       "author": "Alex Ashfold",
       "nexus": {
@@ -7889,9 +8220,10 @@
       "kind": "mod",
       "id": "traffic-lights-behavior-overhaul-tlbo-tlbo-aio-except-for-one-lane-per-turn",
       "name": "Traffic Lights Behavior Overhaul (TLBO) - TLBO - AIO (Except for 'One Lane Per Turn')",
-      "enabled": false,
+      "enabled": true,
       "optional": true,
-      "version": "1.2",
+      "coop": true,
+      "version": "1.3",
       "author": "cipher0001",
       "title": "Traffic Lights Behavior Overhaul (TLBO)",
       "nexus": {
@@ -7899,13 +8231,13 @@
         "modId": 34586
       },
       "package": {
-        "hash": "ed0cb83123220c3cf44c051ac3b80524e06058dd56d74e172c24e6a0d1e899f4",
-        "size": 304152,
+        "hash": "b42c72b9abe56132999370d08e62e01e6aa91795fd62809dc4a42403b87e32ed",
+        "size": 284593,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.0.4/traffic-lights-behavior-overhaul-tlbo-tlbo-aio-except-for-one-lane-per-turn-ed0cb83123220c3c.tar.zst.001",
-            "size": 144147,
-            "blake3": "97583c794c8357dc5642fe62d2edf2c660218970831be868c0eaa36735bb13eb"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/traffic-lights-behavior-overhaul-tlbo-tlbo-aio-except-for-one-lane-per-turn-b42c72b9abe56132.tar.zst.001",
+            "size": 136522,
+            "blake3": "24b7885d208bb59d868ce674fba53e22c060e6da1c8fa06f0ed10615f41c483b"
           }
         ]
       }
@@ -7921,6 +8253,7 @@
       "name": "Dedka Car Dealership - Working Vehicle Shop Framework",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.2",
       "author": "Dedra and Kaoziun",
       "nexus": {
@@ -7945,6 +8278,7 @@
       "name": "Garage (Customize - Claim - Sell - Repair - Swap)",
       "enabled": false,
       "optional": true,
+      "coop": true,
       "version": "1.0.4",
       "author": "CyanideX",
       "nexus": {
@@ -7969,6 +8303,7 @@
       "name": "Garage Manager",
       "enabled": false,
       "optional": true,
+      "coop": true,
       "version": "1.0",
       "author": "CyanideX",
       "nexus": {
@@ -7993,6 +8328,7 @@
       "name": "AutoFixer Customs",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.0",
       "author": "Erok",
       "nexus": {
@@ -8017,6 +8353,7 @@
       "name": "SDH0's Vehicle Resources",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "2.0.1",
       "author": "SDH0",
       "nexus": {
@@ -8028,9 +8365,9 @@
         "size": 5415879,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.2/sdh0-s-vehicle-resources-8cc96b95891ef880.tar.zst.001",
-            "size": 5126799,
-            "blake3": "5dbc5293c15c362fef7a9551e9d90c5aec391f882b34ff54eaa2b7ab0b797e89"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/sdh0-s-vehicle-resources-8cc96b95891ef880.tar.zst.001",
+            "size": 5126886,
+            "blake3": "6d24db55943223163c0fa1e705ecbfdc947effb5743327893d142d458eb94163"
           }
         ]
       }
@@ -8041,6 +8378,7 @@
       "name": "Garage Locations El",
       "enabled": false,
       "optional": true,
+      "coop": true,
       "version": "1.0ecg",
       "author": "CyanideX",
       "title": "Garage (Customize - Claim - Sell - Repair - Swap)",
@@ -8066,6 +8404,7 @@
       "name": "Garage Locations",
       "enabled": false,
       "optional": true,
+      "coop": true,
       "version": "1.0loc",
       "author": "CyanideX",
       "title": "Garage (Customize - Claim - Sell - Repair - Swap)",
@@ -8091,6 +8430,7 @@
       "name": "Garage Service",
       "enabled": false,
       "optional": true,
+      "coop": true,
       "version": "1.0am",
       "author": "CyanideX",
       "title": "Garage (Customize - Claim - Sell - Repair - Swap)",
@@ -8116,6 +8456,7 @@
       "name": "Garage Service Quick",
       "enabled": false,
       "optional": true,
+      "coop": true,
       "version": "1.0qs",
       "author": "CyanideX",
       "title": "Garage (Customize - Claim - Sell - Repair - Swap)",
@@ -8141,6 +8482,7 @@
       "name": "Garage Service Chop Shop",
       "enabled": false,
       "optional": true,
+      "coop": true,
       "version": "1.0.1cs",
       "author": "CyanideX",
       "title": "Garage (Customize - Claim - Sell - Repair - Swap)",
@@ -8166,6 +8508,7 @@
       "name": "Garage Service - Swap",
       "enabled": false,
       "optional": true,
+      "coop": false,
       "version": "1.0.4s",
       "author": "CyanideX",
       "title": "Garage (Customize - Claim - Sell - Repair - Swap)",
@@ -8191,6 +8534,7 @@
       "name": "Garage Service - Repair",
       "enabled": false,
       "optional": true,
+      "coop": false,
       "version": "1.0rs",
       "author": "CyanideX",
       "title": "Garage (Customize - Claim - Sell - Repair - Swap)",
@@ -8216,6 +8560,7 @@
       "name": "Quadra Turbo-Z",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "2.11",
       "author": "ctxrlsec",
       "nexus": {
@@ -8240,6 +8585,7 @@
       "name": "Quadra Luxe R-9 660 Redux - Quadra Luxe R9 660",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1",
       "author": "FreakyAlienGenotype",
       "title": "Quadra Luxe R-9 660 Redux",
@@ -8270,6 +8616,7 @@
       "name": "Cute and Sexy Pose Pack for FemV",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "3.4",
       "author": "xBaebsae",
       "title": "Cute and Sexy Pose Pack for FemV - Photomode and AMM",
@@ -8295,6 +8642,7 @@
       "name": "PANTHEON Pose Collection",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.0",
       "author": "offweather",
       "title": "mossglyph_AXIOM Pose Pack",
@@ -8320,6 +8668,7 @@
       "name": "mossglyph_MAIN CHARACTER Pose Pack",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.0",
       "author": "offweather",
       "nexus": {
@@ -8344,6 +8693,7 @@
       "name": "THE RESERVE_Pose Collection",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.0",
       "author": "offweather",
       "nexus": {
@@ -8368,6 +8718,7 @@
       "name": "Photomode Tweaks",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.1",
       "author": "nutboy",
       "nexus": {
@@ -8392,6 +8743,7 @@
       "name": "LF Portrait Light Studio - PT RT and Raster",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "0.17.8",
       "author": "LithiumFlower",
       "nexus": {
@@ -8403,9 +8755,9 @@
         "size": 62981373,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.2/lf-portrait-light-studio-pt-rt-and-raster-37c1fb9187298f50.tar.zst.001",
-            "size": 39550958,
-            "blake3": "76e9a5d0c769f503f7ca51fd7109b75cd92c77dc5c05359b6accc318957bb764"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/lf-portrait-light-studio-pt-rt-and-raster-37c1fb9187298f50.tar.zst.001",
+            "size": 39551037,
+            "blake3": "b1d802296c55007617452a3bb43af867279b367b68484d7045baf80054aa5dd0"
           }
         ]
       }
@@ -8416,6 +8768,7 @@
       "name": "Spitfire Pose Pack",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.0",
       "author": "ShadowTheDM",
       "nexus": {
@@ -8440,6 +8793,7 @@
       "name": "Photo Mode Pose Selector",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.5.2",
       "author": "cjsu",
       "nexus": {
@@ -8468,6 +8822,7 @@
       "name": "Actually Smart Weapons RU",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "3.1",
       "author": "ValikBLR",
       "nexus": {
@@ -8492,6 +8847,7 @@
       "name": "Eviction Notice RU",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.6",
       "author": "S1nonim",
       "title": "Eviction Notice - Story-Driven Rent System Russian Translation",
@@ -8517,6 +8873,7 @@
       "name": "Native Settings UI Side Menu Add-on RU",
       "enabled": false,
       "optional": true,
+      "coop": false,
       "version": "1.3.5",
       "author": "ValikBLR",
       "nexus": {
@@ -8541,6 +8898,7 @@
       "name": "SynthDose_1.3.9_RU",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.3.9",
       "author": "8LOMU8",
       "nexus": {
@@ -8565,6 +8923,7 @@
       "name": "Dark Future RU",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "3.0-ru.1",
       "package": {
         "hash": "3c64ec19fd5294ba9d7e3251bd430ef3a5ec736b6b107386a4d1a9e21ea8c158",
@@ -8584,6 +8943,7 @@
       "name": "Quickhack_Fixes RU",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.2.1",
       "author": "play6ner",
       "title": "Quickhack_Fixes_ru",
@@ -8609,6 +8969,7 @@
       "name": "Random Netrunners RU",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.0",
       "author": "k33to",
       "title": "Russian translation for Random Netrunners 1.1.0",
@@ -8634,6 +8995,7 @@
       "name": "New Game Plus RU",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.1.91",
       "author": "Procion",
       "title": "New Game Plus - RU Translation",
@@ -8659,6 +9021,7 @@
       "name": "New Lifepath Intro - Fresh Start RU",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.3",
       "author": "ValikBLR",
       "nexus": {
@@ -8683,6 +9046,7 @@
       "name": "Enhanced Vehicle System RU",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.8",
       "author": "Masuryan",
       "title": "Enhanced Vehicle System Russian Translation",
@@ -8708,6 +9072,7 @@
       "name": "Computer Anywhere RU",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.2",
       "author": "8LOMU8",
       "title": "Computer Anywhere_2.1.1_RU",
@@ -8733,6 +9098,7 @@
       "name": "Neuralware - Chipware Expansion_1.2.2_RU.zip - Neuralware - Chipware Expansion_RU",
       "enabled": true,
       "optional": true,
+      "coop": false,
       "version": "1.2.2",
       "author": "8LOMU8",
       "title": "Neuralware - Chipware Expansion_1.2.2_RU.zip",
@@ -8758,6 +9124,7 @@
       "name": "Black Chrome RU",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.1.10",
       "author": "8LOMU8",
       "title": "Black Chrome_RU",
@@ -8783,6 +9150,7 @@
       "name": "Extra Hands RU",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "2.1.1",
       "author": "ValikBLR",
       "nexus": {
@@ -8807,6 +9175,7 @@
       "name": "Tyger Cache - New Iconic Weapons RU",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.0",
       "author": "Da1go",
       "title": "Tyger Cache - New Iconic Weapons - RU Translation",
@@ -8832,6 +9201,7 @@
       "name": "Mox Cache RU",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.0",
       "author": "k33to",
       "title": "Russian translation for Mox Cache - New Iconic Weapons 1.0.0",
@@ -8857,6 +9227,7 @@
       "name": "LYNO RU - Perks and Frameworks",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "0.2.2",
       "package": {
         "hash": "d5630a100cc6220ffd9915c630becad3a35692fc78e75a95c4f26fdf5b866f12",
@@ -8876,6 +9247,7 @@
       "name": "LYNO RU - Monowire Perk Tree 2.0",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "2026.10.6",
       "package": {
         "hash": "d31efcd27b907e2aa976ee41dc5036d34e7047b4231aba12d46702b3969b36ed",
@@ -8895,6 +9267,7 @@
       "name": "LYNO RU - DigitalVixen Core",
       "enabled": true,
       "optional": true,
+      "coop": false,
       "version": "2026.10.24",
       "package": {
         "hash": "8424e11bfb37eebaddf895bea0087f882c3ca6fe66ff98cc796de0b9433c5b94",
@@ -8918,6 +9291,7 @@
       "name": "Lizzie's Braindances DF",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "2.33",
       "author": "The Mox and ArmanIII",
       "title": "Lizzie's Braindances",
@@ -8943,6 +9317,7 @@
       "name": "Lizzie's Braindances NIF",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "3.05",
       "author": "The Mox and ArmanIII",
       "title": "Lizzie's Braindances",
@@ -8968,6 +9343,7 @@
       "name": "FPP Clothing Fix",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.0",
       "author": "xBaebsae",
       "nexus": {
@@ -8992,6 +9368,7 @@
       "name": "FPP Hands Clipping Fix",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.1",
       "author": "glek39",
       "nexus": {
@@ -9016,6 +9393,7 @@
       "name": "Render Plane Fix - Clothing (Sleeves) behind hands fix",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.3.5",
       "author": "Marco4413",
       "nexus": {
@@ -9040,6 +9418,7 @@
       "name": "Immersion Patch - Minor Activities Quest Fixes",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.15",
       "author": "anygoodname",
       "nexus": {
@@ -9064,6 +9443,7 @@
       "name": "Immersion Patch - Quest Vehicle Motion Fixes",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.10.1",
       "author": "anygoodname",
       "nexus": {
@@ -9088,6 +9468,7 @@
       "name": "Immersion Patch - Holdin' On - Kerrys' mansion scene bug fixes",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.0",
       "author": "anygoodname",
       "nexus": {
@@ -9112,6 +9493,7 @@
       "name": "Stealthrunner - Immersive Cyberware Patch",
       "enabled": false,
       "optional": true,
+      "coop": false,
       "version": "1.0",
       "author": "Kaethela",
       "nexus": {
@@ -9136,6 +9518,7 @@
       "name": "PL Vanilla Clothes Refits for EBB",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.0",
       "author": "SneakyBlackCat",
       "title": "Phantom Liberty Vanilla Clothes Refits for Enhanced Big Breast",
@@ -9161,6 +9544,7 @@
       "name": "Vanilla Clothes Refits for EBB",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.03",
       "author": "SneakyBlackCat",
       "title": "Vanilla Clothes Refits for Enhanced Big Breast.",
@@ -9186,6 +9570,7 @@
       "name": "Immersion patch - No crowd panic from using devices",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "1.2",
       "author": "anygoodname",
       "title": "Immersion patch - No crowd panic from using devices.",
@@ -9211,6 +9596,7 @@
       "name": "ACM",
       "enabled": true,
       "optional": true,
+      "coop": false,
       "version": "2026.10.6",
       "package": {
         "hash": "d6c6cb5754a2e98c0fb5a3c658d668d9e4d6d706bfc30ea3c1e19099537ed7c4",
@@ -9230,6 +9616,7 @@
       "name": "LYNO CET",
       "enabled": false,
       "optional": true,
+      "coop": true,
       "version": "2026.10.11",
       "package": {
         "hash": "3e6e5893c52b0ce4f78147fef0cef31526fa6a2a1c3fe7d54074f7d6aff45519",
@@ -9249,6 +9636,7 @@
       "name": "LYNO Combat Tactics",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "version": "0.3",
       "package": {
         "hash": "a40c29e67c5e483f6790c89fd26ecde7d27ba76a6db57aa5d28d64bec953d846",
@@ -9268,14 +9656,15 @@
       "name": "LYNO Settings",
       "enabled": true,
       "optional": true,
+      "coop": true,
       "package": {
-        "hash": "a42b46460586ced6e1b8d77f69498bba50dcd998a421a9830a0c67aa47c813f8",
-        "size": 20399150,
+        "hash": "aa40557f128741fef6ca408b87f8d9b15519298d5d9566ac3362d2852cb087c6",
+        "size": 20395096,
         "parts": [
           {
-            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.2/lyno-settings-a42b46460586ced6.tar.zst.001",
-            "size": 9138417,
-            "blake3": "02ed115a3eab42e6a65276275f41263375b35cc555c5dfdf163576cc24c9bfb9"
+            "url": "https://github.com/ItsLyno/LYNO-HARDWIRED/releases/download/build-1.3.0/lyno-settings-aa40557f128741fe.tar.zst.001",
+            "size": 9140666,
+            "blake3": "d56d319c47da1733d6f925fcbbdcab789782caf5b571a527d6a9358e053ec7ed"
           }
         ]
       }
@@ -9286,6 +9675,7 @@
       "name": "LYNO - Compatibility 2.50",
       "enabled": true,
       "optional": true,
+      "coop": false,
       "version": "0.3",
       "package": {
         "hash": "ed8927da58130358b8cdc080475bf45ef7ae408c0f675f59a631e37059ad87d6",
